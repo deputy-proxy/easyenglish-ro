@@ -112,4 +112,3 @@ test('correct password must be provided to update password', function () {
 
     $response->assertHasErrors(['current_password']);
 });
-
