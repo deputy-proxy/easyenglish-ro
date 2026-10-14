@@ -198,6 +198,22 @@ Unless product validation changes the priorities, defer:
 
 External services should be mocked or placed in test mode in automated CI. Do not require live payment or messaging credentials to run the normal test suite.
 
+## GitHub development roadmap
+
+The implementation is tracked through the following issues. Each issue includes scope, decisions, a step-by-step implementation plan, acceptance criteria, dependencies, and Markdown documentation deliverables.
+
+1. [Phase 1 — Application baseline and Hostinger runtime workflow](https://github.com/deputy-proxy/easyenglish-ro/issues/3)
+2. [Phase 2 — Availability, booking domain, and Filament administration](https://github.com/deputy-proxy/easyenglish-ro/issues/4)
+3. [Phase 3 — Bilingual public landing page and booking journey](https://github.com/deputy-proxy/easyenglish-ro/issues/5)
+4. [Phase 4 — Stripe Checkout, webhooks, and safe booking expiry](https://github.com/deputy-proxy/easyenglish-ro/issues/6)
+5. [Phase 5 — Email confirmations and durable notification processing](https://github.com/deputy-proxy/easyenglish-ro/issues/7)
+6. [Phase 6 — WhatsApp Business messaging and session instructions](https://github.com/deputy-proxy/easyenglish-ro/issues/8)
+7. [Phase 7 — Cancellation, rescheduling, refunds, and audit](https://github.com/deputy-proxy/easyenglish-ro/issues/9)
+8. [Phase 8 — Privacy, legal disclosures, and Romanian invoicing workflow](https://github.com/deputy-proxy/easyenglish-ro/issues/10)
+9. [Phase 9 — End-to-end quality, deployment, and launch readiness](https://github.com/deputy-proxy/easyenglish-ro/issues/11)
+
+Work in dependency order where practical: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phases 5–7 → Phases 8–9. Legal/privacy drafts and integration setup documentation can be prepared in parallel, but relevant compliance and account configuration are launch gates. WhatsApp live setup will be completed collaboratively and must remain disabled in production until tested.
+
 ## Delivery order
 
 Implement in the sequence above, with one reviewable pull request per coherent phase where practical. Keep each phase green in CI before building on it. Do not start optional features until the core booking → payment → confirmation path works reliably.
