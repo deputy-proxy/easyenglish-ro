@@ -65,4 +65,3 @@ test('users can logout', function () {
 
     $this->assertGuest();
 });
-
