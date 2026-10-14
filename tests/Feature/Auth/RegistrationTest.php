@@ -25,3 +25,4 @@ test('new users can register', function () {
 
     $this->assertAuthenticated();
 });
+
