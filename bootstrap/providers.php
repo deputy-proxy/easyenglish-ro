@@ -9,4 +9,3 @@ return [
     AdminPanelProvider::class,
     FortifyServiceProvider::class,
 ];
-
