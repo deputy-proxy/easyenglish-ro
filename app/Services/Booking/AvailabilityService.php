@@ -117,6 +117,8 @@ class AvailabilityService
                 $query->where('status', 'pending')->where('hold_expires_at', '>', now());
             });
         })->where('starts_at', '<', $bufferedEnd->toDateTimeString())
-            ->where('ends_at', '>', $bufferedStart->toDateTimeString())\n            ->when($ignoreBookingId !== null, fn ($query) => $query->where('id', '!=', $ignoreBookingId))\n            ->exists();
+            ->where('ends_at', '>', $bufferedStart->toDateTimeString())
+            ->when($ignoreBookingId !== null, fn ($query) => $query->where('id', '!=', $ignoreBookingId))
+            ->exists();
     }
 }
