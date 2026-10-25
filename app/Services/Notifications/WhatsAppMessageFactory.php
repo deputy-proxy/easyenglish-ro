@@ -63,7 +63,8 @@ class WhatsAppMessageFactory
                 $this->date(isset($delivery->metadata['previous_starts_at']) ? Carbon::parse((string) $delivery->metadata['previous_starts_at']) : null),
                 $this->date($booking?->starts_at),
             ],
-            NotificationEvent::TeacherCancellation => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->date($delivery->metadata['validity_extended_to'] ?? null)],\n            NotificationEvent::BookingNoShow => [$booking->customer_name ?? '', $this->date($booking?->starts_at)],
+            NotificationEvent::TeacherCancellation => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->date($delivery->metadata['validity_extended_to'] ?? null)],
+            NotificationEvent::BookingNoShow => [$booking->customer_name ?? '', $this->date($booking?->starts_at)],
             NotificationEvent::RefundSucceeded, NotificationEvent::RefundFailed => [
                 $entitlement->customer_name ?? '', $this->money($refund->amount_ron ?? 0), $refund->reason ?? '',
             ],
