@@ -9,6 +9,7 @@ use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -24,7 +25,12 @@ class BookingService
         $customer = Validator::make($customer, [
             'name' => ['required', 'string', 'max:160'],
             'email' => ['required', 'email', 'max:254'],
-            'phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9\s().-]{7,32}$/'],
+            'phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9\s().-]{7,32}$/', function (string $attribute, mixed $value, Closure $fail): void {
+                $digits = preg_replace('/\\D+/', '', (string) $value) ?? '';
+                if (strlen($digits) < 7 || strlen($digits) > 15) {
+                    $fail('Enter a phone number containing 7 to 15 digits.');
+                }
+            }],
             'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
