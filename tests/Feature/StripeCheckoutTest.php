@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\Notifications\WhatsAppGateway;
 use App\Contracts\Payments\StripeGateway;
 use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
@@ -13,7 +14,9 @@ use App\Models\NotificationDelivery;
 use App\Models\Payment;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
+use App\Models\WhatsAppContact;
 use App\Services\Notifications\NotificationMessageFactory;
+use App\Services\Notifications\WhatsAppMessageFactory;
 use App\Services\Payments\StripeRefundService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\TestCase as LaravelTestCase;
@@ -38,7 +41,7 @@ function startStripePurchase(LaravelTestCase $test, string $token = 'AbCdEf01234
             'purchase_token' => $token,
             'name' => 'Stripe Test Customer',
             'email' => 'stripe-customer@example.com',
-            'phone' => '+40722123456',
+            'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
 
     $entitlement = BundleEntitlement::query()->where('checkout_request_key', $token)->firstOrFail();
@@ -105,6 +108,7 @@ test('checkout creates a pending purchase using server-controlled tax-inclusive 
         ->and($purchase['entitlement']->credits_remaining)->toBe(0)
         ->and($purchase['payment']->status)->toBe('pending')
         ->and($purchase['payment']->provider_checkout_id)->toBe('cs_test_1')
+        ->and(WhatsAppContact::query()->where('phone', '+40722123456')->firstOrFail()->consented_at)->not->toBeNull()
         ->and(NotificationDelivery::query()->count())->toBe(0);
 });
 
@@ -120,7 +124,7 @@ test('all three server-configured bundle prices are sent to Stripe in RON minor 
                 'purchase_token' => $token,
                 'name' => 'Stripe Test Customer '.$priceRon,
                 'email' => 'stripe-customer-'.$priceRon.'@example.com',
-                'phone' => '+40722123456',
+                'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
             ])->assertRedirect();
         $request = app(FakeStripeGateway::class)->checkoutRequests[array_key_last(app(FakeStripeGateway::class)->checkoutRequests)];
         expect($request['parameters']['line_items'][0]['price_data']['unit_amount'])->toBe($minorUnits)
@@ -134,7 +138,7 @@ test('duplicate checkout submissions reuse the same provider session and do not 
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $purchase['token']]])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $purchase['token'], 'name' => 'Stripe Test Customer',
-            'email' => 'stripe-customer@example.com', 'phone' => '+40722123456',
+            'email' => 'stripe-customer@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
 
     expect(BundleEntitlement::query()->count())->toBe(1)
@@ -149,7 +153,7 @@ test('checkout remains disabled without both Stripe API and webhook credentials 
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => str_repeat('A', 48)]])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => str_repeat('A', 48), 'name' => 'Stripe Test Customer',
-            'email' => 'stripe-customer@example.com', 'phone' => '+40722123456',
+            'email' => 'stripe-customer@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect()->assertSessionHasErrors('checkout');
 
     expect(BundleEntitlement::query()->count())->toBe(0)->and(Payment::query()->count())->toBe(0);
@@ -163,7 +167,7 @@ test('explicit checkout feature flag prevents session creation even when credent
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $token, 'name' => 'Stripe Test Customer',
-            'email' => 'stripe-disabled@example.com', 'phone' => '+40722123456',
+            'email' => 'stripe-disabled@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect()->assertSessionHasErrors('checkout');
 
     expect(BundleEntitlement::query()->count())->toBe(0)
@@ -214,7 +218,7 @@ test('verified bundle purchase queues a Romanian or English transactional email 
     postStripeTestEvent($this, stripeTestEvent('evt_bundle_email_locale', 'checkout.session.completed', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
     $delivery = NotificationDelivery::query()->where('event', 'bundle_purchase_confirmed')->firstOrFail();
     $delivery->update(['status' => 'queued']);
-    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class));
+    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
 
     expect($delivery->fresh()->status)->toBe('sent');
     Mail::assertSent(TransactionalNotificationEmail::class, fn (TransactionalNotificationEmail $mail): bool => $mail->messageData['locale'] === 'en'

@@ -8,6 +8,7 @@ enum NotificationEvent: string
     case IntroBookingConfirmed = 'intro_booking_confirmed';
     case AppointmentConfirmed = 'appointment_confirmed';
     case AppointmentReminder24Hours = 'appointment_reminder_24h';
+    case AppointmentReminder1Hour = 'appointment_reminder_1h';
     case BookingCancelled = 'booking_cancelled';
     case BookingRescheduled = 'booking_rescheduled';
     case TeacherCancellation = 'teacher_cancellation';

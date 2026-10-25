@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\Notifications\WhatsAppGateway;
 use App\Enums\NotificationEvent;
 use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
@@ -10,13 +11,12 @@ use App\Models\NotificationDelivery;
 use App\Services\Booking\BookingService;
 use App\Services\Notifications\NotificationMessageFactory;
 use App\Services\Notifications\NotificationOutboxService;
+use App\Services\Notifications\WhatsAppMessageFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Mail\PendingMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
-use Mockery;
-use RuntimeException;
 
 function makeNotificationTestBooking(string $locale = 'ro', ?int $entitlementId = null, ?CarbonImmutable $startsAt = null): Booking
 {
@@ -77,8 +77,8 @@ test('confirmed booking creates one bilingual transactional outbox record and du
 
     $delivery->update(['status' => 'queued']);
     $job = new SendNotificationDelivery($delivery->id);
-    $job->handle(app(NotificationMessageFactory::class));
-    $job->handle(app(NotificationMessageFactory::class));
+    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
+    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
 
     expect($delivery->fresh()->status)->toBe('sent')
         ->and($delivery->fresh()->attempts)->toBe(1);
@@ -110,7 +110,7 @@ test('SMTP failures remain visible and schedule a bounded retry without logging 
     $pendingMail->shouldReceive('send')->once()->with(Mockery::type(TransactionalNotificationEmail::class))
         ->andThrow(new RuntimeException('SMTP password should not be stored in the outbox'));
 
-    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class));
+    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
 
     $delivery->refresh();
     expect($delivery->status)->toBe('pending')
@@ -130,8 +130,24 @@ test('scheduled appointment and bundle expiry reminders are generated idempotent
     expect($outbox->queueDueReminders())->toBe(2)
         ->and($outbox->queueDueReminders())->toBe(0)
         ->and(NotificationDelivery::query()->where('event', 'appointment_reminder_24h')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'appointment_reminder_1h')->count())->toBe(0)
         ->and(NotificationDelivery::query()->where('event', 'bundle_expiry_14d')->count())->toBe(1)
         ->and(NotificationDelivery::query()->where('event', 'bundle_expiry_3d')->count())->toBe(0);
+});
+
+test('one-hour reminders use a separate idempotency key and only queue for the current confirmed slot', function () {
+    $booking = makeNotificationTestBooking('ro', null, CarbonImmutable::now('UTC')->addHour());
+    $outbox = app(NotificationOutboxService::class);
+
+    expect($outbox->queueDueReminders())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'appointment_reminder_1h')->count())->toBe(1);
+
+    $oldDelivery = NotificationDelivery::query()->where('event', 'appointment_reminder_1h')->firstOrFail();
+    $oldDelivery->update(['status' => 'skipped']);
+    $newStartsAt = CarbonImmutable::now('UTC')->addHour()->addMinutes(5);
+    $booking->update(['starts_at' => $newStartsAt, 'ends_at' => $newStartsAt->addMinutes(15)]);
+    expect($outbox->queueDueReminders())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'appointment_reminder_1h')->count())->toBe(2);
 });
 
 test('outbox dispatcher queues a due email only once even when the scheduler runs repeatedly', function () {

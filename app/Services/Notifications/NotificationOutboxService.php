@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BundleEntitlement;
 use App\Models\NotificationDelivery;
 use App\Models\PaymentRefund;
+use App\Models\WhatsAppContact;
 use InvalidArgumentException;
 
 class NotificationOutboxService
@@ -34,7 +35,7 @@ class NotificationOutboxService
         ]], $metadata);
         $key = 'email:'.$eventValue.':booking:'.$booking->id.($eventKey !== null ? ':'.substr(hash('sha256', $eventKey), 0, 24) : '');
 
-        return NotificationDelivery::query()->firstOrCreate(
+        $delivery = NotificationDelivery::query()->firstOrCreate(
             ['idempotency_key' => $key],
             [
                 'booking_id' => $booking->id,
@@ -47,6 +48,9 @@ class NotificationOutboxService
                 'metadata' => $metadata,
             ],
         );
+        $this->enqueueWhatsApp($eventValue, $booking->customer_phone, $booking->id, $booking->bundle_entitlement_id, null, $metadata, $eventKey);
+
+        return $delivery;
     }
 
     /** @param array<string, mixed> $metadata */
@@ -76,7 +80,7 @@ class NotificationOutboxService
 
         $key = 'email:'.$eventValue.':entitlement:'.$entitlement->id.($eventKey !== null ? ':'.substr(hash('sha256', $eventKey), 0, 24) : '');
 
-        return NotificationDelivery::query()->firstOrCreate(
+        $delivery = NotificationDelivery::query()->firstOrCreate(
             ['idempotency_key' => $key],
             [
                 'bundle_entitlement_id' => $entitlement->id,
@@ -88,6 +92,9 @@ class NotificationOutboxService
                 'metadata' => $metadata,
             ],
         );
+        $this->enqueueWhatsApp($eventValue, $entitlement->customer_phone, null, $entitlement->id, null, $metadata, $eventKey);
+
+        return $delivery;
     }
 
     public function enqueueRefundOutcome(PaymentRefund $refund): ?NotificationDelivery
@@ -108,7 +115,7 @@ class NotificationOutboxService
 
         $key = 'email:'.$event->value.':refund:'.$refund->id;
 
-        return NotificationDelivery::query()->firstOrCreate(
+        $delivery = NotificationDelivery::query()->firstOrCreate(
             ['idempotency_key' => $key],
             [
                 'bundle_entitlement_id' => (int) $entitlementId,
@@ -121,32 +128,40 @@ class NotificationOutboxService
                 'metadata' => [],
             ],
         );
+        $phone = $refund->payment->entitlement->customer_phone;
+        $this->enqueueWhatsApp($event->value, $phone, null, (int) $entitlementId, $refund->id, [], null);
+
+        return $delivery;
     }
 
     public function queueDueReminders(): int
     {
         $created = 0;
         $now = now();
-        $appointmentWindow = [$now->copy()->addHours(24)->subMinutes(30), $now->copy()->addHours(24)->addMinutes(30)];
-
-        Booking::query()->with('entitlement')
-            ->where('status', 'confirmed')
-            ->whereBetween('starts_at', $appointmentWindow)
-            ->orderBy('id')
-            ->chunkById(100, function ($bookings) use (&$created): void {
-                foreach ($bookings as $booking) {
-                    if ($booking->bundle_entitlement_id !== null
-                        && ($booking->entitlement === null || $booking->entitlement->status !== 'active'
-                            || $booking->entitlement->expires_at === null
-                            || $booking->entitlement->expires_at->lessThanOrEqualTo($booking->starts_at))) {
-                        continue;
+        foreach ([
+            [NotificationEvent::AppointmentReminder24Hours, 24],
+            [NotificationEvent::AppointmentReminder1Hour, 1],
+        ] as [$event, $hours]) {
+            $window = [$now->copy()->addHours($hours)->subMinutes(15), $now->copy()->addHours($hours)->addMinutes(15)];
+            Booking::query()->with('entitlement')
+                ->where('status', 'confirmed')
+                ->whereBetween('starts_at', $window)
+                ->orderBy('id')
+                ->chunkById(100, function ($bookings) use (&$created, $event): void {
+                    foreach ($bookings as $booking) {
+                        if ($booking->bundle_entitlement_id !== null
+                            && ($booking->entitlement === null || $booking->entitlement->status !== 'active'
+                                || $booking->entitlement->expires_at === null
+                                || $booking->entitlement->expires_at->lessThanOrEqualTo($booking->starts_at))) {
+                            continue;
+                        }
+                        $delivery = $this->enqueueBookingEvent($booking, $event, [], $booking->starts_at->toIso8601String());
+                        if ($delivery->wasRecentlyCreated) {
+                            $created++;
+                        }
                     }
-                    $delivery = $this->enqueueBookingEvent($booking, NotificationEvent::AppointmentReminder24Hours);
-                    if ($delivery->wasRecentlyCreated) {
-                        $created++;
-                    }
-                }
-            });
+                });
+        }
 
         foreach ([
             [NotificationEvent::BundleExpiry14Days, 14],
@@ -169,6 +184,34 @@ class NotificationOutboxService
         }
 
         return $created;
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function enqueueWhatsApp(string $event, string $phone, ?int $bookingId, ?int $entitlementId, ?int $refundId, array $metadata, ?string $eventKey): ?NotificationDelivery
+    {
+        if (! (bool) config('services.whatsapp.enabled')) {
+            return null;
+        }
+        $contact = WhatsAppContact::query()->where('phone', $phone)->first();
+        if ($contact === null || ! $contact->canReceiveServiceMessages()) {
+            return null;
+        }
+        $key = 'whatsapp:'.$event.':'.($bookingId !== null ? 'booking:'.$bookingId : 'entitlement:'.$entitlementId).($refundId !== null ? ':refund:'.$refundId : '').($eventKey !== null ? ':'.substr(hash('sha256', $eventKey), 0, 24) : '');
+
+        return NotificationDelivery::query()->firstOrCreate(
+            ['idempotency_key' => $key],
+            [
+                'booking_id' => $bookingId,
+                'bundle_entitlement_id' => $entitlementId,
+                'payment_refund_id' => $refundId,
+                'channel' => 'whatsapp',
+                'event' => $event,
+                'status' => 'pending',
+                'attempts' => 0,
+                'next_attempt_at' => now(),
+                'metadata' => $metadata,
+            ],
+        );
     }
 
     private function eventValue(NotificationEvent|string $event): string

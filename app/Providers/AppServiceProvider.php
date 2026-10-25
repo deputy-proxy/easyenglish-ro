@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\Notifications\WhatsAppGateway;
 use App\Contracts\Payments\StripeGateway;
+use App\Services\Notifications\MetaWhatsAppCloudApiGateway;
 use App\Services\Payments\StripeSdkGateway;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
@@ -18,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(WhatsAppGateway::class, MetaWhatsAppCloudApiGateway::class);
         $this->app->singleton(StripeGateway::class, function (): StripeGateway {
             $secret = config('services.stripe.secret');
 

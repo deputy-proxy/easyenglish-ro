@@ -54,6 +54,11 @@ return [
             'heading' => 'Programarea este confirmată',
             'intro' => 'Conversația de 15 minute este programată. Păstrează WhatsApp instalat și disponibil la ora stabilită pentru apelul profesorului.',
         ],
+        'appointment_reminder_1h' => [
+            'subject' => 'Memento: sesiunea Easy English începe în aproximativ o oră',
+            'heading' => 'Sesiunea începe în curând',
+            'intro' => 'Conversația de 15 minute este programată să înceapă peste aproximativ o oră. Păstrează WhatsApp disponibil pentru apel.',
+        ],
         'appointment_reminder_24h' => [
             'subject' => 'Memento: sesiunea Easy English este mâine',
             'heading' => 'Se apropie ora sesiunii',
