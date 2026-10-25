@@ -88,7 +88,7 @@ class NotificationMessageFactory
             $details[] = $this->detail($locale, 'duration', '15 '.$this->t($locale, 'labels.minutes'));
             $details[] = $this->detail($locale, 'timezone', 'Europe/Bucharest');
             if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)
-                && $booking->status === 'confirmed' && $booking->starts_at->isFuture()) {
+                && $booking->starts_at->isFuture()) {
                 $ctaUrl = URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $booking->starts_at->addDay());
                 $ctaLabel = $this->t($locale, 'actions.manage_appointment');
             }

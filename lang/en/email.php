@@ -23,7 +23,7 @@ return [
     ],
     'values' => [
         'credit_restored' => 'The session credit was restored to your bundle.',
-        'credit_refunded' => 'The session credit was included in the confirmed bundle refund.'
+        'credit_refunded' => 'The session credit was included in the confirmed bundle refund.',
         'credit_forfeited' => 'The session credit was forfeited under the cancellation policy.',
         'free_offer_used' => 'The one-time free introductory offer has been used.',
         'succeeded' => 'Confirmed by Stripe',

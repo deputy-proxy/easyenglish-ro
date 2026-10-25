@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Services\Booking\BookingService;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -21,7 +22,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
-use Carbon\CarbonImmutable;
 
 class BookingResource extends Resource
 {

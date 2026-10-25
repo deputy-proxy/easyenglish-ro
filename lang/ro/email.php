@@ -23,7 +23,7 @@ return [
     ],
     'values' => [
         'credit_restored' => 'Creditul sesiunii a fost restituit în pachet.',
-        'credit_refunded' => 'Creditul sesiunii a fost inclus în rambursarea confirmată a pachetului.'
+        'credit_refunded' => 'Creditul sesiunii a fost inclus în rambursarea confirmată a pachetului.',
         'credit_forfeited' => 'Creditul sesiunii a fost pierdut conform politicii de anulare.',
         'free_offer_used' => 'Oferta introductivă gratuită unică a fost utilizată.',
         'succeeded' => 'Confirmată de Stripe',

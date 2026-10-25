@@ -210,7 +210,7 @@ class StripeRefundService
         $refund->forceFill([
             'provider_refund_id' => $refundId ?? $refund->provider_refund_id,
             'provider_status' => $status,
-            'metadata' => array_merge($refund->metadata ?? [], ['stripe_event_id' => $eventId, 'provider_metadata' => $metadata]),
+            'metadata' => array_merge($this->metadata($refund), ['stripe_event_id' => $eventId, 'provider_metadata' => $metadata]),
         ])->save();
 
         if ($normalizedStatus === 'succeeded') {
@@ -228,7 +228,7 @@ class StripeRefundService
             try {
                 $providerRefund = $this->stripe->retrieveRefund($refund->provider_refund_id);
             } catch (\Throwable $exception) {
-                $refund->forceFill(['metadata' => array_merge($refund->metadata ?? [], ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
+                $refund->forceFill(['metadata' => array_merge($this->metadata($refund), ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
                 throw new RuntimeException('The existing Stripe refund could not be reconciled. Reserved credits remain unavailable until provider status is known.', previous: $exception);
             }
             $this->reconcileProviderRefund($providerRefund, 'server-reconciliation');
@@ -249,7 +249,7 @@ class StripeRefundService
                 ],
             ], $refund->idempotency_key);
         } catch (\Throwable $exception) {
-            $refund->forceFill(['metadata' => array_merge($refund->metadata ?? [], ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
+            $refund->forceFill(['metadata' => array_merge($this->metadata($refund), ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
             throw new RuntimeException('Stripe refund status is uncertain. Credits remain reserved until a safe retry or reconciliation.', previous: $exception);
         }
 
@@ -279,7 +279,7 @@ class StripeRefundService
             }
 
             $paidReservation->update(['type' => 'refunded', 'reason' => 'Unused paid credits refunded: '.$lockedRefund->reason]);
-            $metadata = $lockedRefund->metadata ?? [];
+            $metadata = $this->metadata($lockedRefund);
             $paidBookingIds = is_array($metadata['paid_booking_ids'] ?? null) ? array_map('intval', $metadata['paid_booking_ids']) : [];
             $freeBookingIds = is_array($metadata['free_booking_ids'] ?? null) ? array_map('intval', $metadata['free_booking_ids']) : [];
             if ($lockedRefund->free_credits_to_revoke > 0) {
@@ -357,6 +357,19 @@ class StripeRefundService
         }, attempts: 3);
     }
 
+    /** @return array<string, mixed> */
+    private function metadata(PaymentRefund $refund): array
+    {
+        $metadata = $refund->getRawOriginal('metadata');
+        if (is_string($metadata)) {
+            $decoded = json_decode($metadata, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($metadata) ? $metadata : [];
+    }
+
     private function releaseReservedCredits(PaymentRefund $refund, string $providerStatus, string $eventId): void
     {
         DB::transaction(function () use ($refund, $providerStatus, $eventId): void {
@@ -366,7 +379,7 @@ class StripeRefundService
                 return;
             }
             $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($lockedRefund->payment->bundle_entitlement_id);
-            $metadata = $lockedRefund->metadata ?? [];
+            $metadata = $this->metadata($lockedRefund);
             $balancePaidReserved = (int) ($metadata['balance_paid_credits_reserved'] ?? $lockedRefund->credits_to_revoke);
             $balanceFreeReserved = (int) ($metadata['balance_free_credits_reserved'] ?? $lockedRefund->free_credits_to_revoke);
             $paidBalance = $entitlement->credits_remaining + $balancePaidReserved;
