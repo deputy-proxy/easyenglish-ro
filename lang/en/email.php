@@ -74,6 +74,11 @@ return [
             'heading' => 'Your appointment time has changed',
             'intro' => 'Your appointment has been moved to a new time. Please use the updated time below and keep WhatsApp available for the call.',
         ],
+        'booking_no_show' => [
+            'subject' => 'An update about your Easy English session',
+            'heading' => 'The session was recorded as a no-show',
+            'intro' => 'The Easy English team recorded that the session was missed. The applicable session credit has been forfeited under the accepted policy. Contact the team if you believe this was recorded incorrectly.',
+        ],
         'teacher_cancellation' => [
             'subject' => 'An update to your Easy English appointment',
             'heading' => 'Your teacher had to cancel this session',
