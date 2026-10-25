@@ -92,6 +92,7 @@ return [
     'field_goal_placeholder' => 'For example: workplace conversations, interviews, travel…',
     'field_notes_placeholder' => 'Anything that would help the teacher prepare.',
     'policy_accept' => 'I have read and accept the privacy information and cancellation policy.',
+    'whatsapp_service_consent' => 'I agree to receive service messages on WhatsApp about my purchase, appointments, reminders, cancellations, and bundle expiry. No marketing messages will be sent. I can opt out at any time by replying STOP.',
     'policy_summary' => 'At least 24 hours ahead, the credit is restored. Between 12 and 24 hours, one free reschedule is available; otherwise the credit is forfeited. Less than 12 hours ahead or a no-show forfeits the credit.',
     'booking_submit_intro' => 'Continue to contact verification',
     'booking_submit_bundle' => 'Confirm booking',

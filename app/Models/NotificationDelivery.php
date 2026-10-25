@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $event
  * @property string $status
  * @property string $idempotency_key
+ * @property string|null $provider_message_id
+ * @property string|null $provider_status
+ * @property string|null $provider_error_code
  * @property string|null $last_error
  * @property CarbonImmutable|null $next_attempt_at
  * @property CarbonImmutable|null $sent_at
@@ -23,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class NotificationDelivery extends Model
 {
-    protected $fillable = ['booking_id', 'bundle_entitlement_id', 'payment_refund_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key', 'metadata'];
+    protected $fillable = ['booking_id', 'bundle_entitlement_id', 'payment_refund_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key', 'metadata', 'provider_message_id', 'provider_status', 'provider_error_code'];
 
     protected function casts(): array
     {

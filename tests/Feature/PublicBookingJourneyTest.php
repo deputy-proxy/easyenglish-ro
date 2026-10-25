@@ -69,7 +69,7 @@ test('free introduction never creates a booking before contact verification is a
 
     $this->from('/book?type=intro')->post('/book', [
         'type' => 'intro', 'starts_at' => '2026-10-27T09:00:00+02:00',
-        'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456',
+        'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         'english_level' => 'B1', 'session_goal' => 'Work conversations', 'accepted_policy' => '1',
     ])->assertRedirect('/book?type=intro')->assertSessionHasErrors('verification');
 
@@ -96,7 +96,7 @@ test('active bundle customer can book a slot without a learner account and recei
     $signedSubmitUrl = URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30), false);
     $this->post($signedSubmitUrl, [
         'type' => 'bundle', 'entitlement' => $entitlement->id, 'starts_at' => '2026-10-27T09:00:00+02:00',
-        'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456',
+        'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         'english_level' => 'B1', 'session_goal' => 'Work conversations', 'accepted_policy' => '1',
     ])->assertRedirect();
 

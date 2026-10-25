@@ -46,6 +46,15 @@ class NotificationMessageFactory
         $entitlement = $delivery->entitlement ?? $delivery->refund->payment->entitlement ?? $booking?->entitlement;
         $refund = $delivery->refund;
 
+        if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)) {
+            if ($booking === null || $booking->status !== 'confirmed' || $booking->starts_at->lessThanOrEqualTo(now())) {
+                throw new NotificationNoLongerEligibleException('The appointment email is no longer eligible.');
+            }
+            if (isset($snapshot['starts_at']) && Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()) {
+                throw new NotificationNoLongerEligibleException('The appointment changed after its email was queued.');
+            }
+        }
+
         if ($event === NotificationEvent::BundlePurchaseConfirmed) {
             if (! $entitlement || ! isset($snapshot['bundle_name'], $snapshot['amount_ron'], $snapshot['paid_credits'], $snapshot['expires_at'])) {
                 throw new RuntimeException('Bundle purchase email is missing its event-time snapshot.');
@@ -67,20 +76,12 @@ class NotificationMessageFactory
                 $ctaUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], $expiration);
                 $ctaLabel = $this->t($locale, 'actions.schedule_sessions');
             }
-        } elseif (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation], true)) {
+        } elseif (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation], true)) {
             if (! $booking) {
                 throw new RuntimeException('Appointment email requires a booking record.');
             }
             $replace = ['name' => $booking->customer_name];
-            if ($event === NotificationEvent::AppointmentReminder24Hours) {
-                if ($booking->status !== 'confirmed' || $booking->starts_at->lessThanOrEqualTo(now())) {
-                    throw new NotificationNoLongerEligibleException('The appointment reminder is no longer eligible.');
-                }
-                if (isset($snapshot['starts_at']) && Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()) {
-                    throw new NotificationNoLongerEligibleException('The appointment changed after its reminder was queued.');
-                }
-            }
-            $appointmentDate = $event === NotificationEvent::AppointmentReminder24Hours
+            $appointmentDate = in_array($event, [NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)
                 ? $booking->starts_at
                 : (isset($snapshot['starts_at']) ? Carbon::parse((string) $snapshot['starts_at']) : $booking->starts_at);
             $details[] = $this->detail($locale, 'appointment_date', $this->date($appointmentDate, $locale));
@@ -109,6 +110,10 @@ class NotificationMessageFactory
             if (! $refund || ! $entitlement) {
                 throw new RuntimeException('Refund email requires its refund and entitlement records.');
             }
+            $expectedStatus = $event === NotificationEvent::RefundSucceeded ? 'succeeded' : 'failed';
+            if ($refund->status !== $expectedStatus) {
+                throw new NotificationNoLongerEligibleException('The refund email is no longer eligible.');
+            }
             $replace = ['name' => $entitlement->customer_name];
             $details = [
                 $this->detail($locale, 'refund_amount', $this->money($refund->amount_ron, $locale)),
@@ -119,6 +124,9 @@ class NotificationMessageFactory
             if (! $entitlement || $entitlement->status !== 'active' || $entitlement->expires_at?->isPast()
                 || ($entitlement->credits_remaining + $entitlement->free_credits_remaining) < 1) {
                 throw new NotificationNoLongerEligibleException('The bundle expiry reminder is no longer eligible.');
+            }
+            if (isset($snapshot['expires_at']) && Carbon::parse((string) $snapshot['expires_at'])->getTimestamp() !== $entitlement->expires_at?->getTimestamp()) {
+                throw new NotificationNoLongerEligibleException('Bundle expiry changed after the email reminder was queued.');
             }
             $entitlement->loadMissing('definition');
             $replace = ['name' => $entitlement->customer_name, 'days' => $event === NotificationEvent::BundleExpiry14Days ? '14' : '3'];

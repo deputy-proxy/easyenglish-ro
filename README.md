@@ -56,7 +56,7 @@ The database is authoritative for availability and booking state. A browser redi
 | Customer no-show | Forfeit the session credit; staff must record no-shows through an authorized, auditable action |
 | Required booking data | Name, email, phone/WhatsApp, English level, session goal; notes field also included |
 | Confirmation channels | Email and WhatsApp |
-| WhatsApp integration | WhatsApp Business Platform/API; setup will be done collaboratively later |
+| WhatsApp integration | Meta Cloud API adapter, consent/opt-out, approved-template delivery, and signed webhook handling implemented; production setup and approval remain launch gates |
 | Session channel | WhatsApp call, arranged through the WhatsApp app |
 | Website languages | Romanian and English |
 | Hosting | Hostinger shared hosting |

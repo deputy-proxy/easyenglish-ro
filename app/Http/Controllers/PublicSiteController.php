@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
 use App\Services\Payments\StripeCheckoutService;
@@ -134,6 +135,7 @@ class PublicSiteController extends Controller
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy' => ['accepted'],
+            'whatsapp_service_consent' => ['accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
         ]);
 
@@ -154,6 +156,7 @@ class PublicSiteController extends Controller
             throw ValidationException::withMessages(['entitlement' => __('public.no_bundle_credits')]);
         }
 
+        WhatsAppContact::recordConsent($validated['phone'], 'booking_form');
         $booking = $bookings->holdSlot([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -212,6 +215,7 @@ class PublicSiteController extends Controller
                     $fail(__('public.phone_invalid'));
                 }
             }],
+            'whatsapp_service_consent' => ['accepted'],
         ]);
         $expectedToken = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
         abort_unless(is_string($expectedToken) && hash_equals($expectedToken, $validated['purchase_token']), 403);
@@ -223,6 +227,7 @@ class PublicSiteController extends Controller
         }
 
         try {
+            WhatsAppContact::recordConsent($validated['phone'], 'bundle_checkout');
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
             ], $validated['purchase_token'], app()->getLocale());

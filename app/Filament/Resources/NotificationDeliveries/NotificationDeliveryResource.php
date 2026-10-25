@@ -44,24 +44,25 @@ class NotificationDeliveryResource extends Resource
             TextColumn::make('created_at')->label('Created')->dateTime('d M Y H:i:s')->sortable(),
             TextColumn::make('event')->badge()->searchable(),
             TextColumn::make('channel')->badge(),
-            TextColumn::make('recipient')->state(fn (NotificationDelivery $record): string => $record->booking->customer_email
-                ?? $record->entitlement->customer_email
-                ?? $record->refund->payment->entitlement->customer_email
-                ?? 'Recipient unavailable'),
+            TextColumn::make('recipient')->state(fn (NotificationDelivery $record): string => $record->channel === 'whatsapp'
+                ? ($record->booking->customer_phone ?? $record->entitlement->customer_phone ?? $record->refund->payment->entitlement->customer_phone ?? 'Recipient unavailable')
+                : ($record->booking->customer_email ?? $record->entitlement->customer_email ?? $record->refund->payment->entitlement->customer_email ?? 'Recipient unavailable')),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
-                'sent' => 'success', 'failed' => 'danger', 'sending', 'queued' => 'warning', 'skipped' => 'gray', default => 'gray',
+                'sent', 'delivered', 'read' => 'success', 'failed' => 'danger', 'sending', 'queued' => 'warning', 'skipped' => 'gray', default => 'gray',
             })->sortable(),
             TextColumn::make('attempts')->numeric()->sortable(),
             TextColumn::make('next_attempt_at')->dateTime('d M Y H:i:s')->placeholder('Not scheduled'),
             TextColumn::make('sent_at')->dateTime('d M Y H:i:s')->placeholder('Not sent'),
+            TextColumn::make('provider_status')->label('Provider status')->badge()->placeholder('Not reported'),
+            TextColumn::make('provider_error_code')->label('Provider error')->placeholder('None'),
             TextColumn::make('last_error')->limit(70)->placeholder('No error recorded'),
         ])->filters([
-            SelectFilter::make('status')->options(['pending' => 'Pending', 'queued' => 'Queued', 'sending' => 'Sending', 'sent' => 'Sent', 'failed' => 'Failed', 'skipped' => 'Skipped']),
-            SelectFilter::make('channel')->options(['email' => 'Email']),
+            SelectFilter::make('status')->options(['pending' => 'Pending', 'queued' => 'Queued', 'sending' => 'Sending', 'sent' => 'Sent', 'failed' => 'Failed', 'skipped' => 'Skipped', 'delivered' => 'Delivered', 'read' => 'Read']),
+            SelectFilter::make('channel')->options(['email' => 'Email', 'whatsapp' => 'WhatsApp']),
         ])->defaultSort('created_at', 'desc')->recordActions([
             Action::make('retry')->label('Retry delivery')->color('warning')->requiresConfirmation()
-                ->modalDescription('This requeues the same logical notification. SMTP cannot guarantee exactly-once delivery if a provider accepted a message before a connection failed.')
-                ->visible(fn (NotificationDelivery $record): bool => $record->status === 'failed' && $record->channel === 'email')
+                ->modalDescription('This requeues the same logical notification. Email and WhatsApp providers can accept a message before a connection fails, so transport-level duplicate delivery cannot be ruled out.')
+                ->visible(fn (NotificationDelivery $record): bool => $record->status === 'failed' && in_array($record->channel, ['email', 'whatsapp'], true))
                 ->action(function (NotificationDelivery $record): void {
                     DB::transaction(function () use ($record): void {
                         $delivery = NotificationDelivery::query()->lockForUpdate()->findOrFail($record->id);

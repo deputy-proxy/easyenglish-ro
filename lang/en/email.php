@@ -54,6 +54,11 @@ return [
             'heading' => 'Your appointment is confirmed',
             'intro' => 'Your 15-minute conversation is booked. Keep WhatsApp installed and available at the scheduled time so your teacher can contact you for the call.',
         ],
+        'appointment_reminder_1h' => [
+            'subject' => 'Reminder: your Easy English session starts in about an hour',
+            'heading' => 'Your session starts soon',
+            'intro' => 'Your 15-minute conversation is scheduled to start in about one hour. Please keep WhatsApp available for the call.',
+        ],
         'appointment_reminder_24h' => [
             'subject' => 'Reminder: your Easy English session is tomorrow',
             'heading' => 'Your session is coming up',

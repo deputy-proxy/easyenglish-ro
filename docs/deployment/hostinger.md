@@ -141,3 +141,4 @@ Check `php artisan schedule:list` after deploying scheduled tasks. Confirm cron 
 - Use verified provider signatures for webhooks, not browser authentication. Rate-limit public endpoints and make webhook/job processing idempotent.
 - Keep production Stripe and WhatsApp secrets out of CI, source control, screenshots, and logs. Test with fakes/mocks or provider test mode.
 - Before launch, complete the security review, privacy/retention policy, Romanian tax/invoicing review, SMTP verification, WhatsApp setup/live tests, and the [launch checklist](../operations/launch-checklist.md) when available.
+See [the WhatsApp integration runbook](../integrations/whatsapp.md) before configuring Meta credentials. Keep `WHATSAPP_ENABLED=false` until approved templates, webhook signatures, opt-in/opt-out behavior, and live delivery are verified.

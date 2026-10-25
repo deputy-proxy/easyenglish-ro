@@ -92,6 +92,7 @@ return [
     'field_goal_placeholder' => 'De exemplu: conversații la serviciu, interviuri, călătorii…',
     'field_notes_placeholder' => 'Orice l-ar ajuta pe profesor să se pregătească.',
     'policy_accept' => 'Am citit și accept informațiile privind confidențialitatea și politica de anulare.',
+    'whatsapp_service_consent' => 'Sunt de acord să primesc pe WhatsApp mesaje de serviciu despre cumpărare, programări, mementouri, anulări și expirarea pachetului. Nu voi primi mesaje de marketing. Mă pot dezabona oricând răspunzând STOP.',
     'policy_summary' => 'Cu cel puțin 24 de ore înainte, creditul este restituit. Între 12 și 24 de ore, este permisă o reprogramare gratuită; în caz contrar, creditul se pierde. Cu mai puțin de 12 ore înainte sau în caz de neprezentare, creditul se pierde.',
     'booking_submit_intro' => 'Continuă la verificarea datelor',
     'booking_submit_bundle' => 'Confirmă programarea',

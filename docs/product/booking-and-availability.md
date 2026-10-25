@@ -40,7 +40,7 @@ The booking service revalidates availability inside a database transaction. It l
 
 A bundle entitlement starts as `pending_payment`, with no usable credits. After verified payment, the activation service checks the configured price/paid-credit count, activates the entitlement, grants paid credits, conditionally grants the included free credit, and sets expiry. The credit ledger records grants, reservations, consumption, and restoration with unique idempotency keys. A bundle with a previously used free introduction receives no second free credit. The shared eligibility record also prevents multiple bundles from each granting a separate included free session.
 
-Payment statuses are explicit (`pending`, `succeeded`, `failed`, `expired`, `refunded`) and `PaymentStateService` guards legal transitions. Generic refund transitions are deliberately rejected until the dedicated refund workflow can reconcile credits, refund amounts, and statutory rights. The current booking domain does not integrate Stripe or send email/WhatsApp. Those provider workflows belong to later issues. The activation method is an internal domain boundary that later payment code must call only after signature-verified, authoritative confirmation.
+Payment statuses are explicit (`pending`, `succeeded`, `failed`, `expired`, `refunded`) and `PaymentStateService` guards legal transitions. Stripe Checkout and verified payment/refund reconciliation are implemented in the payment service. Transactional email and WhatsApp delivery use the durable notification outbox and must be enqueued only after the relevant state transition commits. Production provider credentials, approved Meta templates, and live webhook verification remain launch gates.
 
 ## Database model
 
@@ -51,8 +51,8 @@ Payment statuses are explicit (`pending`, `succeeded`, `failed`, `expired`, `ref
 - `free_session_claims`: shared free-introduction eligibility/claim record.
 - `bookings`: learner details, 15-minute appointment, accepted policy version, hold, and lifecycle state.
 - `credit_transactions`: auditable credit ledger with type, quantity, balance-after, and idempotency key.
-- `payments`: provider identifiers and RON payment state for the future Stripe workflow.
-- `notification_deliveries`: durable email/WhatsApp delivery state for later notification workflows.
+- `payments`: provider identifiers and RON payment state for Stripe Checkout and reconciliation.
+- `notification_deliveries`: durable email/WhatsApp outbox, retry state, provider message IDs, and delivery receipts.
 - `booking_audits`: booking, entitlement, availability, and staff action history. Avoid placing secrets or unnecessary personal data in metadata.
 - `booking_mutexes`: a singleton row used to serialize booking-domain mutations.
 
@@ -76,5 +76,5 @@ Do not ship default credentials, expose a public staff-registration path, or all
 ## Operational follow-up
 
 - Configure and verify the scheduler on Hostinger so `bookings:expire-holds` runs at the intended cadence.
-- Stripe webhook verification, checkout reconciliation, payment-state transitions, and transactional email retries are implemented by their dedicated issues. WhatsApp delivery/contact verification, cancellation/rescheduling workflows, and production integration credentials remain explicit launch gates.
+- Stripe Checkout/reconciliation and transactional email/WhatsApp adapters are implemented. Production SMTP configuration, Meta account/template approval, live webhook verification, and cancellation/rescheduling workflows remain explicit launch gates.
 - Before launch, verify concurrency on the production MySQL/MariaDB engine as well as the SQLite CI suite.

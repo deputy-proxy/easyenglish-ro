@@ -20,9 +20,9 @@ class DispatchNotificationOutbox extends Command
         $limit = max(1, min(1000, (int) $this->option('limit')));
         $reminders = $outbox->queueDueReminders();
 
-        // Recover leases left behind by a killed worker. SMTP cannot guarantee exactly-once delivery
-        // after a connection drops mid-send, but the unique outbox record prevents duplicate logical events.
-        NotificationDelivery::query()->whereIn('status', ['queued', 'sending'])
+        // Recover leases left behind by a killed worker. Email and WhatsApp providers cannot guarantee exactly-once
+        // delivery after a connection drops mid-send, but the unique outbox record prevents duplicate logical events.
+        NotificationDelivery::query()->where('status', 'sending')
             ->where('updated_at', '<=', now()->subMinutes(20))
             ->update([
                 'status' => 'pending',
@@ -32,15 +32,19 @@ class DispatchNotificationOutbox extends Command
 
         $queued = 0;
         $failures = 0;
-        NotificationDelivery::query()->where('channel', 'email')
-            ->where('status', 'pending')
+        NotificationDelivery::query()->where(function ($query): void {
+            $query->where('channel', 'email');
+            if ((bool) config('services.whatsapp.enabled')) {
+                $query->orWhere('channel', 'whatsapp');
+            }
+        })->where('status', 'pending')
             ->where(function ($query): void {
                 $query->whereNull('next_attempt_at')->orWhere('next_attempt_at', '<=', now());
             })
             ->orderBy('id')->limit($limit)->get()->each(function (NotificationDelivery $candidate) use (&$queued, &$failures): void {
                 $claimed = DB::transaction(function () use ($candidate): bool {
                     $delivery = NotificationDelivery::query()->lockForUpdate()->find($candidate->id);
-                    if (! $delivery || $delivery->channel !== 'email' || $delivery->status !== 'pending'
+                    if (! $delivery || ! in_array($delivery->channel, ['email', 'whatsapp'], true) || $delivery->status !== 'pending'
                         || ($delivery->next_attempt_at !== null && now()->parse($delivery->next_attempt_at)->isFuture())) {
                         return false;
                     }
@@ -69,7 +73,7 @@ class DispatchNotificationOutbox extends Command
                 }
             });
 
-        $this->info("Generated {$reminders} reminder(s); queued {$queued} email(s); {$failures} queue dispatch failure(s).");
+        $this->info("Generated {$reminders} reminder(s); queued {$queued} notification(s); {$failures} queue dispatch failure(s).");
 
         return $failures > 0 ? self::FAILURE : self::SUCCESS;
     }
