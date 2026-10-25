@@ -69,9 +69,9 @@ class BundleEntitlementResource extends Resource
             ])->requiresConfirmation()->action(function (BundleEntitlement $record, array $data): void {
                 app(BundleEntitlementService::class)->adjustPaidCredits($record->id, (int) $data['quantity'], (int) Auth::id(), $data['reason']);
             }),
-            Action::make('refundUnusedPaidCredits')->label('Refund unused paid credits')->icon(Heroicon::OutlinedBanknotes)->color('danger')->visible(fn (BundleEntitlement $record): bool => $record->status === 'active' && $record->credits_remaining > 0)->schema([
+            Action::make('refundUnusedPaidCredits')->label('Assess/refund unused paid credits')->icon(Heroicon::OutlinedBanknotes)->color('danger')->visible(fn (BundleEntitlement $record): bool => $record->status === 'active' && ($record->credits_remaining > 0 || $record->bookings()->where('status', 'confirmed')->where('starts_at', '>', now())->where('credit_type', 'paid')->exists()))->schema([
                 TextInput::make('reason')->label('Refund reason for audit log')->minLength(10)->maxLength(500)->required(),
-            ])->requiresConfirmation()->modalDescription('Refunds the value of all currently unused paid credits. Those credits are reserved while Stripe confirms the refund and restored if Stripe rejects it.')->action(function (BundleEntitlement $record, array $data): void {
+            ])->requiresConfirmation()->modalDescription('Assesses unused paid credits, including credits reserved by future appointments. Affected future sessions are blocked while Stripe is pending, cancelled only after confirmed success, and restored to confirmed if Stripe rejects the refund.')->action(function (BundleEntitlement $record, array $data): void {
                 app(StripeRefundService::class)->refundUnusedPaidCredits($record, (int) Auth::id(), $data['reason']);
             }),
         ]);
