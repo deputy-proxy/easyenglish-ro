@@ -37,6 +37,7 @@ return [
     'actions' => [
         'schedule_sessions' => 'Schedule your sessions',
         'manage_sessions' => 'Manage your sessions',
+        'manage_appointment' => 'Manage appointment',
     ],
     'events' => [
         'bundle_purchase_confirmed' => [
