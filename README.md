@@ -28,7 +28,7 @@ The database is authoritative for availability and booking state. A browser redi
 | Availability | Hybrid: recurring weekly availability plus manual adjustments and blocked dates |
 | Session duration | 15 minutes only |
 | Buffer | 15 minutes between sessions |
-| Unpaid booking hold | 5-minute application-level hold, with Stripe session expiry and payment reconciliation handled safely |
+| Appointment-slot hold | 5-minute application-level hold for a pending slot reservation; separate from bundle validity |
 | Free introduction | One 15-minute free introductory session per person, with verified email and phone; the offer is shared with the bundle's included free session |
 | Bundle A | 5 total sessions (1 free + 4 paid): 156 RON, tax-inclusive |
 | Bundle B | 11 total sessions (1 free + 10 paid): 390 RON, tax-inclusive |
