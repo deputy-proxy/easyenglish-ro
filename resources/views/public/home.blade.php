@@ -702,8 +702,27 @@
 </head>
 
 <body>
-    <header class="wrap topbar"><a class="brand" href="{{ route('home') }}" aria-label="Easy English home"><img
-                class="brand-logo" src="{{ asset('images/logo-white.svg') }}" alt="Easy English"></a>
+    <header class="wrap topbar">
+        <a class="brand" href="{{ route('home') }}" aria-label="Easy English home">
+            <svg width="100%" height="100%" viewBox="0 0 560 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+                <g transform="matrix(1.152159,0,0,1.152159,-39.3185,-47.74451)">
+                    <g transform="matrix(1,0,0,1,0,33.343262)">
+                        <g transform="matrix(4.154657,0,0,4.154657,48.046046,-21.433887)">
+                            <path d="M80.898,18.398L45.3,18.398C40.3,18.398 36.198,22.5 36.198,27.5L36.198,49.398C36.198,54.398 40.3,58.499 45.3,58.499L64.402,58.499L78.504,71.198C78.703,71.397 79.004,71.499 79.402,71.499C79.602,71.499 79.801,71.397 80.004,71.3C80.504,70.999 80.805,70.499 80.703,69.901L78.805,58.401L81.004,58.401C86.004,58.401 90.106,54.3 90.106,49.3L90.102,27.499C90,22.499 85.899,18.397 80.899,18.397L80.898,18.398ZM87.398,49.398C87.398,53 84.5,55.898 80.898,55.898L76.898,55.898C76.796,55.898 76.796,56 76.699,56C76.597,56 76.597,56 76.5,56.101C76.398,56.101 76.3,56.203 76.3,56.203C76.199,56.304 76.199,56.304 76.101,56.402C76.101,56.503 76,56.503 76,56.601C75.898,56.703 75.898,56.8 75.898,56.902L75.898,57.101C75.898,57.203 75.796,57.203 75.796,57.3L75.796,57.601L77.398,67L65.8,56.199C65.698,56.097 65.601,56.097 65.499,55.999L65.398,55.898C65.198,55.796 65.097,55.796 64.898,55.796L45.3,55.8C41.698,55.8 38.8,52.902 38.8,49.3L38.8,27.499C38.8,23.897 41.698,20.999 45.3,20.999L80.902,20.999C84.503,20.999 87.402,23.897 87.402,27.499L87.398,49.398Z" style="fill:white;fill-rule:nonzero;"/>
+                        </g>
+                        <g transform="matrix(4.154657,0,0,4.154657,48.046046,-21.433887)">
+                            <path d="M18.199,68.602L19.199,68.602L17.301,80.102C17.199,80.602 17.5,81.204 18,81.5C18.199,81.602 18.398,81.7 18.601,81.7C18.902,81.7 19.203,81.598 19.5,81.399L33.602,68.7L49.801,68.7C54.102,68.7 57.602,65.399 58,61.2L45.301,61.2C38.801,61.2 33.602,55.899 33.602,49.501L33.602,32.802L18.2,32.802C13.7,32.802 10.001,36.501 10.001,41.001L10.001,60.399C10.001,64.899 13.7,68.602 18.2,68.602L18.199,68.602Z" style="fill:white;fill-rule:nonzero;"/>
+                        </g>
+                    </g>
+                    <g transform="matrix(1,0,0,1,-130.151379,25.187453)">
+                        <text x="167.237px" y="397.947px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:75px;fill:white;">Easy</text>
+                        <g transform="matrix(75,0,0,75,604.822033,397.946824)">
+                        </g>
+                        <text x="333.972px" y="397.947px" style="font-family:'Arial-BoldMT', 'Arial', sans-serif;font-weight:700;font-size:75px;fill:white;">English</text>
+                    </g>
+                </g>
+            </svg>
+        </a>
         <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a href="#how">{{ __('public.nav_how') }}</a><a
                 href="#bundles">{{ __('public.nav_bundles') }}</a><a href="#faq">{{ __('public.nav_faq') }}</a><a
                 class="button nav-cta" href="#availability">{{ __('public.nav_book') }}</a></nav>
