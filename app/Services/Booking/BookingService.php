@@ -439,7 +439,7 @@ class BookingService
                 'actor_id' => $actorId,
                 'action' => 'booking.no_show_recorded',
                 'reason' => trim($reason),
-                'metadata' => ['credit_forfeited' => $booking->bundle_entitlement_id !== null, 'accepted_policy_version' => $booking->accepted_policy_version],
+                'metadata' => ['credit_forfeited' => $booking->bundle_entitlement_id !== null, 'free_introduction' => $booking->bundle_entitlement_id === null, 'accepted_policy_version' => $booking->accepted_policy_version],
             ]);
             $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingNoShow, ['credit_forfeited' => $booking->bundle_entitlement_id !== null], 'no-show');
 
