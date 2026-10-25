@@ -131,3 +131,15 @@ test('bundle booking form refuses unsigned or expired entitlement links', functi
     $expired = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->subMinute(), false);
     $this->get($expired)->assertForbidden();
 });
+
+test('bundle purchase page discloses expiry and cancellation terms before checkout is available', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+
+    $this->get(route('purchase', $bundle))
+        ->assertOk()
+        ->assertSee('156 RON')
+        ->assertSee('trei luni calendaristice')
+        ->assertSee('Programările trebuie să înceapă înainte de expirarea pachetului')
+        ->assertSee(route('terms'), false)
+        ->assertSee('Plata online nu este încă activată');
+});
