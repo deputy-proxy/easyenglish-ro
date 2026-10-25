@@ -4,6 +4,20 @@ Easy English is an EdVenture product for adults who want to practise spoken Engl
 
 This repository currently provides the Laravel application foundation, authentication/account-security scaffolding, Filament, and CI. The plan below describes the intended product implementation; it is not a claim that these product features already exist.
 
+## Developer setup
+
+Requirements: PHP 8.4+ with the extensions required by the locked Composer dependencies, Composer 2, Node.js 22/npm, and Git. Production uses MySQL/MariaDB; the default local setup uses SQLite and the log mailer, so no live SMTP, Stripe, or WhatsApp credentials are needed to develop or run CI.
+
+```sh
+git clone https://github.com/deputy-proxy/easyenglish-ro.git
+cd easyenglish-ro
+cp .env.example .env
+composer setup
+composer run dev
+```
+
+`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance.
+
 ## Product goal
 
 Make it easy for an adult learner to book and pay for a short, useful English-speaking session without having to create an account or navigate a complex course platform.
