@@ -139,6 +139,7 @@ test('free introduction requires verified contact details and only one claim per
     expect($booking->free_session_claim_id)->not->toBeNull();
     expect(fn () => $service->holdSlot(bookingCustomer(['email' => 'another@example.com']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
     expect(fn () => $service->holdSlot(bookingCustomer(['email' => 'third@example.com', 'phone' => '0722 123 456']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
+    expect(fn () => $service->holdSlot(bookingCustomer(['phone' => '-------']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
 });
 
 test('bundle activation grants credits for three calendar months and respects the shared free offer', function () {
