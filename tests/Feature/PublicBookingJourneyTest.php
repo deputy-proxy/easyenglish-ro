@@ -34,7 +34,8 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('390')
         ->assertSee('780')
         ->assertSee('15 minute pe sesiune')
-        ->assertSee('Europe/Bucharest');
+        ->assertSee('Europe/Bucharest')
+        ->assertSee('O singură sesiune introductivă gratuită per persoană');
 });
 
 test('visitor can switch the public experience to English without an account', function () {
@@ -139,6 +140,7 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
         ->assertOk()
         ->assertSee('156 RON')
         ->assertSee('trei luni calendaristice')
+        ->assertSee('O singură sesiune introductivă gratuită per persoană')
         ->assertSee('Programările trebuie să înceapă înainte de expirarea pachetului')
         ->assertSee(route('terms'), false)
         ->assertSee('Plata online nu este încă activată');
