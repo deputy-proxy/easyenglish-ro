@@ -2,15 +2,18 @@
 
 namespace App\Services\Booking;
 
+use App\Enums\NotificationEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Models\User;
 use App\Services\Notifications\NotificationOutboxService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -18,7 +21,7 @@ use Illuminate\Validation\ValidationException;
 
 class BookingService
 {
-    public function __construct(private readonly AvailabilityService $availability, private readonly NotificationOutboxService $notifications) {}
+    public function __construct(private readonly AvailabilityService $availability, private readonly NotificationOutboxService $notifications, private readonly CancellationPolicyService $policy) {}
 
     /** @param array{name:string,email:string,phone:string,english_level:string,session_goal:string,notes?:?string,accepted_policy_version:string} $customer */
     public function holdSlot(array $customer, CarbonImmutable $startsAt, ?int $entitlementId = null, bool $freeIntroduction = false, bool $emailVerified = false, bool $phoneVerified = false): Booking
@@ -52,16 +55,17 @@ class BookingService
 
             $entitlement = null;
             $claim = null;
+            $reusableClaim = null;
             $bundleFreeClaim = null;
             $creditType = null;
             if ($freeIntroduction) {
                 if (! $emailVerified || ! $phoneVerified) {
                     throw ValidationException::withMessages(['verification' => 'Email and phone must be verified before claiming the free introduction.']);
                 }
-                $existing = FreeSessionClaim::query()->where(function ($query) use ($customer): void {
+                $reusableClaim = FreeSessionClaim::query()->where(function ($query) use ($customer): void {
                     $query->where('customer_email', mb_strtolower($customer['email']))->orWhere('customer_phone', $customer['phone']);
-                })->exists();
-                if ($existing) {
+                })->lockForUpdate()->first();
+                if ($reusableClaim !== null && ($reusableClaim->status !== 'teacher_cancelled' || $reusableClaim->booking_id !== null)) {
                     throw ValidationException::withMessages(['free_introduction' => 'The free introductory session has already been claimed for these contact details.']);
                 }
             } else {
@@ -106,13 +110,18 @@ class BookingService
             ]);
 
             if ($freeIntroduction) {
-                $claim = FreeSessionClaim::query()->create([
-                    'customer_email' => mb_strtolower(trim($customer['email'])),
-                    'customer_phone' => trim($customer['phone']),
-                    'status' => 'reserved',
-                    'booking_id' => $booking->id,
-                    'verified_at' => now(),
-                ]);
+                if ($reusableClaim !== null) {
+                    $claim = $reusableClaim;
+                    $claim->update(['status' => 'reserved', 'booking_id' => $booking->id, 'used_at' => null]);
+                } else {
+                    $claim = FreeSessionClaim::query()->create([
+                        'customer_email' => mb_strtolower(trim($customer['email'])),
+                        'customer_phone' => trim($customer['phone']),
+                        'status' => 'reserved',
+                        'booking_id' => $booking->id,
+                        'verified_at' => now(),
+                    ]);
+                }
                 $booking->update(['free_session_claim_id' => $claim->id]);
             } elseif ($bundleFreeClaim) {
                 $bundleFreeClaim->update(['booking_id' => $booking->id, 'status' => 'bundle_credit_reserved']);
@@ -185,6 +194,302 @@ class BookingService
 
             return $booking->refresh();
         }, attempts: 3);
+    }
+
+    public function cancelByCustomer(int $bookingId, string $reason = 'Customer cancellation request.'): Booking
+    {
+        return $this->cancelCustomerRequest($bookingId, null, $reason);
+    }
+
+    public function cancelAtCustomerRequest(int $bookingId, int $actorId, string $reason): Booking
+    {
+        $this->assertStaff($actorId);
+
+        return $this->cancelCustomerRequest($bookingId, $actorId, $reason);
+    }
+
+    private function cancelCustomerRequest(int $bookingId, ?int $actorId, string $reason): Booking
+    {
+        $reason = trim($reason) !== '' ? trim($reason) : 'Customer cancellation request.';
+
+        return DB::transaction(function () use ($bookingId, $actorId, $reason): Booking {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
+            if ($booking->status === 'cancelled') {
+                return $booking;
+            }
+            if ($booking->status !== 'confirmed') {
+                throw ValidationException::withMessages(['booking' => 'Only a confirmed appointment can be cancelled.']);
+            }
+
+            $now = CarbonImmutable::now('UTC');
+            if ($booking->starts_at->lessThanOrEqualTo($now)) {
+                throw ValidationException::withMessages(['booking' => 'An appointment that has started cannot be cancelled as a customer cancellation. Ask staff to review it.']);
+            }
+            $outcome = $this->policy->customerCancellationOutcome($booking, $now);
+            $creditRestored = false;
+            if ($booking->bundle_entitlement_id !== null) {
+                $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($booking->bundle_entitlement_id);
+                if ($outcome === 'restore') {
+                    $this->restoreReservedCredit($booking, $entitlement, $actorId, 'Customer cancellation at least 24 hours before the appointment.', 'booking-cancel-restored:'.$booking->public_reference);
+                    $creditRestored = true;
+                } else {
+                    $this->recordForfeitedCredit($booking, $entitlement, $actorId, 'Customer cancellation less than 24 hours before the appointment.', 'booking-cancel-forfeited:'.$booking->public_reference);
+                }
+                if ($booking->credit_type === 'free' && $creditRestored && $booking->free_session_claim_id !== null) {
+                    FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'bundle_credit_granted', 'booking_id' => null, 'used_at' => null]);
+                }
+            } elseif ($booking->free_session_claim_id !== null) {
+                // Cancelling a free introduction never creates a second free offer.
+                FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'cancelled', 'used_at' => now()]);
+            }
+
+            $booking->update([
+                'status' => 'cancelled',
+                'cancelled_at' => $now,
+                'cancelled_by' => $actorId === null ? 'customer' : 'staff_customer_request',
+                'cancellation_reason' => $reason,
+            ]);
+            BookingAudit::query()->create([
+                'booking_id' => $booking->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'actor_id' => $actorId,
+                'action' => $actorId === null ? 'booking.customer_cancelled' : 'booking.customer_request_cancelled_by_staff',
+                'reason' => $reason,
+                'metadata' => [
+                    'credit_restored' => $creditRestored,
+                    'credit_outcome' => $outcome,
+                    'accepted_policy_version' => $booking->accepted_policy_version,
+                    'seconds_before_start' => $this->policy->secondsUntilStart($booking, $now),
+                ],
+            ]);
+            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingCancelled, [
+                'credit_restored' => $creditRestored,
+                'credit_refunded' => false,
+                'cancellation_reason' => $reason,
+            ], 'customer-cancelled');
+
+            return $booking->refresh();
+        }, attempts: 3);
+    }
+
+    public function rescheduleByCustomer(int $bookingId, CarbonImmutable $newStartsAt): Booking
+    {
+        return $this->rescheduleBooking($bookingId, $newStartsAt, null, null);
+    }
+
+    public function rescheduleByStaff(int $bookingId, CarbonImmutable $newStartsAt, int $actorId, string $reason): Booking
+    {
+        $this->assertStaff($actorId);
+        if (mb_strlen(trim($reason)) < 10 || mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages(['reason' => 'Provide a rescheduling reason between 10 and 500 characters.']);
+        }
+
+        return $this->rescheduleBooking($bookingId, $newStartsAt, $actorId, trim($reason));
+    }
+
+    private function rescheduleBooking(int $bookingId, CarbonImmutable $newStartsAt, ?int $actorId, ?string $reason): Booking
+    {
+        return DB::transaction(function () use ($bookingId, $newStartsAt, $actorId, $reason): Booking {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
+            if ($booking->status !== 'confirmed') {
+                throw ValidationException::withMessages(['booking' => 'Only a confirmed appointment can be rescheduled.']);
+            }
+            $newUtc = $newStartsAt->utc();
+            if ($booking->starts_at->equalTo($newUtc)) {
+                return $booking;
+            }
+            $now = CarbonImmutable::now('UTC');
+            if ($booking->starts_at->lessThanOrEqualTo($now) || $newUtc->lessThanOrEqualTo($now)) {
+                throw ValidationException::withMessages(['starts_at' => 'The current appointment must be in the future and the replacement slot cannot be in the past.']);
+            }
+            if ($actorId === null) {
+                $actions = $this->policy->customerActions($booking, $now);
+                if (! $actions['can_reschedule']) {
+                    throw ValidationException::withMessages(['booking' => 'A free customer reschedule is available once, between 12 and 24 hours before the appointment.']);
+                }
+            }
+            $this->availability->assertBookable($newUtc, $booking->id);
+            if ($booking->bundle_entitlement_id !== null) {
+                $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($booking->bundle_entitlement_id);
+                if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($newUtc)) {
+                    throw ValidationException::withMessages(['starts_at' => 'The replacement session must start before the active bundle expires.']);
+                }
+            }
+
+            $previousStart = $booking->starts_at;
+            $booking->update([
+                'starts_at' => $newUtc,
+                'ends_at' => $newUtc->addMinutes(AvailabilityService::SESSION_MINUTES),
+                'reschedule_count' => $booking->reschedule_count + 1,
+                'rescheduled_at' => $now,
+            ]);
+            BookingAudit::query()->create([
+                'booking_id' => $booking->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'actor_id' => $actorId,
+                'action' => $actorId === null ? 'booking.customer_rescheduled' : 'booking.staff_rescheduled',
+                'reason' => $reason,
+                'metadata' => [
+                    'previous_starts_at' => $previousStart->toIso8601String(),
+                    'new_starts_at' => $newUtc->toIso8601String(),
+                    'reschedule_count' => $booking->reschedule_count,
+                    'accepted_policy_version' => $booking->accepted_policy_version,
+                ],
+            ]);
+            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingRescheduled, [
+                'previous_starts_at' => $previousStart->toIso8601String(),
+                'reason' => $reason,
+            ], $newUtc->toIso8601String());
+
+            return $booking->refresh();
+        }, attempts: 3);
+    }
+
+    public function cancelByTeacher(int $bookingId, int $actorId, string $reason): Booking
+    {
+        $this->assertStaff($actorId);
+        if (mb_strlen(trim($reason)) < 10 || mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages(['reason' => 'Provide a teacher-cancellation reason between 10 and 500 characters.']);
+        }
+
+        return DB::transaction(function () use ($bookingId, $actorId, $reason): Booking {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
+            if ($booking->status === 'cancelled' && $booking->cancelled_by === 'teacher') {
+                return $booking;
+            }
+            if ($booking->status !== 'confirmed' || $booking->starts_at->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+                throw ValidationException::withMessages(['booking' => 'Only a future confirmed appointment can be cancelled by a teacher.']);
+            }
+
+            $now = CarbonImmutable::now('UTC');
+            $creditRestored = false;
+            $validityExtendedTo = null;
+            if ($booking->bundle_entitlement_id !== null) {
+                $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($booking->bundle_entitlement_id);
+                $this->restoreReservedCredit($booking, $entitlement, $actorId, 'Teacher cancellation restores the reserved session credit.', 'teacher-cancel-restored:'.$booking->public_reference);
+                $creditRestored = true;
+                $minimumExpiry = $now->addDays(14);
+                if ($entitlement->expires_at !== null && $entitlement->expires_at->lessThan($minimumExpiry)) {
+                    $entitlement->update(['expires_at' => $minimumExpiry]);
+                    $validityExtendedTo = $minimumExpiry->toIso8601String();
+                }
+                if ($booking->credit_type === 'free' && $booking->free_session_claim_id !== null) {
+                    FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'bundle_credit_granted', 'booking_id' => null, 'used_at' => null]);
+                }
+            } elseif ($booking->free_session_claim_id !== null) {
+                // Reuse the existing claim for one replacement booking; never create a second free offer.
+                FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'teacher_cancelled', 'booking_id' => null, 'used_at' => null]);
+            }
+
+            $booking->update([
+                'status' => 'cancelled',
+                'cancelled_at' => $now,
+                'cancelled_by' => 'teacher',
+                'cancellation_reason' => trim($reason),
+            ]);
+            BookingAudit::query()->create([
+                'booking_id' => $booking->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'actor_id' => $actorId,
+                'action' => 'booking.teacher_cancelled',
+                'reason' => trim($reason),
+                'metadata' => ['credit_restored' => $creditRestored, 'validity_extended_to' => $validityExtendedTo, 'accepted_policy_version' => $booking->accepted_policy_version],
+            ]);
+            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::TeacherCancellation, [
+                'credit_restored' => $creditRestored,
+                'validity_extended_to' => $validityExtendedTo,
+            ], 'teacher-cancelled');
+
+            return $booking->refresh();
+        }, attempts: 3);
+    }
+
+    public function markNoShow(int $bookingId, int $actorId, string $reason): Booking
+    {
+        $this->assertStaff($actorId);
+        if (mb_strlen(trim($reason)) < 10 || mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages(['reason' => 'Provide a no-show reason between 10 and 500 characters.']);
+        }
+
+        return DB::transaction(function () use ($bookingId, $actorId, $reason): Booking {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
+            if ($booking->status === 'no_show') {
+                return $booking;
+            }
+            if ($booking->status !== 'confirmed' || $booking->starts_at->greaterThan(CarbonImmutable::now('UTC'))) {
+                throw ValidationException::withMessages(['booking' => 'A no-show can only be recorded for a confirmed appointment whose start time has passed.']);
+            }
+
+            if ($booking->bundle_entitlement_id !== null) {
+                $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($booking->bundle_entitlement_id);
+                $this->recordForfeitedCredit($booking, $entitlement, $actorId, 'Authorized staff recorded a customer no-show.', 'booking-no-show-forfeited:'.$booking->public_reference);
+            }
+            if ($booking->free_session_claim_id !== null) {
+                FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'no_show', 'used_at' => now()]);
+            }
+
+            $booking->update(['status' => 'no_show', 'no_show_at' => now(), 'no_show_reason' => trim($reason)]);
+            BookingAudit::query()->create([
+                'booking_id' => $booking->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'actor_id' => $actorId,
+                'action' => 'booking.no_show_recorded',
+                'reason' => trim($reason),
+                'metadata' => ['credit_forfeited' => $booking->bundle_entitlement_id !== null, 'accepted_policy_version' => $booking->accepted_policy_version],
+            ]);
+            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingNoShow, ['credit_forfeited' => $booking->bundle_entitlement_id !== null], 'no-show');
+
+            return $booking->refresh();
+        }, attempts: 3);
+    }
+
+    private function restoreReservedCredit(Booking $booking, BundleEntitlement $entitlement, ?int $actorId, string $reason, string $idempotencyKey): void
+    {
+        if ($booking->credit_type === 'free') {
+            $entitlement->increment('free_credits_remaining');
+        } else {
+            $entitlement->increment('credits_remaining');
+        }
+        $balanceAfter = $booking->credit_type === 'free'
+            ? $entitlement->refresh()->free_credits_remaining
+            : $entitlement->refresh()->credits_remaining;
+        CreditTransaction::query()->firstOrCreate(['idempotency_key' => $idempotencyKey], [
+            'bundle_entitlement_id' => $entitlement->id,
+            'booking_id' => $booking->id,
+            'created_by' => $actorId,
+            'type' => 'restored',
+            'credit_type' => $booking->credit_type ?? 'paid',
+            'quantity' => 1,
+            'balance_after' => $balanceAfter,
+            'reason' => $reason,
+        ]);
+    }
+
+    private function recordForfeitedCredit(Booking $booking, BundleEntitlement $entitlement, ?int $actorId, string $reason, string $idempotencyKey): void
+    {
+        $balanceAfter = $booking->credit_type === 'free' ? $entitlement->free_credits_remaining : $entitlement->credits_remaining;
+        CreditTransaction::query()->firstOrCreate(['idempotency_key' => $idempotencyKey], [
+            'bundle_entitlement_id' => $entitlement->id,
+            'booking_id' => $booking->id,
+            'created_by' => $actorId,
+            'type' => 'forfeited',
+            'credit_type' => $booking->credit_type ?? 'paid',
+            'quantity' => 0,
+            'balance_after' => $balanceAfter,
+            'reason' => $reason,
+        ]);
+    }
+
+    private function assertStaff(int $actorId): void
+    {
+        $actor = User::query()->findOrFail($actorId);
+        if (! $actor->is_staff) {
+            throw new AuthorizationException('Only authorized staff can perform this booking action.');
+        }
     }
 
     public function expireHolds(): int
