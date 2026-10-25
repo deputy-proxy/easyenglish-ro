@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** @property int $id @property int $payment_id @property int $amount_ron @property int $credits_to_revoke @property string $status @property string $reason @property CarbonImmutable|null $confirmed_at */
+/** @property int $id @property int $payment_id @property int $amount_ron @property int $credits_to_revoke @property string $status @property string $reason @property array<string, mixed>|string|null $metadata @property int $free_credits_to_revoke @property CarbonImmutable|null $confirmed_at */
 class PaymentRefund extends Model
 {
     protected $fillable = ['payment_id', 'provider_refund_id', 'amount_ron', 'currency', 'credits_to_revoke', 'free_credits_to_revoke', 'status', 'provider_status', 'reason', 'actor_id', 'idempotency_key', 'metadata', 'confirmed_at'];

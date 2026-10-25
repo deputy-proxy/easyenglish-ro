@@ -76,7 +76,7 @@ class NotificationMessageFactory
                 $ctaUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], $expiration);
                 $ctaLabel = $this->t($locale, 'actions.schedule_sessions');
             }
-        } elseif (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation], true)) {
+        } elseif (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation, NotificationEvent::BookingNoShow], true)) {
             if (! $booking) {
                 throw new RuntimeException('Appointment email requires a booking record.');
             }
@@ -87,10 +87,22 @@ class NotificationMessageFactory
             $details[] = $this->detail($locale, 'appointment_date', $this->date($appointmentDate, $locale));
             $details[] = $this->detail($locale, 'duration', '15 '.$this->t($locale, 'labels.minutes'));
             $details[] = $this->detail($locale, 'timezone', 'Europe/Bucharest');
+            if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)
+                && $booking->starts_at->isFuture()) {
+                $ctaUrl = URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $booking->starts_at->addDay());
+                $ctaLabel = $this->t($locale, 'actions.manage_appointment');
+            }
             if ($event === NotificationEvent::BookingRescheduled && isset($metadata['previous_starts_at'])) {
                 $details[] = $this->detail($locale, 'previous_appointment_date', $this->date(Carbon::parse((string) $metadata['previous_starts_at']), $locale));
             }
-            if ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_restored'])) {
+            if ($event === NotificationEvent::BookingNoShow && ($metadata['credit_forfeited'] ?? false)) {
+                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_forfeited'));
+            } elseif ($event === NotificationEvent::BookingNoShow && ($metadata['free_introduction'] ?? false)) {
+                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.free_offer_used'));
+            }
+            if ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_refunded']) && $metadata['credit_refunded']) {
+                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_refunded'));
+            } elseif ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_restored'])) {
                 $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, $metadata['credit_restored'] ? 'values.credit_restored' : 'values.credit_forfeited'));
             }
             if ($event === NotificationEvent::TeacherCancellation && isset($metadata['validity_extended_to'])) {
@@ -98,7 +110,7 @@ class NotificationMessageFactory
             }
             if ($booking->bundle_entitlement_id !== null && $entitlement?->status === 'active'
                 && $entitlement->expires_at?->isFuture() && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0
-                && in_array($event, [NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation], true)) {
+                && in_array($event, [NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation, NotificationEvent::BookingNoShow], true)) {
                 $expiration = now()->addDays(7);
                 if ($entitlement->expires_at->lessThan($expiration)) {
                     $expiration = $entitlement->expires_at;

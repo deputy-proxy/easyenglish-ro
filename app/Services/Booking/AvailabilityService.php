@@ -20,7 +20,7 @@ class AvailabilityService
     public const SLOT_OCCUPANCY_MINUTES = self::SESSION_MINUTES + self::BUFFER_MINUTES;
 
     /** @return Collection<int, array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}> */
-    public function slotsForDate(string $date): Collection
+    public function slotsForDate(string $date, ?int $ignoreBookingId = null): Collection
     {
         try {
             $day = CarbonImmutable::parse($date, self::TIMEZONE)->startOfDay();
@@ -87,7 +87,7 @@ class AvailabilityService
 
                     return $start->lessThan($blockEnd) && $end->greaterThan($blockStart);
                 });
-                if ($blocked || $this->conflictsWithBooking($start, $end)) {
+                if ($blocked || $this->conflictsWithBooking($start, $end, $ignoreBookingId)) {
                     continue;
                 }
                 $key = $start->utc()->format('Y-m-d H:i:s');
@@ -98,25 +98,27 @@ class AvailabilityService
         return $slots->sortKeys()->values();
     }
 
-    public function assertBookable(CarbonImmutable $startsAt): void
+    public function assertBookable(CarbonImmutable $startsAt, ?int $ignoreBookingId = null): void
     {
         $local = $startsAt->setTimezone(self::TIMEZONE);
-        $slot = $this->slotsForDate($local->format('Y-m-d'))->first(fn (array $candidate): bool => $candidate['starts_at']->utc()->equalTo($startsAt->utc()));
+        $slot = $this->slotsForDate($local->format('Y-m-d'), $ignoreBookingId)->first(fn (array $candidate): bool => $candidate['starts_at']->utc()->equalTo($startsAt->utc()));
         if ($slot === null) {
             throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
         }
     }
 
-    private function conflictsWithBooking(CarbonImmutable $start, CarbonImmutable $end): bool
+    private function conflictsWithBooking(CarbonImmutable $start, CarbonImmutable $end, ?int $ignoreBookingId = null): bool
     {
         $bufferedStart = $start->utc()->subMinutes(self::BUFFER_MINUTES);
         $bufferedEnd = $end->utc()->addMinutes(self::BUFFER_MINUTES);
 
         return Booking::query()->where(function ($query): void {
-            $query->where('status', 'confirmed')->orWhere(function ($query): void {
+            $query->whereIn('status', ['confirmed', 'refund_pending'])->orWhere(function ($query): void {
                 $query->where('status', 'pending')->where('hold_expires_at', '>', now());
             });
         })->where('starts_at', '<', $bufferedEnd->toDateTimeString())
-            ->where('ends_at', '>', $bufferedStart->toDateTimeString())->exists();
+            ->where('ends_at', '>', $bufferedStart->toDateTimeString())
+            ->when($ignoreBookingId !== null, fn ($query) => $query->where('id', '!=', $ignoreBookingId))
+            ->exists();
     }
 }

@@ -2,7 +2,7 @@
 
 Easy English is an EdVenture product for adults who want to practise spoken English with an experienced teacher or conversation partner. The initial audience is working adults around A2–B2 who want practical speaking time, confidence, and focused practice.
 
-The application foundation, booking/availability domain, staff administration, bilingual public landing page, Stripe Checkout, transactional email outbox/templates, weekly availability endpoint, and signed no-account scheduling path for already-active bundles are implemented. Live payments still require production Stripe configuration; live email requires SMTP/domain authentication; WhatsApp delivery and contact verification remain explicit launch gates. The public site does not fake successful payment or unverified free-introduction bookings.
+The application foundation, booking/availability domain, staff administration, bilingual public landing page, Stripe Checkout, transactional email/WhatsApp outbox, signed customer booking management, cancellation/rescheduling/no-show workflows, refund reconciliation, and weekly availability are implemented. Live payments still require production Stripe configuration; live email requires SMTP/domain authentication; WhatsApp delivery and contact verification remain explicit launch gates. The public site does not fake successful payment or unverified free-introduction bookings.
 
 ## Developer setup
 
@@ -16,7 +16,7 @@ composer setup
 composer run dev
 ```
 
-`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics. See [the public booking journey](docs/product/public-booking-journey.md) for the bilingual website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates. See the [Stripe Checkout, webhook, reconciliation, and refund runbook](docs/integrations/stripe.md) before enabling live payments. See the [transactional email and notification outbox runbook](docs/integrations/email.md) for SMTP setup, domain authentication, queue retries, and delivery recovery.
+`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics. See [the public booking journey](docs/product/public-booking-journey.md) for the bilingual website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates. See the [Stripe Checkout, webhook, reconciliation, and refund runbook](docs/integrations/stripe.md) before enabling live payments. See the [transactional email and notification outbox runbook](docs/integrations/email.md) for SMTP setup, domain authentication, queue retries, and delivery recovery. See the [WhatsApp Business Platform runbook](docs/integrations/whatsapp.md) for Meta setup, templates, consent, opt-out, and webhook operations. See the [cancellation, rescheduling, and refund policy](docs/product/cancellations-refunds-rescheduling.md) for boundaries, refund calculation, recovery, and the mandatory legal-review gate.
 
 ## Product goal
 
@@ -52,7 +52,7 @@ The database is authoritative for availability and booking state. A browser redi
 | Bundle appointment cancelled at least 24 hours before | Restore the session credit; no automatic refund |
 | Bundle appointment cancelled 12 to less than 24 hours before | One free reschedule; otherwise forfeit the credit |
 | Bundle appointment cancelled less than 12 hours before | Forfeit the credit; no free reschedule |
-| Teacher cancellation | Restore the credit and extend bundle validity when necessary; offer an extension or refund of affected unused credits if the customer cannot use them before expiry |
+| Teacher cancellation | Restore the credit and extend bundle validity to leave at least 14 days when necessary; cash refunds follow the separate reviewed refund policy |
 | Customer no-show | Forfeit the session credit; staff must record no-shows through an authorized, auditable action |
 | Required booking data | Name, email, phone/WhatsApp, English level, session goal; notes field also included |
 | Confirmation channels | Email and WhatsApp |

@@ -32,7 +32,7 @@ The booking service revalidates availability inside a database transaction. It l
 - `pending`: a five-minute slot hold exists. A paid credit, or an available included free credit, is reserved transactionally. A free-introduction claim is reserved against the verified contact details.
 - `confirmed`: the hold was confirmed before expiry. A paid credit reservation is committed in the credit ledger. A free-introduction claim becomes used.
 - `expired`: the hold expired before confirmation. The reserved bundle credit is restored, or the unconfirmed free claim is released so the person can retry.
-- `cancelled`, `failed`, and `refunded` are reserved for explicit lifecycle workflows. Cancellation, rescheduling, no-show, and refund transitions must follow issue #9; do not edit status directly in Filament.
+- `cancelled`, `refund_pending`, `no_show`, `failed`, and `refunded` are reserved for explicit lifecycle workflows. Customer cancellation/rescheduling, teacher cancellation, no-show, and refund transitions pass through BookingService/StripeRefundService; do not edit status directly in Filament.
 
 `BookingService::confirm()` is idempotent for already-confirmed bookings and rejects expired holds. `BookingService::expireHolds()` rechecks state under lock before releasing a hold, making repeated scheduler runs safe. The `bookings:expire-holds` command is scheduled every minute and uses `withoutOverlapping()`.
 
@@ -76,5 +76,5 @@ Do not ship default credentials, expose a public staff-registration path, or all
 ## Operational follow-up
 
 - Configure and verify the scheduler on Hostinger so `bookings:expire-holds` runs at the intended cadence.
-- Stripe Checkout/reconciliation and transactional email/WhatsApp adapters are implemented. Production SMTP configuration, Meta account/template approval, live webhook verification, and cancellation/rescheduling workflows remain explicit launch gates.
+- Stripe Checkout/reconciliation, transactional email/WhatsApp adapters, customer cancellation/rescheduling, teacher cancellation, no-show, and refund recovery are implemented. Production SMTP configuration, Meta account/template approval, live webhook verification, contact verification, and Romanian legal review of cancellation/refund terms remain explicit launch gates.
 - Before launch, verify concurrency on the production MySQL/MariaDB engine as well as the SQLite CI suite.

@@ -23,7 +23,9 @@ return [
     ],
     'values' => [
         'credit_restored' => 'The session credit was restored to your bundle.',
+        'credit_refunded' => 'The session credit was included in the confirmed bundle refund.',
         'credit_forfeited' => 'The session credit was forfeited under the cancellation policy.',
+        'free_offer_used' => 'The one-time free introductory offer has been used.',
         'succeeded' => 'Confirmed by Stripe',
         'failed' => 'Not completed by Stripe; reserved credits were restored where applicable.',
         'not_available' => 'Not available',
@@ -37,6 +39,7 @@ return [
     'actions' => [
         'schedule_sessions' => 'Schedule your sessions',
         'manage_sessions' => 'Manage your sessions',
+        'manage_appointment' => 'Manage appointment',
     ],
     'events' => [
         'bundle_purchase_confirmed' => [
@@ -73,6 +76,11 @@ return [
             'subject' => 'Your Easy English appointment was rescheduled',
             'heading' => 'Your appointment time has changed',
             'intro' => 'Your appointment has been moved to a new time. Please use the updated time below and keep WhatsApp available for the call.',
+        ],
+        'booking_no_show' => [
+            'subject' => 'An update about your Easy English session',
+            'heading' => 'The session was recorded as a no-show',
+            'intro' => 'The Easy English team recorded that the session was missed. The applicable credit or one-time free offer outcome is shown below. Contact the team if you believe this was recorded incorrectly.',
         ],
         'teacher_cancellation' => [
             'subject' => 'An update to your Easy English appointment',

@@ -8,6 +8,7 @@ use App\Models\BundleEntitlement;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
+use App\Services\Booking\CancellationPolicyService;
 use App\Services\Payments\StripeCheckoutService;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -112,7 +113,7 @@ class PublicSiteController extends Controller
             'weekStart' => $weekStart,
             'policyVersion' => config('easyenglish.policy_version'),
             'formAction' => $type === 'bundle'
-                ? URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30), false)
+                ? URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30))
                 : route('booking.submit'),
         ]);
     }
@@ -169,7 +170,7 @@ class PublicSiteController extends Controller
         ], $startsAt, $entitlement->id);
         $bookings->confirm($booking->id);
 
-        return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null, false));
+        return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null));
     }
 
     public function confirmed(Request $request, string $reference): View
@@ -179,6 +180,75 @@ class PublicSiteController extends Controller
         $this->applyLocale($request);
 
         return view('public.confirmed', ['booking' => $booking]);
+    }
+
+    public function manageBooking(Request $request, string $reference, CancellationPolicyService $policy): View
+    {
+        $this->applyLocale($request);
+        $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
+        $actions = $policy->customerActions($booking);
+        $expiresAt = $booking->starts_at->addDay();
+        if ($expiresAt->lessThanOrEqualTo(now())) {
+            $expiresAt = CarbonImmutable::now()->addDays(7);
+        }
+
+        return view('public.booking-manage', [
+            'booking' => $booking,
+            'actions' => $actions,
+            'cancelUrl' => URL::signedRoute('booking.cancel', ['reference' => $reference], $expiresAt),
+            'rescheduleUrl' => URL::signedRoute('booking.reschedule.form', ['reference' => $reference], $expiresAt),
+        ]);
+    }
+
+    public function cancelBooking(Request $request, string $reference, BookingService $bookings): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+        $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
+        $bookings->cancelByCustomer($booking->id, $validated['reason'] ?? 'Customer cancellation request.');
+        $expiresAt = $booking->starts_at->addDay();
+
+        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt))
+            ->with('status', __('public.booking_cancelled'));
+    }
+
+    public function rescheduleForm(Request $request, string $reference, AvailabilityService $availability, CancellationPolicyService $policy): View
+    {
+        $this->applyLocale($request);
+        $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
+        abort_unless($policy->customerActions($booking)['can_reschedule'], 403);
+
+        $weekStart = $booking->starts_at->setTimezone(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY);
+        $days = [];
+        for ($offset = 0; $offset < 7; $offset++) {
+            $day = $weekStart->addDays($offset);
+            $slots = $availability->slotsForDate($day->format('Y-m-d'), $booking->id)
+                ->reject(fn (array $slot): bool => $slot['starts_at']->utc()->equalTo($booking->starts_at->utc()))
+                ->map(fn (array $slot): array => [
+                    'starts_at' => $slot['starts_at']->utc()->toIso8601String(),
+                    'time' => $slot['starts_at']->format('H:i'),
+                ])->values()->all();
+            $days[] = ['date' => $day->format('Y-m-d'), 'label' => $day->translatedFormat('D'), 'day' => $day->format('j'), 'slots' => $slots];
+        }
+        $expiresAt = $booking->starts_at->addDay();
+
+        return view('public.booking-reschedule', [
+            'booking' => $booking,
+            'days' => $days,
+            'submitUrl' => URL::signedRoute('booking.reschedule', ['reference' => $reference], $expiresAt),
+        ]);
+    }
+
+    public function rescheduleBooking(Request $request, string $reference, BookingService $bookings): RedirectResponse
+    {
+        $validated = $request->validate(['starts_at' => ['required', 'date']]);
+        $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
+        $newStartsAt = CarbonImmutable::parse($validated['starts_at'])->setTimezone(AvailabilityService::TIMEZONE);
+        $bookings->rescheduleByCustomer($booking->id, $newStartsAt);
+        $updated = $booking->fresh();
+        $expiresAt = $updated->starts_at->addDay();
+
+        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt))
+            ->with('status', __('public.booking_rescheduled'));
     }
 
     public function purchase(Request $request, BundleDefinition $bundle): View
@@ -273,7 +343,7 @@ class PublicSiteController extends Controller
         if ($payment?->status === 'succeeded' && $entitlement?->status === 'active'
             && $entitlement->expires_at?->isFuture()
             && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0) {
-            $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7), false);
+            $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7));
         }
 
         return view('public.purchase-result', [

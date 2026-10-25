@@ -12,6 +12,7 @@ enum NotificationEvent: string
     case BookingCancelled = 'booking_cancelled';
     case BookingRescheduled = 'booking_rescheduled';
     case TeacherCancellation = 'teacher_cancellation';
+    case BookingNoShow = 'booking_no_show';
     case RefundSucceeded = 'refund_succeeded';
     case RefundFailed = 'refund_failed';
     case BundleExpiry14Days = 'bundle_expiry_14d';

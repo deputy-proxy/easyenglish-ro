@@ -3,19 +3,24 @@
 use App\Enums\PaymentStatus;
 use App\Models\AvailabilityException;
 use App\Models\AvailabilityRule;
+use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Models\NotificationDelivery;
 use App\Models\Payment;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\BundleEntitlementService;
+use App\Services\Booking\CancellationPolicyService;
 use App\Services\Booking\PaymentStateService;
 use Carbon\CarbonImmutable;
 use Filament\Panel;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 function addAvailabilityWindow(CarbonImmutable $day, string $start = '09:00', string $end = '12:00'): AvailabilityRule
@@ -318,4 +323,166 @@ test('staff credit adjustments are auditable and cannot create a negative balanc
         ->and(BookingAudit::query()->where('bundle_entitlement_id', $entitlement->id)->where('actor_id', $staff->id)->where('action', 'bundle.paid_credits_adjusted')->exists())->toBeTrue();
 
     expect(fn () => $service->adjustPaidCredits($entitlement->id, -6, $staff->id, 'Attempt to overdraw balance'))->toThrow(ValidationException::class);
+});
+
+function makeLifecycleConfirmedBooking(?BundleEntitlement $entitlement, CarbonImmutable $startsAt, ?string $creditType = 'paid', ?int $freeClaimId = null, array $overrides = []): Booking
+{
+    return Booking::query()->create(array_merge([
+        'public_reference' => (string) Str::uuid(),
+        'bundle_entitlement_id' => $entitlement?->id,
+        'free_session_claim_id' => $freeClaimId,
+        'customer_name' => $entitlement?->customer_name ?? 'Lifecycle Learner',
+        'customer_email' => $entitlement?->customer_email ?? 'lifecycle@example.com',
+        'customer_phone' => $entitlement?->customer_phone ?? '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Practise speaking',
+        'notes' => null,
+        'accepted_policy_version' => '2026-10-25',
+        'starts_at' => $startsAt->utc(),
+        'ends_at' => $startsAt->utc()->addMinutes(15),
+        'duration_minutes' => 15,
+        'status' => 'confirmed',
+        'credit_type' => $creditType,
+        'locale' => 'en',
+        'hold_expires_at' => null,
+        'confirmed_at' => now(),
+    ], $overrides));
+}
+
+test('cancellation policy has exact non-overlapping 24-hour and 12-hour boundaries', function () {
+    $policy = app(CancellationPolicyService::class);
+    $now = CarbonImmutable::now('UTC');
+    $at24Hours = new Booking(['starts_at' => $now->addHours(24), 'status' => 'confirmed', 'reschedule_count' => 0]);
+    $at12Hours = new Booking(['starts_at' => $now->addHours(12), 'status' => 'confirmed', 'reschedule_count' => 0]);
+    $under12Hours = new Booking(['starts_at' => $now->addHours(12)->subSecond(), 'status' => 'confirmed', 'reschedule_count' => 0]);
+
+    expect($policy->customerCancellationOutcome($at24Hours, $now))->toBe('restore')
+        ->and($policy->customerActions($at24Hours, $now)['can_reschedule'])->toBeFalse()
+        ->and($policy->customerCancellationOutcome($at12Hours, $now))->toBe('forfeit')
+        ->and($policy->customerActions($at12Hours, $now)['can_reschedule'])->toBeTrue()
+        ->and($policy->customerActions($under12Hours, $now)['can_reschedule'])->toBeFalse();
+});
+
+test('cancellation boundaries use elapsed instants across Bucharest daylight-saving transitions', function () {
+    $policy = app(CancellationPolicyService::class);
+    $springNow = CarbonImmutable::parse('2027-03-27 01:00:00', 'UTC');
+    $springStart = CarbonImmutable::parse('2027-03-28 01:00:00', 'UTC');
+    $autumnNow = CarbonImmutable::parse('2026-10-24 01:00:00', 'UTC');
+    $autumnStart = CarbonImmutable::parse('2026-10-25 01:00:00', 'UTC');
+    $springBooking = new Booking(['starts_at' => $springStart, 'status' => 'confirmed', 'reschedule_count' => 0]);
+    $autumnBooking = new Booking(['starts_at' => $autumnStart, 'status' => 'confirmed', 'reschedule_count' => 0]);
+
+    expect($policy->secondsUntilStart($springBooking, $springNow))->toBe(86400)
+        ->and($policy->customerCancellationOutcome($springBooking, $springNow))->toBe('restore')
+        ->and($policy->secondsUntilStart($autumnBooking, $autumnNow))->toBe(86400)
+        ->and($policy->customerCancellationOutcome($autumnBooking, $autumnNow))->toBe('restore');
+});
+
+test('customer cancellation at exactly 24 hours restores a reserved credit once and is idempotent', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day, '08:00', '09:00');
+    $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    $booking = app(BookingService::class)->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 08:00', 'Europe/Bucharest'), $entitlement->id);
+    app(BookingService::class)->confirm($booking->id);
+
+    $service = app(BookingService::class);
+    expect($service->cancelByCustomer($booking->id)->status)->toBe('cancelled')
+        ->and($service->cancelByCustomer($booking->id)->status)->toBe('cancelled')
+        ->and($entitlement->fresh()->credits_remaining)->toBe(3)
+        ->and(CreditTransaction::query()->where('booking_id', $booking->id)->where('type', 'restored')->count())->toBe(1)
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.customer_cancelled')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_cancelled')->count())->toBe(1);
+});
+
+test('customer cancellation under 24 hours forfeits the reserved credit without restoring the balance', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day, '07:00', '08:00');
+    $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    $booking = app(BookingService::class)->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 07:00', 'Europe/Bucharest'), $entitlement->id);
+    app(BookingService::class)->confirm($booking->id);
+
+    app(BookingService::class)->cancelByCustomer($booking->id, 'Plans changed.');
+
+    expect($booking->fresh()->status)->toBe('cancelled')
+        ->and($entitlement->fresh()->credits_remaining)->toBe(2)
+        ->and(CreditTransaction::query()->where('booking_id', $booking->id)->where('type', 'forfeited')->count())->toBe(1);
+});
+
+test('customer can reschedule once at the exact 12-hour boundary without reserving another credit', function () {
+    $today = CarbonImmutable::parse('2026-10-26', 'Europe/Bucharest');
+    $tomorrow = $today->addDay();
+    addAvailabilityWindow($today, '20:00', '21:00');
+    addAvailabilityWindow($tomorrow, '09:00', '11:00');
+    $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    $booking = app(BookingService::class)->holdSlot(bookingCustomer(), $today->setTime(20, 0), $entitlement->id);
+    app(BookingService::class)->confirm($booking->id);
+
+    $newStart = $tomorrow->setTime(9, 0);
+    $service = app(BookingService::class);
+    $rescheduled = $service->rescheduleByCustomer($booking->id, $newStart);
+    $duplicate = $service->rescheduleByCustomer($booking->id, $newStart);
+
+    expect($rescheduled->starts_at->utc()->getTimestamp())->toBe($newStart->utc()->getTimestamp())
+        ->and($duplicate->reschedule_count)->toBe(1)
+        ->and($entitlement->fresh()->credits_remaining)->toBe(2)
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.customer_rescheduled')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_rescheduled')->count())->toBe(1);
+});
+
+test('teacher cancellation restores credits and extends near-expiry bundle validity', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day);
+    $entitlement = makeBundleEntitlement(['credits_remaining' => 3, 'expires_at' => now()->addDays(3)]);
+    $booking = app(BookingService::class)->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'), $entitlement->id);
+    app(BookingService::class)->confirm($booking->id);
+    $staff = User::factory()->create(['is_staff' => true]);
+
+    $cancelled = app(BookingService::class)->cancelByTeacher($booking->id, $staff->id, 'Teacher is unexpectedly unavailable.');
+
+    expect($cancelled->status)->toBe('cancelled')
+        ->and($cancelled->cancelled_by)->toBe('teacher')
+        ->and($entitlement->fresh()->credits_remaining)->toBe(3)
+        ->and($entitlement->fresh()->expires_at->greaterThanOrEqualTo(now()->addDays(14)))->toBeTrue()
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.teacher_cancelled')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_cancellation')->exists())->toBeTrue();
+});
+
+test('teacher cancellation reuses the existing free-introduction claim instead of granting a second offer', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day, '09:00', '10:00');
+    $service = app(BookingService::class);
+    $booking = $service->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'), null, true, true, true);
+    $service->confirm($booking->id);
+    $claim = FreeSessionClaim::query()->findOrFail($booking->free_session_claim_id);
+    $staff = User::factory()->create(['is_staff' => true]);
+
+    $service->cancelByTeacher($booking->id, $staff->id, 'Teacher is unexpectedly unavailable.');
+    $rebooked = $service->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 09:30', 'Europe/Bucharest'), null, true, true, true);
+
+    expect($claim->fresh()->status)->toBe('reserved')
+        ->and($claim->fresh()->booking_id)->toBe($rebooked->id)
+        ->and(FreeSessionClaim::query()->where('customer_email', 'learner@example.com')->count())->toBe(1);
+});
+
+test('staff no-show recording is explicit, forfeits the reserved credit, and is idempotent', function () {
+    $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    $booking = makeLifecycleConfirmedBooking($entitlement, CarbonImmutable::now('UTC')->subHour(), 'paid');
+    $staff = User::factory()->create(['is_staff' => true]);
+
+    $service = app(BookingService::class);
+    expect($service->markNoShow($booking->id, $staff->id, 'Customer did not join the session.')->status)->toBe('no_show')
+        ->and($service->markNoShow($booking->id, $staff->id, 'Customer did not join the session.')->status)->toBe('no_show')
+        ->and($entitlement->fresh()->credits_remaining)->toBe(3)
+        ->and(CreditTransaction::query()->where('booking_id', $booking->id)->where('type', 'forfeited')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_no_show')->count())->toBe(1);
+});
+
+test('signed customer cancellation endpoint cannot be used without a valid signature', function () {
+    $booking = makeLifecycleConfirmedBooking(null, CarbonImmutable::now('UTC')->addDay(), null);
+
+    $this->post('/booking/'.$booking->public_reference.'/cancel')->assertForbidden();
+    $signedUrl = URL::signedRoute('booking.cancel', ['reference' => $booking->public_reference], $booking->starts_at->addDay());
+    $this->post($signedUrl, ['reason' => 'Cannot attend the session.'])->assertRedirect();
+
+    expect($booking->fresh()->status)->toBe('cancelled');
 });

@@ -38,6 +38,7 @@ class WhatsAppMessageFactory
             NotificationEvent::BookingCancelled => 'booking_cancelled',
             NotificationEvent::BookingRescheduled => 'booking_rescheduled',
             NotificationEvent::TeacherCancellation => 'teacher_cancellation',
+            NotificationEvent::BookingNoShow => 'booking_no_show',
             NotificationEvent::RefundSucceeded => 'refund_succeeded',
             NotificationEvent::RefundFailed => 'refund_failed',
             NotificationEvent::BundleExpiry14Days => 'bundle_expiry_14d',
@@ -56,13 +57,14 @@ class WhatsAppMessageFactory
             NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour => [
                 $booking->customer_name ?? '', $this->date($booking?->starts_at), 'Europe/Bucharest',
             ],
-            NotificationEvent::BookingCancelled => [$booking->customer_name ?? '', $this->date($booking?->starts_at)],
+            NotificationEvent::BookingCancelled => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->cancellationCreditOutcome($delivery->metadata ?? [], $locale)],
             NotificationEvent::BookingRescheduled => [
                 $booking->customer_name ?? '',
                 $this->date(isset($delivery->metadata['previous_starts_at']) ? Carbon::parse((string) $delivery->metadata['previous_starts_at']) : null),
                 $this->date($booking?->starts_at),
             ],
-            NotificationEvent::TeacherCancellation => [$booking->customer_name ?? '', $this->date($booking?->starts_at)],
+            NotificationEvent::TeacherCancellation => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->date($delivery->metadata['validity_extended_to'] ?? null)],
+            NotificationEvent::BookingNoShow => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->noShowOutcome($delivery->metadata ?? [], $locale)],
             NotificationEvent::RefundSucceeded, NotificationEvent::RefundFailed => [
                 $entitlement->customer_name ?? '', $this->money($refund->amount_ron ?? 0), $refund->reason ?? '',
             ],
@@ -111,6 +113,32 @@ class WhatsAppMessageFactory
             'language' => (string) $language,
             'components' => [['type' => 'body', 'parameters' => $textParameters]],
         ];
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function noShowOutcome(array $metadata, string $locale): string
+    {
+        if (($metadata['credit_forfeited'] ?? false) === true) {
+            return $locale === 'ro' ? 'credit pierdut' : 'session credit forfeited';
+        }
+        if (($metadata['free_introduction'] ?? false) === true) {
+            return $locale === 'ro' ? 'oferta gratuită utilizată' : 'one-time free offer used';
+        }
+
+        return $locale === 'ro' ? 'înregistrat' : 'recorded';
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function cancellationCreditOutcome(array $metadata, string $locale): string
+    {
+        if (($metadata['credit_refunded'] ?? false) === true) {
+            return $locale === 'ro' ? 'credit rambursat' : 'credit refunded';
+        }
+        if (($metadata['credit_restored'] ?? false) === true) {
+            return $locale === 'ro' ? 'credit restituit' : 'credit restored';
+        }
+
+        return $locale === 'ro' ? 'credit pierdut' : 'credit forfeited';
     }
 
     private function bundleStatus(string $status, string $locale): string

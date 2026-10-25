@@ -23,7 +23,9 @@ return [
     ],
     'values' => [
         'credit_restored' => 'Creditul sesiunii a fost restituit în pachet.',
+        'credit_refunded' => 'Creditul sesiunii a fost inclus în rambursarea confirmată a pachetului.',
         'credit_forfeited' => 'Creditul sesiunii a fost pierdut conform politicii de anulare.',
+        'free_offer_used' => 'Oferta introductivă gratuită unică a fost utilizată.',
         'succeeded' => 'Confirmată de Stripe',
         'failed' => 'Rambursarea nu a fost finalizată de Stripe; creditele rezervate au fost restituite, dacă era cazul.',
         'not_available' => 'Indisponibil',
@@ -37,6 +39,7 @@ return [
     'actions' => [
         'schedule_sessions' => 'Programează sesiunile',
         'manage_sessions' => 'Gestionează sesiunile',
+        'manage_appointment' => 'Gestionează programarea',
     ],
     'events' => [
         'bundle_purchase_confirmed' => [
@@ -73,6 +76,11 @@ return [
             'subject' => 'Programarea Easy English a fost reprogramată',
             'heading' => 'Ora programării s-a schimbat',
             'intro' => 'Programarea a fost mutată la o altă oră. Folosește noul interval de mai jos și păstrează WhatsApp disponibil pentru apel.',
+        ],
+        'booking_no_show' => [
+            'subject' => 'Actualizare despre sesiunea Easy English',
+            'heading' => 'Sesiunea a fost înregistrată ca absență',
+            'intro' => 'Echipa Easy English a înregistrat absența de la sesiune. Situația creditului sau a ofertei gratuite unice este afișată mai jos. Contactează echipa dacă această înregistrare este incorectă.',
         ],
         'teacher_cancellation' => [
             'subject' => 'Actualizare despre programarea Easy English',
