@@ -11,9 +11,9 @@ Make it easy for an adult learner to book and pay for a short, useful English-sp
 ### MVP customer journey
 
 1. Visit a bilingual Romanian/English landing page and understand the offer.
-2. Choose an available 15-, 30-, or 45-minute session in the Europe/Bucharest timezone.
+2. Choose an available 15-minute session in the Europe/Bucharest timezone, either as a free introduction or using a prepaid bundle.
 3. Provide name, email, phone/WhatsApp number, English level, session goal, and optional notes.
-4. Pay in RON through Stripe Checkout. Prices include all applicable taxes.
+4. For paid sessions, purchase a prepaid bundle in RON through Stripe Checkout. Prices include all applicable taxes.
 5. Receive email and WhatsApp confirmation, including instructions for the session.
 6. Join the teacher for a session through WhatsApp. The call itself is handled in the WhatsApp application; the WhatsApp Business Platform/API is for messaging, not for placing voice/video calls.
 7. The teacher reviews upcoming bookings and the information needed to run each session in Filament.
@@ -26,16 +26,20 @@ The database is authoritative for availability and booking state. A browser redi
 | --- | --- |
 | Teacher model | One teacher at launch; no teacher marketplace or teacher selection |
 | Availability | Hybrid: recurring weekly availability plus manual adjustments and blocked dates |
-| Session durations | 15, 30, and 45 minutes |
+| Session duration | 15 minutes only |
 | Buffer | 15 minutes between sessions |
 | Unpaid booking hold | 5-minute application-level hold, with Stripe session expiry and payment reconciliation handled safely |
-| Prices | 15 minutes: 39 RON; 30 minutes: 69 RON; 45 minutes: 99 RON |
+| Free introduction | One 15-minute free introductory session per person, with verified email and phone; the offer is shared with the bundle's included free session |
+| Bundle A | 5 total sessions (1 free + 4 paid): 156 RON, tax-inclusive |
+| Bundle B | 11 total sessions (1 free + 10 paid): 390 RON, tax-inclusive |
+| Bundle C | 21 total sessions (1 free + 20 paid): 780 RON, tax-inclusive |
+| Bundle validity | Three calendar months from successful payment, using Europe/Bucharest; appointment must start before expiry |
 | Tax display | Prices are in RON and include all applicable taxes |
-| Cancellation at least 24 hours before | Customer may choose a full refund or one free reschedule |
-| Cancellation 12–24 hours before | One free reschedule; no automatic refund |
-| Cancellation less than 12 hours before | No refund or free reschedule |
-| Teacher cancellation | Customer chooses a full refund or replacement slot |
-| No-show | No refund if the customer fails to attend |
+| Bundle appointment cancelled at least 24 hours before | Restore the session credit; no automatic refund |
+| Bundle appointment cancelled 12 to less than 24 hours before | One free reschedule; otherwise forfeit the credit |
+| Bundle appointment cancelled less than 12 hours before | Forfeit the credit; no free reschedule |
+| Teacher cancellation | Restore the credit and extend bundle validity when necessary; offer an extension or refund of affected unused credits if the customer cannot use them before expiry |
+| Customer no-show | Forfeit the session credit; staff must record no-shows through an authorized, auditable action |
 | Required booking data | Name, email, phone/WhatsApp, English level, session goal; notes field also included |
 | Confirmation channels | Email and WhatsApp |
 | WhatsApp integration | WhatsApp Business Platform/API; setup will be done collaboratively later |
@@ -53,22 +57,27 @@ Cancellation deadlines are measured from the scheduled session start time. The b
 ## Product principles and constraints
 
 - **Low friction:** no learner account or dashboard is required for the first release.
-- **Short, focused sessions:** support 15-, 30-, and 45-minute formats.
+- **Short, focused sessions:** all sessions last 15 minutes.
 - **Reliable booking:** prevent overlapping reservations, including the 15-minute buffer.
 - **Payment integrity:** verify webhook signatures, process events idempotently, and reconcile payment state on the server.
 - **Privacy:** collect only the learner information needed to arrange and deliver the session; protect it through authorization and a defined retention policy.
 - **Operational simplicity:** use Filament for internal management rather than building a separate teacher portal in the MVP.
+- **Bundle validity:** bundles activate on successful payment and remain valid for three calendar months in Europe/Bucharest. An appointment must start before expiry.
 - **Progressive scope:** validate the booking and delivery workflow before adding subscriptions, a marketplace, AI features, or custom video infrastructure.
 
 ## Proposed domain model
 
 Confirm names, relationships, and exact fields during implementation, but keep these concepts separate:
 
+- **Bundle definition:** the server-configured product and its price, number of paid sessions, and included free-session allowance.
+- **Bundle entitlement:** one customer's purchased bundle, payment state, activation/expiry, remaining credits, and audit history.
+- **Credit ledger:** auditable credit grants, reservations, consumption, restorations, forfeitures, expiry, and refund adjustments.
+- **Free-session eligibility:** verified contact details and the shared one-free-session-per-person allowance.
 - **Availability rule:** the single teacher's recurring weekly availability.
 - **Availability exception / blocked period:** one-off changes, time off, and manually blocked dates.
 - **Available slot:** a concrete bookable start/end time, duration, and capacity. Generate/display slots from the rules and exceptions; the persisted booking state remains authoritative.
-- **Booking:** selected time, duration, learner contact details, English level, session goal, optional notes, accepted policy version, status, and relevant timestamps.
-- **Payment:** booking association, provider, Stripe Checkout Session/payment identifiers, amount/currency, tax-inclusive price, and payment status.
+- **Booking:** selected 15-minute time, learner contact details, English level, session goal, optional notes, accepted policy version, status, and relevant timestamps; link a paid booking to the bundle credit it reserves.
+- **Payment:** bundle purchase association, provider, Stripe Checkout Session/payment identifiers, amount/currency, tax-inclusive price, and payment status.
 - **Notification / delivery record:** records email and WhatsApp confirmation/reminder attempts and outcomes without making notification delivery the source of truth for a booking.
 - **Audit record:** important staff changes to bookings, refunds, rescheduling, and availability.
 
@@ -78,7 +87,7 @@ Do not build multi-teacher assignment or discovery for the MVP. Avoid introducin
 
 ### Phase 0 — Product rules
 
-The core product direction and launch prices are agreed. Operational setup and legal/compliance verification are tracked as launch prerequisites below rather than blockers to designing the booking domain.
+The product model is agreed: one standalone free 15-minute introduction, plus prepaid bundles of 1 free + 4 paid sessions for 156 RON, 1 free + 10 paid sessions for 390 RON, or 1 free + 20 paid sessions for 780 RON. All sessions last 15 minutes and prices include taxes. Bundle validity is three calendar months from successful payment. Operational setup and legal/compliance verification remain launch prerequisites.
 
 **Exit criteria:** booking, payment, cancellation, rescheduling, and no-show rules are explicit enough to implement without relying on assumptions.
 
@@ -98,10 +107,13 @@ The core product direction and launch prices are agreed. Operational setup and l
 
 - Add migrations, models, relationships, factories, and status definitions for availability rules, exceptions, bookings, payments, notifications, and audit records as needed.
 - Implement recurring availability, manual overrides, blocked dates, and 15-minute inter-session buffers.
+- Model bundle definitions, paid entitlements, credit ledger entries, free-session eligibility, and validity/expiry separately from appointment records.
+- Enforce atomic credit reservation/restoration and prevent concurrent double-spending.
+- Add Filament views/actions for bundle balances, expiry, and audited credit adjustments.
 - Implement slot availability queries and server-side validation.
 - Implement booking creation with a database transaction and appropriate locking/constraints so concurrent requests cannot reserve overlapping time.
 - Make the distinction between bundle purchase and appointment booking explicit: buying a bundle does not automatically schedule every included session.
-- Implement a 5-minute application-level unpaid hold. Stripe Checkout's configurable session expiry cannot be set below 30 minutes, so the application must expire an open Checkout Session through Stripe's API when the shorter hold elapses and reconcile payment/session state before releasing availability. Expiry and payment confirmation must be race-safe.
+- Implement a 5-minute application-level hold for an appointment slot while the booking flow is being completed. Do not conflate this slot hold with the bundle's three-calendar-month validity. If checkout is associated with a held appointment, reconcile payment and appointment state safely before releasing the slot.
 - Define explicit booking and payment state transitions. Keep pending, paid/confirmed, cancelled, expired, refunded, and failed states unambiguous.
 - Add Filament management for availability rules, exceptions/blocked periods, bookings, and payment visibility where operationally useful.
 - Apply authorization and validate every state-changing action server-side.
@@ -111,10 +123,11 @@ The core product direction and launch prices are agreed. Operational setup and l
 ### Phase 3 — Build the public booking journey
 
 - Create a responsive bilingual (Romanian/English) landing page describing the offer, intended audience, session lengths, process, and calls to action.
-- Show only genuinely available 15-, 30-, or 45-minute sessions in the Europe/Bucharest timezone.
+- Show the full week's available 15-minute slots in the Europe/Bucharest timezone, without requiring the visitor to select a day first.
 - Collect the agreed learner details with server-side validation and clear privacy/cancellation information.
-- Create a pending booking before redirecting the learner to Stripe, using the defined 5-minute application-level hold.
-- Show tax-inclusive prices: 39 RON, 69 RON, and 99 RON by duration.
+- For bundle purchases, create a pending purchase/checkout and activate credits only after verified Stripe payment. For free introductory bookings, do not create a zero-value checkout.
+- Keep the 5-minute application-level hold for individual appointment-slot reservations only, not bundle validity.
+- Offer the standalone free introductory session without checkout, plus the three tax-inclusive bundles: 156 RON for 1 free + 4 paid sessions; 390 RON for 1 free + 10 paid sessions; 780 RON for 1 free + 20 paid sessions.
 - Make error, expired-slot, and unavailable-slot states clear and recoverable.
 - Keep the public flow usable without learner registration.
 
@@ -122,7 +135,7 @@ The core product direction and launch prices are agreed. Operational setup and l
 
 ### Phase 4 — Integrate Stripe payments safely
 
-- Create Stripe Checkout Sessions on the server using the booking's authoritative price and RON currency.
+- Create Stripe Checkout Sessions on the server using the selected bundle's authoritative price and RON currency; free introductory bookings do not use Stripe checkout.
 - Store Stripe identifiers and correlate every payment with its booking.
 - Verify webhook signatures and handle relevant success, failure, expiry, refund, and reconciliation events.
 - Make webhook handling idempotent; repeated or out-of-order events must not create duplicate confirmations or invalid state transitions.
@@ -148,7 +161,7 @@ The core product direction and launch prices are agreed. Operational setup and l
 
 ### Phase 6 — End-to-end quality and launch readiness
 
-- Test the full journey from slot selection through Stripe test payment and email/WhatsApp confirmation.
+- Test the free introductory journey and each bundle purchase through Stripe test payment, credit activation, appointment booking, and email/WhatsApp confirmation.
 - Test authorization, validation, privacy, booking concurrency, buffer rules, slot expiry, webhook idempotency, cancellation/refund handling, and notification retries.
 - Verify accessibility, responsive layouts, bilingual content, loading states, empty states, and error handling.
 - Add structured logging for payment/webhook failures without logging secrets or unnecessary personal data.
@@ -180,7 +193,7 @@ These rules should be treated as invariants and enforced on the server:
 Unless product validation changes the priorities, defer:
 
 - Learner accounts, learner dashboards, and self-service history
-- Subscriptions, packages, credits, and recurring billing
+- Subscriptions and recurring billing
 - A public marketplace or multi-teacher discovery/ranking experience
 - AI conversation partners, AI assessment, and automated progress scoring
 - Building custom video-call infrastructure
@@ -189,12 +202,12 @@ Unless product validation changes the priorities, defer:
 
 ## Testing strategy
 
-- **Unit tests:** pricing calculations, status transitions, hold/expiry rules, timezone handling, cancellation deadlines, and availability calculations.
+- **Unit tests:** bundle pricing, credit ledger transitions, three-calendar-month validity, status transitions, hold/expiry rules, timezone handling, cancellation deadlines, and availability calculations.
 - **Feature tests:** public bilingual booking flow, validation, authorization, and Filament operations.
 - **Concurrency tests:** competing attempts to reserve overlapping times, including the 15-minute buffer.
-- **Payment tests:** Stripe Checkout creation, webhook signature verification, idempotency, expiry, refunds, and payment/booking reconciliation.
+- **Payment tests:** bundle Stripe Checkout creation, webhook signature verification, idempotency, expiry, refunds, credit activation, and payment/entitlement reconciliation.
 - **Notification tests:** email/WhatsApp triggers, retry behaviour, scheduled reminders, and no duplicate customer confirmations.
-- **End-to-end test:** select a session → submit learner details → complete Stripe test checkout → receive confirmation → see the confirmed booking in Filament.
+- **End-to-end tests:** book the standalone free introduction; purchase each bundle; verify payment and credits; book multiple 15-minute sessions; test expiry, cancellation/restoration, rescheduling, teacher cancellation, no-show, refunds, and notifications.
 - **Scheduler/queue tests:** verify scheduled tasks are safe to repeat, jobs can be processed by a cron-triggered worker, and failures are retried without duplicate side effects.
 
 External services should be mocked or placed in test mode in automated CI. Do not require live payment or messaging credentials to run the normal test suite.
