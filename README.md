@@ -48,7 +48,7 @@ The database is authoritative for availability and booking state. A browser redi
 | Admin access | Explicitly authorized staff accounts only |
 | Public website | Custom product landing page, visually aligned with EdVenture |
 
-The cancellation deadline is based on the scheduled session start time. The policy must be shown before checkout and recorded with the booking so the terms accepted by the customer can be established later. Refund execution and rescheduling actions must be auditable.
+Cancellation deadlines are measured from the scheduled session start time. The bundle cancellation policy must be shown before purchase/booking and the accepted policy version recorded. A booking cancellation does not automatically refund a prepaid bundle. Refund eligibility, including statutory consumer rights, must be handled under the published terms and applicable law. Refund and rescheduling actions must be auditable.
 
 ## Product principles and constraints
 
@@ -100,6 +100,7 @@ The core product direction and launch prices are agreed. Operational setup and l
 - Implement recurring availability, manual overrides, blocked dates, and 15-minute inter-session buffers.
 - Implement slot availability queries and server-side validation.
 - Implement booking creation with a database transaction and appropriate locking/constraints so concurrent requests cannot reserve overlapping time.
+- Make the distinction between bundle purchase and appointment booking explicit: buying a bundle does not automatically schedule every included session.
 - Implement a 5-minute application-level unpaid hold. Stripe Checkout's configurable session expiry cannot be set below 30 minutes, so the application must expire an open Checkout Session through Stripe's API when the shorter hold elapses and reconcile payment/session state before releasing availability. Expiry and payment confirmation must be race-safe.
 - Define explicit booking and payment state transitions. Keep pending, paid/confirmed, cancelled, expired, refunded, and failed states unambiguous.
 - Add Filament management for availability rules, exceptions/blocked periods, bookings, and payment visibility where operationally useful.
@@ -117,7 +118,7 @@ The core product direction and launch prices are agreed. Operational setup and l
 - Make error, expired-slot, and unavailable-slot states clear and recoverable.
 - Keep the public flow usable without learner registration.
 
-**Exit criteria:** a learner can move from the landing page to a valid pending booking and checkout without relying on client-side availability alone.
+**Exit criteria:** a learner can book the standalone free introduction without payment, or purchase a bundle and then book eligible sessions without relying on client-side availability or credit balances.
 
 ### Phase 4 — Integrate Stripe payments safely
 
@@ -164,7 +165,7 @@ These rules should be treated as invariants and enforced on the server:
 1. Availability displayed in the browser is informational; availability must be checked again when a booking is created.
 2. A teacher's calendar cannot contain overlapping confirmed/pending reservations, including the 15-minute buffer.
 3. Sessions and deadlines use the Europe/Bucharest scheduling timezone, with timezone-aware timestamps stored consistently.
-4. An unpaid booking has a 5-minute application-level hold. Stripe Checkout expiry, API expiry requests, webhook delivery, and payment confirmation must be reconciled safely before availability is released.
+4. A pending appointment-slot reservation has a 5-minute application-level hold. The hold is separate from bundle validity and must be released only after server-side checks establish that no confirmed appointment/payment state depends on it.
 5. The database records the current booking/payment state; Stripe is the payment provider's authority for payment events.
 6. A browser redirect is not proof of payment. A verified Stripe webhook (or a server-side reconciliation path) is required before marking a booking paid/confirmed.
 7. Webhook and scheduled-job processing must be idempotent and safe to retry.
@@ -232,4 +233,4 @@ These are configuration, compliance, or operational tasks rather than unresolved
 
 ## External technical references
 
-- Stripe Checkout Session expiry: configurable expiry is between 30 minutes and 24 hours after creation. The 5-minute application hold therefore requires explicit server-side expiry/reconciliation rather than simply setting Checkout's `expires_at` to five minutes.
+- The 5-minute application-level appointment-slot hold is independent of Stripe Checkout and the bundle's three-calendar-month validity. If a future flow ties checkout directly to a held appointment, verify current Stripe expiry constraints and implement server-side reconciliation rather than assuming Checkout can expire after five minutes.
