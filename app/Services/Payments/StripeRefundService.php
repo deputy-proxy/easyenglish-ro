@@ -210,7 +210,7 @@ class StripeRefundService
         $refund->forceFill([
             'provider_refund_id' => $refundId ?? $refund->provider_refund_id,
             'provider_status' => $status,
-            'metadata' => ['stripe_event_id' => $eventId],
+            'metadata' => array_merge($refund->metadata ?? [], ['stripe_event_id' => $eventId, 'provider_metadata' => $metadata]),
         ])->save();
 
         if ($normalizedStatus === 'succeeded') {
@@ -337,7 +337,7 @@ class StripeRefundService
                 'status' => $newRefundTotal >= $payment->amount_ron ? 'refunded' : $payment->status,
             ]);
             if ($payment->status === 'refunded' && $entitlement->credits_remaining === 0 && $entitlement->free_credits_remaining === 0
-                && ! $entitlement->bookings()->whereIn('status', ['confirmed', 'refund_pending', 'pending'])->exists()) {
+                && ! $entitlement->bookings()->where(function ($query): void {\n                    $query->whereIn('status', ['refund_pending', 'pending'])->orWhere(function ($query): void {\n                        $query->where('status', 'confirmed')->where('starts_at', '>', now());\n                    });\n                })->exists()) {
                 $entitlement->update(['status' => 'refunded']);
             }
 
