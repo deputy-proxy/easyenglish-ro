@@ -87,6 +87,11 @@ class NotificationMessageFactory
             $details[] = $this->detail($locale, 'appointment_date', $this->date($appointmentDate, $locale));
             $details[] = $this->detail($locale, 'duration', '15 '.$this->t($locale, 'labels.minutes'));
             $details[] = $this->detail($locale, 'timezone', 'Europe/Bucharest');
+            if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)
+                && $booking->status === 'confirmed' && $booking->starts_at->isFuture()) {
+                $ctaUrl = URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $booking->starts_at->addDay());
+                $ctaLabel = $this->t($locale, 'actions.manage_appointment');
+            }
             if ($event === NotificationEvent::BookingRescheduled && isset($metadata['previous_starts_at'])) {
                 $details[] = $this->detail($locale, 'previous_appointment_date', $this->date(Carbon::parse((string) $metadata['previous_starts_at']), $locale));
             }
@@ -99,7 +104,7 @@ class NotificationMessageFactory
             }
             if ($booking->bundle_entitlement_id !== null && $entitlement?->status === 'active'
                 && $entitlement->expires_at?->isFuture() && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0
-                && in_array($event, [NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation], true)) {
+                && in_array($event, [NotificationEvent::BookingCancelled, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherCancellation, NotificationEvent::BookingNoShow], true)) {
                 $expiration = now()->addDays(7);
                 if ($entitlement->expires_at->lessThan($expiration)) {
                     $expiration = $entitlement->expires_at;
