@@ -16,7 +16,7 @@ composer setup
 composer run dev
 ```
 
-`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance.
+`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics.
 
 ## Product goal
 
