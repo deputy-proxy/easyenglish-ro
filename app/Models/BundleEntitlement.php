@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,6 +28,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class BundleEntitlement extends Model
 {
+    public function setCustomerPhoneAttribute(string $value): void
+    {
+        $this->attributes['customer_phone'] = PhoneNumber::normalize($value);
+    }
+
     protected $fillable = ['bundle_definition_id', 'customer_name', 'customer_email', 'customer_phone', 'customer_email_verified_at', 'customer_phone_verified_at', 'status', 'paid_amount_ron', 'currency', 'paid_credits', 'free_credits_granted', 'credits_remaining', 'free_credits_remaining', 'activated_at', 'expires_at'];
 
     protected function casts(): array

@@ -7,6 +7,7 @@ use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -29,6 +30,7 @@ class BookingService
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy_version' => ['required', 'string', 'max:64'],
         ])->validate();
+        $customer['phone'] = PhoneNumber::normalize($customer['phone']);
 
         return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.

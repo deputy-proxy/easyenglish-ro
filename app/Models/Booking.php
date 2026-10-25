@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Booking extends Model
 {
+    public function setCustomerPhoneAttribute(string $value): void
+    {
+        $this->attributes['customer_phone'] = PhoneNumber::normalize($value);
+    }
+
     protected $fillable = [
         'public_reference', 'bundle_entitlement_id', 'free_session_claim_id', 'customer_name', 'customer_email',
         'customer_phone', 'english_level', 'session_goal', 'notes', 'accepted_policy_version', 'starts_at', 'ends_at',
