@@ -24,6 +24,7 @@ return [
     'values' => [
         'credit_restored' => 'Creditul sesiunii a fost restituit în pachet.',
         'credit_forfeited' => 'Creditul sesiunii a fost pierdut conform politicii de anulare.',
+        'free_offer_used' => 'Oferta introductivă gratuită unică a fost utilizată.',
         'succeeded' => 'Confirmată de Stripe',
         'failed' => 'Rambursarea nu a fost finalizată de Stripe; creditele rezervate au fost restituite, dacă era cazul.',
         'not_available' => 'Indisponibil',
@@ -78,7 +79,7 @@ return [
         'booking_no_show' => [
             'subject' => 'Actualizare despre sesiunea Easy English',
             'heading' => 'Sesiunea a fost înregistrată ca absență',
-            'intro' => 'Echipa Easy English a înregistrat absența de la sesiune. Creditul aplicabil a fost pierdut conform politicii acceptate. Contactează echipa dacă această înregistrare este incorectă.',
+            'intro' => 'Echipa Easy English a înregistrat absența de la sesiune. Situația creditului sau a ofertei gratuite unice este afișată mai jos. Contactează echipa dacă această înregistrare este incorectă.',
         ],
         'teacher_cancellation' => [
             'subject' => 'Actualizare despre programarea Easy English',
