@@ -118,7 +118,7 @@ The product model is agreed: one standalone free 15-minute introduction, plus pr
 - Add Filament management for availability rules, exceptions/blocked periods, bookings, and payment visibility where operationally useful.
 - Apply authorization and validate every state-changing action server-side.
 
-**Exit criteria:** staff can manage availability and inspect bookings; automated tests prove overlapping reservations cannot be created and hold expiry cannot silently conflict with a successful payment.
+**Exit criteria:** staff can manage availability and inspect bookings; automated tests prove overlapping reservations cannot be created and an expired slot hold cannot release a slot that has become confirmed.
 
 ### Phase 3 — Build the public booking journey
 
@@ -140,12 +140,12 @@ The product model is agreed: one standalone free 15-minute introduction, plus pr
 - Verify webhook signatures and handle relevant success, failure, expiry, refund, and reconciliation events.
 - Make webhook handling idempotent; repeated or out-of-order events must not create duplicate confirmations or invalid state transitions.
 - Confirm a booking only after the server receives and validates authoritative payment confirmation.
-- Reconcile the 5-minute application hold with Stripe Checkout's longer minimum session expiry; expire the Stripe session via API when needed and never release availability while payment state is ambiguous.
+- Keep bundle checkout/payment state separate from appointment-slot holds. Reconcile verified Stripe payment before activating bundle credits; release an expired slot hold only after checking the authoritative appointment state.
 - Handle abandoned checkout and pending-booking expiry, releasing availability safely.
 - Never trust the success URL, client-submitted amount, or browser state as payment proof.
 - Keep a clear audit trail for refunds and cancellation-related payment changes.
 
-**Exit criteria:** automated tests cover successful payment, failed/expired checkout, duplicate webhook delivery, invalid signatures, hold expiry races, refunds, and concurrent attempts to reserve overlapping time.
+**Exit criteria:** automated tests cover successful bundle payment, failed/expired checkout, duplicate webhook delivery, invalid signatures, entitlement activation races, refunds, and concurrent attempts to reserve overlapping time.
 
 ### Phase 5 — Confirmation and session delivery
 
