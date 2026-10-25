@@ -47,6 +47,7 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
     {
         return [
             'email_verified_at' => 'datetime',
+            'is_staff' => 'boolean',
             'password' => 'hashed',
         ];
     }

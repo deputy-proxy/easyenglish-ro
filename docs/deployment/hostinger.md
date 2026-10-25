@@ -139,10 +139,20 @@ The proposed 12-month session-goal/notes anonymization command is `php artisan b
 ## Security and access control
 
 - Keep `APP_DEBUG=false`, use HTTPS, and store all credentials in server-side environment configuration.
-- Do not expose public staff registration. Provision the first staff account through a controlled, documented process and remove temporary access after use.
+- Public account registration is disabled. Provision staff through the interactive `php artisan staff:provision EMAIL --name="Name"` command from a trusted shell; it prompts for a password without echoing it. Do not put passwords in command arguments, deployment scripts, or shell history. Restrict shell access and remove temporary operator access after provisioning.
 - Authentication alone is not staff authorization; administrative routes/actions must explicitly check the user's staff permission.
 - Restrict database and backup access to the smallest required set of accounts.
 - Use verified provider signatures for webhooks, not browser authentication. Rate-limit public endpoints and make webhook/job processing idempotent.
 - Keep production Stripe and WhatsApp secrets out of CI, source control, screenshots, and logs. Test with fakes/mocks or provider test mode.
 - Before launch, complete the security review, privacy/retention policy, Romanian tax/invoicing review, SMTP verification, WhatsApp setup/live tests, and the [launch checklist](../operations/launch-checklist.md) when available.
 See [the WhatsApp integration runbook](../integrations/whatsapp.md) before configuring Meta credentials. See the [staff runbook](../operations/staff-runbook.md) for routine operations and the [launch checklist](../operations/launch-checklist.md) for release gates. Keep `WHATSAPP_ENABLED=false` until approved templates, webhook signatures, opt-in/opt-out behavior, and live delivery are verified.
+
+## Security and access-control baseline
+
+- Set `APP_ENV=production` and `APP_DEBUG=false`; never expose `.env`, application logs, database files, backups, or source-control metadata from the web root. The document root must be Laravel's `public/` directory.
+- Keep `APP_KEY`, database credentials, Stripe secrets, SMTP credentials, Meta access token, Meta app secret, and webhook verification token in the Hostinger environment/secret store. Never put them in source, public assets, command arguments, screenshots, or logs. Rotate credentials if exposure is suspected.
+- Public account registration is disabled. Filament's `canAccessPanel` gate checks the explicit `is_staff` flag; authentication alone is not sufficient. Provision staff only through the controlled `php artisan staff:provision EMAIL --name="Name"` process from a trusted shell, with a unique password and MFA/passkey enrollment. No default staff credentials exist.
+- Public booking submission and checkout creation are throttled; availability, signed booking-management links, and provider webhook endpoints have explicit request limits. Stripe and WhatsApp webhooks bypass browser CSRF only at their respective endpoints and must validate provider signatures before trusting payloads. Do not remove signature verification to troubleshoot webhook delivery.
+- Laravel Blade output uses escaped interpolation for user-provided session goals and notes. Keep logs restricted and avoid logging message bodies, customer notes, contact details, access tokens, signatures, or raw provider payloads. Current webhook error logs record exception classes rather than raw request bodies.
+- Admin access and staff mutations are covered by feature tests; run `composer ci:check` after changes. Review new routes for authorization, validation, rate limiting, idempotency, and redacted failure reporting before merging.
+- Production security review still requires checking the actual Hostinger PHP/web-server settings, HTTPS/secure cookie behavior, file permissions, backup access, and secret configuration. Track evidence and unresolved risks in the [launch checklist](../operations/launch-checklist.md).

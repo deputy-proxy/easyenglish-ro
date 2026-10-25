@@ -4,7 +4,8 @@ This guide covers routine booking and payment operations in Filament. Use a prov
 
 ## Access and privacy
 
-- Sign in at `/admin` with your individually provisioned account. If access is denied, contact the designated administrator; do not share credentials or create a public account.
+- Sign in at `/admin` with your individually provisioned account. If access is denied, contact the designated administrator; do not share credentials or create a public account. Public registration is disabled.
+- An authorized operator provisions staff from the application root using `php artisan staff:provision staff@example.com --name="Staff Name"`. The command prompts for a password twice without echoing it, enforces a minimum length/complexity, verifies the email for staff login, and never prints or logs the password. Run it only from a trusted shell; protect shell history and terminal access. For an existing account, the command resets its password as part of staff provisioning.
 - Open only learner records needed for the task. Session goals and notes are personal data; do not copy them into external tickets or messages unless necessary and approved.
 - Never request or record payment card details, passwords, provider tokens, or other sensitive information in booking notes.
 - Staff changes to availability, booking state, credit balance, cancellations, no-shows, and refunds must use the relevant Filament actions and provide a reason when requested.
