@@ -5,6 +5,7 @@ namespace App\Filament\Resources\BundleEntitlements;
 use App\Filament\Resources\BundleEntitlements\Pages\ManageBundleEntitlements;
 use App\Models\BundleEntitlement;
 use App\Services\Booking\BundleEntitlementService;
+use App\Services\Payments\StripeRefundService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -47,6 +48,7 @@ class BundleEntitlementResource extends Resource
             Section::make('Credit ledger')->schema([
                 TextEntry::make('transactions_count')->state(fn (BundleEntitlement $record): int => $record->transactions()->count()),
                 TextEntry::make('payments_count')->state(fn (BundleEntitlement $record): int => $record->payments()->count()),
+                TextEntry::make('refunded_amount_ron')->label('Refunded amount (RON)')->state(fn (BundleEntitlement $record): int => (int) $record->payments()->sum('refunded_amount_ron')),
                 TextEntry::make('recent_credit_ledger')->label('Recent credit ledger')->state(fn (BundleEntitlement $record): string => $record->transactions()->latest()->limit(10)->get()->map(fn ($transaction): string => $transaction->created_at->format('Y-m-d H:i').' | '.$transaction->type.' '.$transaction->credit_type.' '.$transaction->quantity.' | balance '.$transaction->balance_after.' | '.($transaction->reason ?? 'No reason'))->implode("\n") ?: 'No ledger entries')->columnSpanFull(),
             ])->columns(2),
         ]);
@@ -66,6 +68,11 @@ class BundleEntitlementResource extends Resource
                 TextInput::make('reason')->label('Reason for audit log')->minLength(10)->maxLength(500)->required(),
             ])->requiresConfirmation()->action(function (BundleEntitlement $record, array $data): void {
                 app(BundleEntitlementService::class)->adjustPaidCredits($record->id, (int) $data['quantity'], (int) Auth::id(), $data['reason']);
+            }),
+            Action::make('refundUnusedPaidCredits')->label('Refund unused paid credits')->icon(Heroicon::OutlinedBanknotes)->color('danger')->visible(fn (BundleEntitlement $record): bool => $record->status === 'active' && $record->credits_remaining > 0)->schema([
+                TextInput::make('reason')->label('Refund reason for audit log')->minLength(10)->maxLength(500)->required(),
+            ])->requiresConfirmation()->modalDescription('Refunds the value of all currently unused paid credits. Those credits are reserved while Stripe confirms the refund and restored if Stripe rejects it.')->action(function (BundleEntitlement $record, array $data): void {
+                app(StripeRefundService::class)->refundUnusedPaidCredits($record, (int) Auth::id(), $data['reason']);
             }),
         ]);
     }

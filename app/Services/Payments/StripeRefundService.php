@@ -1,0 +1,306 @@
+<?php
+
+namespace App\Services\Payments;
+
+use App\Contracts\Payments\StripeGateway;
+use App\Models\Booking;
+use App\Models\BookingAudit;
+use App\Models\BundleEntitlement;
+use App\Models\CreditTransaction;
+use App\Models\FreeSessionClaim;
+use App\Models\Payment;
+use App\Models\PaymentRefund;
+use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
+
+class StripeRefundService
+{
+    public function __construct(private readonly StripeGateway $stripe) {}
+
+    public function refundUnusedPaidCredits(BundleEntitlement $entitlement, int $actorId, string $reason): PaymentRefund
+    {
+        $actor = User::query()->findOrFail($actorId);
+        if (! $actor->is_staff) {
+            throw new AuthorizationException('Only authorized staff can initiate bundle refunds.');
+        }
+
+        if (! is_string(config('services.stripe.secret')) || config('services.stripe.secret') === '') {
+            throw new RuntimeException('Stripe is not configured.');
+        }
+        if (mb_strlen(trim($reason)) < 10 || mb_strlen($reason) > 500) {
+            throw ValidationException::withMessages(['reason' => 'Provide a reason between 10 and 500 characters.']);
+        }
+
+        $refund = DB::transaction(function () use ($entitlement, $actorId, $reason): PaymentRefund {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $lockedEntitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($entitlement->id);
+            if ($lockedEntitlement->status !== 'active') {
+                throw ValidationException::withMessages(['refund' => 'Only active bundles can be refunded.']);
+            }
+            $payment = $lockedEntitlement->payments()->whereIn('status', ['succeeded'])->whereNotNull('provider_payment_id')->latest('id')->lockForUpdate()->first();
+            if (! $payment) {
+                throw ValidationException::withMessages(['refund' => 'No successfully paid Stripe payment is available to refund.']);
+            }
+
+            $existingPending = $payment->refunds()->where('status', 'pending')->latest('id')->first();
+            if ($existingPending) {
+                return $existingPending;
+            }
+            if ($lockedEntitlement->credits_remaining < 1) {
+                throw ValidationException::withMessages(['refund' => 'This bundle has no unused paid credits to refund.']);
+            }
+            if (Booking::query()->where('bundle_entitlement_id', $lockedEntitlement->id)->where('status', 'pending')->exists()) {
+                throw ValidationException::withMessages(['refund' => 'A pending booking hold must be resolved before refunding unused credits.']);
+            }
+
+            $credits = $lockedEntitlement->credits_remaining;
+            $amountRon = $credits * 39;
+            $pendingRefunds = (int) $payment->refunds()->whereIn('status', ['pending', 'processing'])->sum('amount_ron');
+            if ($payment->refunded_amount_ron + $pendingRefunds + $amountRon > $payment->amount_ron) {
+                throw ValidationException::withMessages(['refund' => 'The requested refund exceeds the remaining refundable payment amount. Reconcile existing refunds first.']);
+            }
+            $fullRefund = $payment->refunded_amount_ron + $amountRon >= $payment->amount_ron;
+            $freeCredits = $fullRefund ? $lockedEntitlement->free_credits_remaining : 0;
+            $attempt = $payment->refunds()->count() + 1;
+            $created = $payment->refunds()->create([
+                'amount_ron' => $amountRon,
+                'currency' => 'RON',
+                'credits_to_revoke' => $credits,
+                'free_credits_to_revoke' => $freeCredits,
+                'status' => 'pending',
+                'reason' => trim($reason),
+                'actor_id' => $actorId,
+                'idempotency_key' => 'unused-credits-refund:'.$payment->id.':'.$attempt,
+            ]);
+
+            $newPaidBalance = $lockedEntitlement->credits_remaining - $credits;
+            $newFreeBalance = $lockedEntitlement->free_credits_remaining - $freeCredits;
+            $lockedEntitlement->update(['credits_remaining' => $newPaidBalance, 'free_credits_remaining' => $newFreeBalance]);
+            CreditTransaction::query()->create([
+                'bundle_entitlement_id' => $lockedEntitlement->id,
+                'created_by' => $actorId,
+                'type' => 'refund_reserved',
+                'credit_type' => 'paid',
+                'quantity' => -$credits,
+                'balance_after' => $newPaidBalance,
+                'reason' => 'Paid credits reserved while Stripe refund is pending: '.trim($reason),
+                'idempotency_key' => 'refund-reserved-paid-credits:'.$created->id,
+            ]);
+            if ($freeCredits > 0) {
+                CreditTransaction::query()->create([
+                    'bundle_entitlement_id' => $lockedEntitlement->id,
+                    'created_by' => $actorId,
+                    'type' => 'refund_reserved',
+                    'credit_type' => 'free',
+                    'quantity' => -$freeCredits,
+                    'balance_after' => $newFreeBalance,
+                    'reason' => 'Included free credit reserved while full Stripe refund is pending.',
+                    'idempotency_key' => 'refund-reserved-free-credits:'.$created->id,
+                ]);
+            }
+
+            return $created;
+        }, attempts: 3);
+
+        $payment = $refund->payment()->firstOrFail();
+
+        return $this->submitOrRecoverRefund($refund, $payment);
+    }
+
+    public function retryPendingRefund(PaymentRefund $refund): void
+    {
+        $refund->loadMissing('payment');
+        if ($refund->status === 'pending') {
+            $this->submitOrRecoverRefund($refund, $refund->payment);
+        }
+    }
+
+    /** @param array<string, mixed> $providerRefund */
+    public function reconcileProviderRefund(array $providerRefund, string $eventId): void
+    {
+        $metadata = is_array($providerRefund['metadata'] ?? null) ? $providerRefund['metadata'] : [];
+        $refundId = is_string($providerRefund['id'] ?? null) ? $providerRefund['id'] : null;
+        $localId = filter_var($metadata['payment_refund_id'] ?? null, FILTER_VALIDATE_INT);
+        $refund = is_int($localId) && $localId > 0
+            ? PaymentRefund::query()->with('payment.entitlement')->find($localId)
+            : ($refundId ? PaymentRefund::query()->with('payment.entitlement')->where('provider_refund_id', $refundId)->first() : null);
+
+        if (! $refund) {
+            $paymentIntent = is_string($providerRefund['payment_intent'] ?? null) ? $providerRefund['payment_intent'] : null;
+            $payment = $paymentIntent ? Payment::query()->where('provider_payment_id', $paymentIntent)->first() : null;
+            if ($payment) {
+                BookingAudit::query()->create([
+                    'bundle_entitlement_id' => $payment->bundle_entitlement_id,
+                    'action' => 'payment.external_refund_detected',
+                    'metadata' => ['payment_id' => $payment->id, 'stripe_refund_id' => $refundId, 'stripe_event_id' => $eventId, 'provider_status' => $providerRefund['status'] ?? null],
+                ]);
+            }
+
+            return;
+        }
+
+        $payment = $refund->payment;
+        if ((int) ($providerRefund['amount'] ?? -1) !== $refund->amount_ron * 100
+            || strtolower((string) ($providerRefund['currency'] ?? '')) !== 'ron'
+            || (is_string($providerRefund['payment_intent'] ?? null) && $payment->provider_payment_id !== $providerRefund['payment_intent'])) {
+            throw new RuntimeException('Stripe refund details do not match the locally authorized refund.');
+        }
+
+        $status = (string) ($providerRefund['status'] ?? 'pending');
+        $normalizedStatus = match ($status) {
+            'succeeded' => 'succeeded',
+            'failed', 'canceled' => 'failed',
+            default => 'pending',
+        };
+        if (in_array($refund->status, ['succeeded', 'failed'], true) && $refund->status !== $normalizedStatus) {
+            return;
+        }
+        $refund->forceFill([
+            'provider_refund_id' => $refundId ?? $refund->provider_refund_id,
+            'provider_status' => $status,
+            'metadata' => ['stripe_event_id' => $eventId],
+        ])->save();
+
+        if ($normalizedStatus === 'succeeded') {
+            $this->applySuccessfulRefund($refund);
+        } elseif ($normalizedStatus === 'failed') {
+            $this->releaseReservedCredits($refund, $status, $eventId);
+        } else {
+            $refund->forceFill(['status' => 'pending'])->save();
+        }
+    }
+
+    private function submitOrRecoverRefund(PaymentRefund $refund, Payment $payment): PaymentRefund
+    {
+        if (is_string($refund->provider_refund_id) && $refund->provider_refund_id !== '') {
+            try {
+                $providerRefund = $this->stripe->retrieveRefund($refund->provider_refund_id);
+            } catch (\Throwable $exception) {
+                $refund->forceFill(['metadata' => ['last_error' => Str::limit($exception->getMessage(), 1000)]])->save();
+                throw new RuntimeException('The existing Stripe refund could not be reconciled. Reserved credits remain unavailable until provider status is known.', previous: $exception);
+            }
+            $this->reconcileProviderRefund($providerRefund, 'server-reconciliation');
+
+            return $refund->refresh();
+        }
+
+        try {
+            $providerRefund = $this->stripe->createRefund([
+                'payment_intent' => $payment->provider_payment_id,
+                'amount' => $refund->amount_ron * 100,
+                'reason' => 'requested_by_customer',
+                'metadata' => [
+                    'payment_refund_id' => (string) $refund->id,
+                    'payment_id' => (string) $payment->id,
+                    'entitlement_id' => (string) $payment->bundle_entitlement_id,
+                    'staff_actor_id' => (string) ($refund->actor_id ?? ''),
+                ],
+            ], $refund->idempotency_key);
+        } catch (\Throwable $exception) {
+            $refund->forceFill(['metadata' => ['last_error' => Str::limit($exception->getMessage(), 1000)]])->save();
+            throw new RuntimeException('Stripe refund status is uncertain. Credits remain reserved until a safe retry or reconciliation.', previous: $exception);
+        }
+
+        $this->reconcileProviderRefund($providerRefund, 'server-reconciliation');
+
+        return $refund->refresh();
+    }
+
+    private function applySuccessfulRefund(PaymentRefund $refund): void
+    {
+        DB::transaction(function () use ($refund): void {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $lockedRefund = PaymentRefund::query()->lockForUpdate()->findOrFail($refund->id);
+            if ($lockedRefund->status === 'succeeded') {
+                return;
+            }
+            $payment = Payment::query()->lockForUpdate()->findOrFail($lockedRefund->payment_id);
+            $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($payment->bundle_entitlement_id);
+            $paidReservation = CreditTransaction::query()->where('idempotency_key', 'refund-reserved-paid-credits:'.$lockedRefund->id)->first();
+            if (! $paidReservation) {
+                throw new RuntimeException('Refund credit reservation is missing; manual reconciliation is required.');
+            }
+
+            $newRefundTotal = $payment->refunded_amount_ron + $lockedRefund->amount_ron;
+            if ($newRefundTotal > $payment->amount_ron) {
+                throw new RuntimeException('The confirmed refund would exceed the original payment amount.');
+            }
+
+            $paidReservation->update(['type' => 'refunded', 'reason' => 'Unused paid credits refunded: '.$lockedRefund->reason]);
+            if ($lockedRefund->free_credits_to_revoke > 0) {
+                $freeReservation = CreditTransaction::query()->where('idempotency_key', 'refund-reserved-free-credits:'.$lockedRefund->id)->firstOrFail();
+                $freeReservation->update(['type' => 'revoked', 'reason' => 'Included free credit revoked after full bundle refund.']);
+                FreeSessionClaim::query()->where('bundle_entitlement_id', $entitlement->id)->where('status', 'bundle_credit_granted')->update(['status' => 'revoked']);
+            }
+
+            $payment->update([
+                'refunded_amount_ron' => $newRefundTotal,
+                'status' => $newRefundTotal >= $payment->amount_ron ? 'refunded' : $payment->status,
+            ]);
+            if ($payment->status === 'refunded' && $entitlement->credits_remaining === 0 && $entitlement->free_credits_remaining === 0) {
+                $entitlement->update(['status' => 'refunded']);
+            }
+
+            $lockedRefund->update(['status' => 'succeeded', 'confirmed_at' => now()]);
+            BookingAudit::query()->create([
+                'bundle_entitlement_id' => $entitlement->id,
+                'actor_id' => $lockedRefund->actor_id,
+                'action' => 'payment.refund_succeeded',
+                'reason' => $lockedRefund->reason,
+                'metadata' => ['payment_id' => $payment->id, 'refund_id' => $lockedRefund->id, 'amount_ron' => $lockedRefund->amount_ron, 'credits_revoked' => $lockedRefund->credits_to_revoke, 'free_credits_revoked' => $lockedRefund->free_credits_to_revoke, 'refunded_total_ron' => $newRefundTotal],
+            ]);
+        }, attempts: 3);
+    }
+
+    private function releaseReservedCredits(PaymentRefund $refund, string $providerStatus, string $eventId): void
+    {
+        DB::transaction(function () use ($refund, $providerStatus, $eventId): void {
+            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $lockedRefund = PaymentRefund::query()->lockForUpdate()->findOrFail($refund->id);
+            if ($lockedRefund->status === 'failed') {
+                return;
+            }
+            $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($lockedRefund->payment->bundle_entitlement_id);
+            $paidBalance = $entitlement->credits_remaining + $lockedRefund->credits_to_revoke;
+            $freeBalance = $entitlement->free_credits_remaining + $lockedRefund->free_credits_to_revoke;
+            $entitlement->update(['credits_remaining' => $paidBalance, 'free_credits_remaining' => $freeBalance]);
+
+            CreditTransaction::query()->create([
+                'bundle_entitlement_id' => $entitlement->id,
+                'created_by' => $lockedRefund->actor_id,
+                'type' => 'refund_released',
+                'credit_type' => 'paid',
+                'quantity' => $lockedRefund->credits_to_revoke,
+                'balance_after' => $paidBalance,
+                'reason' => 'Stripe refund failed; reserved credits restored.',
+                'idempotency_key' => 'refund-release-paid-credits:'.$lockedRefund->id,
+            ]);
+            if ($lockedRefund->free_credits_to_revoke > 0) {
+                CreditTransaction::query()->create([
+                    'bundle_entitlement_id' => $entitlement->id,
+                    'created_by' => $lockedRefund->actor_id,
+                    'type' => 'refund_released',
+                    'credit_type' => 'free',
+                    'quantity' => $lockedRefund->free_credits_to_revoke,
+                    'balance_after' => $freeBalance,
+                    'reason' => 'Stripe refund failed; reserved free credit restored.',
+                    'idempotency_key' => 'refund-release-free-credits:'.$lockedRefund->id,
+                ]);
+            }
+            CreditTransaction::query()->where('idempotency_key', 'refund-reserved-paid-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
+            CreditTransaction::query()->where('idempotency_key', 'refund-reserved-free-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
+            $lockedRefund->update(['status' => 'failed', 'provider_status' => $providerStatus]);
+            BookingAudit::query()->create([
+                'bundle_entitlement_id' => $entitlement->id,
+                'actor_id' => $lockedRefund->actor_id,
+                'action' => 'payment.refund_failed',
+                'reason' => $lockedRefund->reason,
+                'metadata' => ['payment_id' => $lockedRefund->payment_id, 'refund_id' => $lockedRefund->id, 'provider_status' => $providerStatus, 'stripe_event_id' => $eventId, 'credits_restored' => $lockedRefund->credits_to_revoke],
+            ]);
+        }, attempts: 3);
+    }
+}

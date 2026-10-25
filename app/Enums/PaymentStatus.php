@@ -15,7 +15,8 @@ enum PaymentStatus: string
         return match ($this) {
             self::Pending => in_array($next, [self::Succeeded, self::Failed, self::Expired], true),
             self::Succeeded => $next === self::Refunded,
-            self::Failed, self::Expired, self::Refunded => false,
+            self::Failed, self::Expired => $next === self::Succeeded,
+            self::Refunded => false,
         };
     }
 }

@@ -67,7 +67,7 @@ MAIL_FROM_NAME="Easy English"
 
 Replace every example value before deployment. Generate a unique key with `php artisan key:generate --show` and set the result as `APP_KEY`; do not rotate an existing production key casually because encrypted application data and sessions may become unreadable. Use the actual MySQL credentials and SMTP details supplied by the hosting/provider. Configure and verify SPF, DKIM, and DMARC for the sender domain.
 
-The repository does not yet consume Stripe or WhatsApp credentials in this foundation phase. Add the documented environment variables with their integration issues; do not invent credentials or enable live delivery before the integrations are implemented and tested. CI must use fakes/test mode and must not need production credentials. WhatsApp production messaging remains disabled until the account, credentials, templates/consent, and live delivery tests have been completed collaboratively.
+Stripe Checkout uses server-side `STRIPE_KEY`, `STRIPE_SECRET`, and `STRIPE_WEBHOOK_SECRET`; configure them only after the webhook endpoint has been created in the matching Stripe account/mode. Follow [the Stripe integration runbook](../integrations/stripe.md) to configure required events and validate test-mode checkout, webhook delivery, and reconciliation before enabling live payments. Checkout remains disabled until `STRIPE_CHECKOUT_ENABLED=true`, the secret and webhook signing secret are configured, contact details are final, and legal/privacy review is complete. WhatsApp production messaging remains disabled until its account, credentials, templates/consent, and live delivery tests have been completed.
 
 ## Deployment procedure
 
@@ -124,6 +124,9 @@ Check `php artisan schedule:list` after deploying scheduled tasks. Confirm cron 
 | Jobs remain queued | Verify `QUEUE_CONNECTION=database`, queue table migrations, cron worker cadence, worker output, and `php artisan queue:failed`. |
 | Email delivery failure | Verify SMTP host/port/TLS, sender identity, provider limits, SPF/DKIM/DMARC, and redacted transport errors. |
 | Payment/notification state is unclear | Do not infer payment success from a browser redirect or notification result. Reconcile against the authoritative provider event and database state; record the investigation. |
+| Stripe Checkout does not open | Verify `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET`, the active bundle, HTTPS `APP_URL`, and redacted Laravel logs. See [Stripe integration troubleshooting](../integrations/stripe.md). |
+| Stripe webhook deliveries fail | Verify the endpoint URL, Stripe mode, signing secret, server clock, raw-body signature validation, and `stripe_webhook_events`; check Stripe delivery logs and application logs. |
+| Payment or refund remains pending | Confirm the scheduled task runs, inspect the provider's current status, and run `php artisan stripe:reconcile` manually if authorized. Do not edit balances or create a second refund while status is ambiguous. |
 
 ## Security and access control
 
