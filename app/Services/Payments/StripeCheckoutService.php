@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\BookingAudit;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\ContactVerificationChallenge;
 use App\Models\Payment;
 use App\Services\Booking\PaymentStateService;
 use App\Support\PhoneNumber;
@@ -23,7 +24,7 @@ class StripeCheckoutService
     ) {}
 
     /** @param array{name:string,email:string,phone:string} $customer */
-    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale): Payment
+    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null): Payment
     {
         if (! $bundle->is_active) {
             throw ValidationException::withMessages(['bundle' => 'This bundle is not available for purchase.']);
@@ -40,6 +41,10 @@ class StripeCheckoutService
         $customer['name'] = trim($customer['name']);
         $customer['email'] = mb_strtolower(trim($customer['email']));
         $customer['phone'] = PhoneNumber::normalize($customer['phone']);
+        if ($verification !== null && (! $verification->isUsable() || ! $verification->isComplete()
+            || $verification->customer_email !== $customer['email'] || $verification->customer_phone !== $customer['phone'])) {
+            throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
+        }
 
         $entitlement = BundleEntitlement::query()->where('checkout_request_key', $requestKey)->first();
         if (! $entitlement) {
@@ -51,6 +56,8 @@ class StripeCheckoutService
                     'customer_name' => $customer['name'],
                     'customer_email' => $customer['email'],
                     'customer_phone' => $customer['phone'],
+                    'customer_email_verified_at' => $verification?->email_verified_at,
+                    'customer_phone_verified_at' => $verification?->phone_verified_at,
                     'status' => 'pending_payment',
                     'paid_amount_ron' => $bundle->price_ron,
                     'currency' => 'RON',
@@ -67,6 +74,13 @@ class StripeCheckoutService
             || PhoneNumber::normalize($entitlement->customer_phone) !== $customer['phone']
             || $entitlement->customer_name !== $customer['name']) {
             throw ValidationException::withMessages(['purchase_token' => 'This purchase form has already been used with different customer details. Refresh the page to start a separate purchase.']);
+        }
+
+        if ($verification !== null) {
+            $entitlement->forceFill([
+                'customer_email_verified_at' => $verification->email_verified_at,
+                'customer_phone_verified_at' => $verification->phone_verified_at,
+            ])->save();
         }
 
         if ($entitlement->status === 'active') {

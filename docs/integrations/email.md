@@ -19,7 +19,7 @@ MAIL_FROM_NAME="Easy English"
 QUEUE_CONNECTION=database
 ```
 
-Use the host/port/encryption combination documented by the existing SMTP provider. Port 587 commonly uses STARTTLS; port 465 commonly uses implicit TLS. Do not guess if the provider specifies otherwise. Use a verified sender address on a domain you control. `MAIL_MAILER=log` is suitable for local development; CI uses Laravel's mail fake and does not require an SMTP account.
+Use the host/port/encryption combination documented by the existing SMTP provider. Port 587 commonly uses STARTTLS; port 465 commonly uses implicit TLS. Do not guess if the provider specifies otherwise. Use a verified sender address on a domain you control. `MAIL_MAILER=log` is suitable for local development for ordinary transactional templates, but must never be used for contact verification because it would expose the single-use verification link in application logs. The `array` transport also silently discards it, and failover chains containing either transport are rejected. Contact verification fails closed when a non-delivering mailer is selected outside tests; CI uses fakes and does not require an SMTP account. See [contact verification](verification.md).
 
 ## Messages and language
 

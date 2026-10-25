@@ -5,11 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\ContactVerificationChallenge;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
+use App\Services\Booking\BundleEntitlementService;
 use App\Services\Booking\CancellationPolicyService;
 use App\Services\Payments\StripeCheckoutService;
+use App\Services\Verification\ContactVerificationService;
+use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Http\JsonResponse;
@@ -103,12 +107,29 @@ class PublicSiteController extends Controller
             $weekStart = $selectedSlot
                 ? CarbonImmutable::parse($selectedSlot)->setTimezone(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY)
                 : CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY);
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             $weekStart = CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY);
+        }
+
+        $verificationId = $request->query('verification_id', $request->session()->get('contact_verification_id'));
+        $verification = is_string($verificationId) ? ContactVerificationChallenge::query()->whereKey($verificationId)->first() : null;
+        $oldEmail = $request->old('email');
+        if ($verification && (! $verification->isUsable() || $verification->customer_email !== mb_strtolower(is_string($oldEmail) ? $oldEmail : $verification->customer_email))) {
+            $verification = null;
+        }
+        if ($verification) {
+            $request->session()->put('contact_verification_id', $verification->id);
+            $savedForm = $request->session()->get('contact_verification_form_data');
+            if ($verification->return_to === 'booking' && is_array($savedForm)
+                && is_string($savedForm['email'] ?? null) && mb_strtolower($savedForm['email']) === $verification->customer_email
+                && is_string($savedForm['phone'] ?? null) && PhoneNumber::normalize($savedForm['phone']) === $verification->customer_phone) {
+                $request->session()->flash('_old_input', $savedForm);
+            }
         }
 
         return view('public.booking', [
             'type' => $type,
+            'verification' => $type === 'intro' ? $verification : null,
             'entitlement' => $entitlement,
             'weekStart' => $weekStart,
             'policyVersion' => config('easyenglish.policy_version'),
@@ -116,6 +137,58 @@ class PublicSiteController extends Controller
                 ? URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30))
                 : route('booking.submit'),
         ]);
+    }
+
+    public function startContactVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:254'],
+            'phone' => ['required', 'string', 'max:32', 'regex:/^\\+?[0-9\\s().-]{7,32}$/'],
+            'whatsapp_service_consent' => ['accepted'],
+            'return_to' => ['required', 'in:booking,purchase'],
+            'bundle_id' => ['nullable', 'integer', 'required_if:return_to,purchase'],
+        ]);
+        $digits = preg_replace('/\D+/', '', $validated['phone']) ?? '';
+        if (strlen($digits) < 7 || strlen($digits) > 15) {
+            throw ValidationException::withMessages(['phone' => __('public.phone_invalid')]);
+        }
+        $bundleId = null;
+        if ($validated['return_to'] === 'purchase') {
+            $bundle = BundleDefinition::query()->where('is_active', true)->findOrFail((int) $validated['bundle_id']);
+            $bundleId = $bundle->id;
+        }
+        try {
+            WhatsAppContact::recordConsent($validated['phone'], 'contact_verification');
+            $challenge = $verificationService->start($validated['email'], $validated['phone'], app()->getLocale(), $validated['return_to'], $bundleId);
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            Log::warning('Contact verification delivery could not be started.', ['exception' => $exception::class]);
+
+            return back()->withInput()->withErrors(['verification' => __('public.verification_delivery_failed')]);
+        }
+        $request->session()->put('contact_verification_id', $challenge->id);
+        $request->session()->put('contact_verification_form_data', $request->only([
+            'name', 'email', 'phone', 'english_level', 'session_goal', 'notes', 'starts_at',
+            'accepted_policy', 'whatsapp_service_consent', 'purchase_token', 'type', 'bundle_id', 'return_to',
+        ]));
+
+        return back()->withInput()->with('status', __('public.verification_sent'));
+    }
+
+    public function confirmPhoneVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'verification_id' => ['required', 'uuid'],
+            'phone_code' => ['required', 'digits:6'],
+        ]);
+        $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
+        abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
+        $verificationService->confirmPhone($challenge->id, $validated['phone_code']);
+
+        return back()->withInput()->with('status', __('public.verification_phone_success'));
     }
 
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
@@ -138,6 +211,7 @@ class PublicSiteController extends Controller
             'accepted_policy' => ['accepted'],
             'whatsapp_service_consent' => ['accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
+            'verification_id' => ['nullable', 'uuid'],
         ]);
 
         if ($validated['type'] === 'bundle') {
@@ -147,14 +221,23 @@ class PublicSiteController extends Controller
         $startsAt = CarbonImmutable::parse($validated['starts_at'])->setTimezone(AvailabilityService::TIMEZONE);
         $availability->assertBookable($startsAt);
 
+        $verificationChallenge = null;
         if ($validated['type'] === 'intro') {
-            // Do not bypass verified-email-and-phone checks while delivery is still a launch dependency.
-            throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
+            $challengeId = $validated['verification_id'] ?? $request->session()->get('contact_verification_id');
+            $verificationChallenge = is_string($challengeId) ? ContactVerificationChallenge::query()->find($challengeId) : null;
+            if (! $verificationChallenge || ! $verificationChallenge->isUsable() || ! $verificationChallenge->isComplete()
+                || $verificationChallenge->customer_email !== mb_strtolower(trim($validated['email']))
+                || $verificationChallenge->customer_phone !== PhoneNumber::normalize($validated['phone'])) {
+                throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
+            }
         }
 
-        $entitlement = BundleEntitlement::query()->with('definition')->findOrFail((int) $validated['entitlement']);
-        if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($startsAt->utc())) {
-            throw ValidationException::withMessages(['entitlement' => __('public.no_bundle_credits')]);
+        $entitlement = null;
+        if ($validated['type'] === 'bundle') {
+            $entitlement = BundleEntitlement::query()->with('definition')->findOrFail((int) $validated['entitlement']);
+            if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($startsAt->utc())) {
+                throw ValidationException::withMessages(['entitlement' => __('public.no_bundle_credits')]);
+            }
         }
 
         WhatsAppContact::recordConsent($validated['phone'], 'booking_form');
@@ -167,10 +250,43 @@ class PublicSiteController extends Controller
             'notes' => $validated['notes'] ?? null,
             'accepted_policy_version' => config('easyenglish.policy_version'),
             'locale' => app()->getLocale(),
-        ], $startsAt, $entitlement->id);
+        ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', $verificationChallenge?->email_verified_at !== null, $verificationChallenge?->phone_verified_at !== null);
         $bookings->confirm($booking->id);
+        if ($verificationChallenge) {
+            $verificationChallenge->update(['consumed_at' => now()]);
+            $request->session()->forget(['contact_verification_id', 'contact_verification_form_data']);
+        }
 
         return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null));
+    }
+
+    public function confirmEmailVerification(Request $request, string $challenge, string $token, ContactVerificationService $verificationService): RedirectResponse
+    {
+        $this->applyLocale($request);
+        if (! $request->hasValidSignature()) {
+            return redirect()->route('booking.create', ['type' => 'intro'])
+                ->withErrors(['verification' => __('public.verification_email_invalid')]);
+        }
+        $verified = $verificationService->confirmEmail($challenge, $token);
+        $request->session()->put('locale', $verified->locale);
+        app()->setLocale($verified->locale);
+        $request->session()->put('contact_verification_id', $verified->id);
+        if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
+            $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
+            if ($bundle) {
+                return redirect()->route('purchase', ['bundle' => $bundle, 'verification_id' => $verified->id])
+                    ->with('status', __('public.verification_email_success'));
+            }
+        }
+
+        $savedForm = $request->session()->get('contact_verification_form_data', []);
+        $slot = is_array($savedForm) && is_string($savedForm['starts_at'] ?? null) ? $savedForm['starts_at'] : null;
+
+        return redirect()->route('booking.create', array_filter([
+            'type' => 'intro',
+            'verification_id' => $verified->id,
+            'slot' => $verified->return_to === 'booking' ? $slot : null,
+        ]))->with('status', __('public.verification_email_success'));
     }
 
     public function confirmed(Request $request, string $reference): View
@@ -268,10 +384,29 @@ class PublicSiteController extends Controller
             }
         }
 
-        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token]);
+        $verificationId = $request->query('verification_id', $request->session()->get('contact_verification_id'));
+        $verification = is_string($verificationId) ? ContactVerificationChallenge::query()->whereKey($verificationId)->first() : null;
+        $oldEmail = $request->old('email');
+        $oldPhone = $request->old('phone');
+        if ($verification && (! $verification->isUsable()
+            || $verification->customer_email !== mb_strtolower(is_string($oldEmail) ? $oldEmail : $verification->customer_email)
+            || $verification->customer_phone !== PhoneNumber::normalize(is_string($oldPhone) ? $oldPhone : $verification->customer_phone))) {
+            $verification = null;
+        }
+        if ($verification) {
+            $request->session()->put('contact_verification_id', $verification->id);
+            $savedForm = $request->session()->get('contact_verification_form_data');
+            if ($verification->return_to === 'purchase' && $verification->return_bundle_id === $bundle->id && is_array($savedForm)
+                && is_string($savedForm['email'] ?? null) && mb_strtolower($savedForm['email']) === $verification->customer_email
+                && is_string($savedForm['phone'] ?? null) && PhoneNumber::normalize($savedForm['phone']) === $verification->customer_phone) {
+                $request->session()->flash('_old_input', $savedForm);
+            }
+        }
+
+        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification]);
     }
 
-    public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
+    public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout, BundleEntitlementService $entitlements): RedirectResponse
     {
         $this->applyLocale($request);
         abort_unless($bundle->is_active, 404);
@@ -286,6 +421,7 @@ class PublicSiteController extends Controller
                 }
             }],
             'whatsapp_service_consent' => ['accepted'],
+            'verification_id' => ['nullable', 'uuid'],
         ]);
         $expectedToken = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
         abort_unless(is_string($expectedToken) && hash_equals($expectedToken, $validated['purchase_token']), 403);
@@ -296,11 +432,25 @@ class PublicSiteController extends Controller
             return back()->withInput()->withErrors(['checkout' => __('public.checkout_unavailable_text')]);
         }
 
+        $verificationChallenge = null;
+        $verificationId = $validated['verification_id'] ?? $request->session()->get('contact_verification_id');
+        if (is_string($verificationId)) {
+            $candidate = ContactVerificationChallenge::query()->find($verificationId);
+            if ($candidate && $candidate->isUsable() && $candidate->isComplete()
+                && $candidate->customer_email === mb_strtolower(trim($validated['email']))
+                && $candidate->customer_phone === PhoneNumber::normalize($validated['phone'])) {
+                $verificationChallenge = $candidate;
+            }
+        }
+
         try {
             WhatsAppContact::recordConsent($validated['phone'], 'bundle_checkout');
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], app()->getLocale());
+            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge);
+            if ($verificationChallenge !== null && $payment->status === 'succeeded') {
+                $entitlements->grantIncludedFreeCreditIfEligible($payment->bundle_entitlement_id);
+            }
         } catch (\Throwable $exception) {
             Log::warning('Stripe Checkout could not be started.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
 
@@ -308,9 +458,13 @@ class PublicSiteController extends Controller
         }
 
         if ($payment->status === 'succeeded' && $payment->provider_checkout_id) {
+            $request->session()->forget('contact_verification_form_data');
+
             return redirect()->route('purchase.success', ['session_id' => $payment->provider_checkout_id]);
         }
         if ($payment->checkout_url === null && is_string($payment->provider_checkout_id)) {
+            $request->session()->forget('contact_verification_form_data');
+
             return redirect()->route('purchase.success', ['session_id' => $payment->provider_checkout_id]);
         }
         if (! is_string($payment->checkout_url) || $payment->checkout_url === '') {
@@ -323,6 +477,8 @@ class PublicSiteController extends Controller
 
             return back()->withInput()->withErrors(['checkout' => __('public.checkout_error')]);
         }
+
+        $request->session()->forget('contact_verification_form_data');
 
         return redirect()->away((string) $payment->checkout_url);
     }
