@@ -21,7 +21,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $hold_expires_at
  * @property CarbonImmutable|null $confirmed_at
  * @property CarbonImmutable|null $cancelled_at
- * @property CarbonImmutable|null $expired_at\n * @property int $reschedule_count\n * @property CarbonImmutable|null $rescheduled_at\n * @property CarbonImmutable|null $no_show_at\n * @property string|null $cancellation_reason\n * @property string|null $cancelled_by\n * @property string|null $no_show_reason
+ * @property CarbonImmutable|null $expired_at
+ * @property int $reschedule_count
+ * @property CarbonImmutable|null $rescheduled_at
+ * @property CarbonImmutable|null $no_show_at
+ * @property string|null $cancellation_reason
+ * @property string|null $cancelled_by
+ * @property string|null $no_show_reason
  * @property BundleEntitlement|null $entitlement
  * @property FreeSessionClaim|null $freeSessionClaim
  */
