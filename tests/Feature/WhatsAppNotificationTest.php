@@ -133,6 +133,36 @@ test('Meta Cloud API gateway sends a template request with bearer token and neve
         && $request['biz_opaque_callback_data'] === 'delivery-12');
 });
 
+test('Meta Cloud API rejection exposes safe provider error details for diagnostics', function () {
+    enableWhatsAppForTests();
+    Http::fake(['graph.facebook.com/*' => Http::response([
+        'error' => [
+            'message' => 'Template name does not exist in the translation.',
+            'type' => 'OAuthException',
+            'code' => 132001,
+            'fbtrace_id' => 'must-not-be-included',
+        ],
+    ], 400)]);
+
+    try {
+        (new MetaWhatsAppCloudApiGateway)->sendTemplate(
+            '+40722123456',
+            'english_contact_verification',
+            'en_US',
+            [['type' => 'body', 'parameters' => [['type' => 'text', 'text' => '123456']]]],
+            'contact-verification:test',
+        );
+        test()->fail('Expected the Meta API rejection to throw.');
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())
+            ->toContain('HTTP 400')
+            ->toContain('132001')
+            ->toContain('OAuthException')
+            ->toContain('Template name does not exist in the translation.')
+            ->not->toContain('must-not-be-included');
+    }
+});
+
 test('WhatsApp provider failures are retried with a redacted error on the same outbox record', function () {
     enableWhatsAppForTests();
     $booking = makeWhatsAppBooking();
