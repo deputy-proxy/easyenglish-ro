@@ -7,12 +7,15 @@ use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
+use App\Services\Payments\StripeCheckoutService;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -178,8 +181,123 @@ class PublicSiteController extends Controller
     {
         $this->applyLocale($request);
         abort_unless($bundle->is_active, 404);
+        $checkoutReady = (bool) config('services.stripe.checkout_enabled')
+            && is_string(config('services.stripe.secret')) && config('services.stripe.secret') !== ''
+            && is_string(config('services.stripe.webhook_secret')) && config('services.stripe.webhook_secret') !== '';
+        $token = null;
+        if ($checkoutReady) {
+            $sessionKey = 'bundle_checkout_tokens.'.$bundle->id;
+            $token = $request->session()->get($sessionKey);
+            if (! is_string($token) || ! preg_match('/^[A-Za-z0-9]{40,80}$/', $token)) {
+                $token = Str::random(48);
+                $request->session()->put($sessionKey, $token);
+            }
+        }
 
-        return view('public.purchase', ['bundle' => $bundle]);
+        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token]);
+    }
+
+    public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
+    {
+        $this->applyLocale($request);
+        abort_unless($bundle->is_active, 404);
+        $validated = $request->validate([
+            'purchase_token' => ['required', 'string', 'min:40', 'max:80', 'regex:/^[A-Za-z0-9]+$/'],
+            'name' => ['required', 'string', 'max:160'],
+            'email' => ['required', 'email', 'max:254'],
+            'phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9\s().-]{7,32}$/', function (string $attribute, mixed $value, Closure $fail): void {
+                $digits = preg_replace('/\D+/', '', (string) $value) ?? '';
+                if (strlen($digits) < 7 || strlen($digits) > 15) {
+                    $fail(__('public.phone_invalid'));
+                }
+            }],
+        ]);
+        $expectedToken = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
+        abort_unless(is_string($expectedToken) && hash_equals($expectedToken, $validated['purchase_token']), 403);
+
+        if (! (bool) config('services.stripe.checkout_enabled')
+            || ! is_string(config('services.stripe.secret')) || config('services.stripe.secret') === ''
+            || ! is_string(config('services.stripe.webhook_secret')) || config('services.stripe.webhook_secret') === '') {
+            return back()->withInput()->withErrors(['checkout' => __('public.checkout_unavailable_text')]);
+        }
+
+        try {
+            $payment = $checkout->start($bundle, [
+                'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
+            ], $validated['purchase_token'], app()->getLocale());
+        } catch (\Throwable $exception) {
+            Log::warning('Stripe Checkout could not be started.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
+
+            return back()->withInput()->withErrors(['checkout' => __('public.checkout_error')]);
+        }
+
+        if ($payment->status === 'succeeded' && $payment->provider_checkout_id) {
+            return redirect()->route('purchase.success', ['session_id' => $payment->provider_checkout_id]);
+        }
+        if ($payment->checkout_url === null && is_string($payment->provider_checkout_id)) {
+            return redirect()->route('purchase.success', ['session_id' => $payment->provider_checkout_id]);
+        }
+        if (! is_string($payment->checkout_url) || $payment->checkout_url === '') {
+            return back()->withInput()->withErrors(['checkout' => __('public.checkout_pending')]);
+        }
+
+        $host = parse_url($payment->checkout_url, PHP_URL_HOST);
+        if (parse_url((string) $payment->checkout_url, PHP_URL_SCHEME) !== 'https' || $host !== 'checkout.stripe.com') {
+            Log::error('Stripe returned an unexpected Checkout URL.', ['payment_id' => $payment->id]);
+
+            return back()->withInput()->withErrors(['checkout' => __('public.checkout_error')]);
+        }
+
+        return redirect()->away((string) $payment->checkout_url);
+    }
+
+    public function purchaseSuccess(Request $request, StripeCheckoutService $checkout): View
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate(['session_id' => ['required', 'string', 'max:255', 'regex:/^cs_[A-Za-z0-9_]+$/']]);
+        $payment = null;
+        try {
+            $payment = $checkout->reconcileSessionById($validated['session_id']);
+        } catch (\Throwable $exception) {
+            Log::notice('Stripe return page could not reconcile checkout yet.', ['session_hash' => substr(hash('sha256', $validated['session_id']), 0, 16), 'exception' => $exception::class]);
+        }
+
+        $entitlement = $payment?->entitlement()->with('definition')->first();
+        $bookingUrl = null;
+        if ($payment?->status === 'succeeded' && $entitlement?->status === 'active'
+            && $entitlement->expires_at?->isFuture()
+            && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0) {
+            $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7), false);
+        }
+
+        return view('public.purchase-result', [
+            'payment' => $payment,
+            'entitlement' => $entitlement,
+            'bookingUrl' => $bookingUrl,
+            'sessionId' => $validated['session_id'],
+        ]);
+    }
+
+    public function purchaseCancel(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'token' => ['required', 'string', 'min:40', 'max:80', 'regex:/^[A-Za-z0-9]+$/'],
+            'session_id' => ['nullable', 'string', 'max:255', 'regex:/^cs_[A-Za-z0-9_]+$/'],
+        ]);
+        try {
+            $payment = $checkout->cancelSession($bundle->id, $validated['token'], $validated['session_id'] ?? null);
+        } catch (\Throwable $exception) {
+            Log::notice('Stripe checkout cancellation requires reconciliation.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
+
+            return redirect()->route('purchase', $bundle)->withErrors(['checkout' => __('public.checkout_cancel_error')]);
+        }
+
+        if (in_array($payment?->status, ['succeeded', 'pending'], true) && is_string($payment->provider_checkout_id)) {
+            return redirect()->route('purchase.success', ['session_id' => $payment->provider_checkout_id]);
+        }
+
+        return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
     public function policy(Request $request, string $page): View
