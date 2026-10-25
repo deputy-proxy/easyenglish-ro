@@ -31,4 +31,4 @@ The booking form links to public privacy and cancellation pages and displays the
 
 ## Dependencies / launch gates
 
-Stripe checkout is implemented by the Stripe integration issue. Email and WhatsApp verification/delivery are implemented by the notification and WhatsApp integration issues. The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms.
+Stripe Checkout and the transactional email outbox/templates are implemented by their dedicated issues. Live SMTP/domain authentication must be configured, while email/phone contact verification and WhatsApp delivery remain explicit launch gates. The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms.

@@ -47,6 +47,7 @@ class StripeCheckoutService
                 ['checkout_request_key' => $requestKey],
                 [
                     'bundle_definition_id' => $bundle->id,
+                    'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
                     'customer_name' => $customer['name'],
                     'customer_email' => $customer['email'],
                     'customer_phone' => $customer['phone'],

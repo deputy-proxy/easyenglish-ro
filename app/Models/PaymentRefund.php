@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** @property int $id @property int $payment_id @property int $amount_ron @property int $credits_to_revoke @property string $status @property string $reason @property CarbonImmutable|null $confirmed_at */
 class PaymentRefund extends Model
@@ -26,5 +27,11 @@ class PaymentRefund extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');
+    }
+
+    /** @return HasMany<NotificationDelivery, $this> */
+    public function notificationDeliveries(): HasMany
+    {
+        return $this->hasMany(NotificationDelivery::class);
     }
 }

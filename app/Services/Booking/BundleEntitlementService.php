@@ -2,10 +2,12 @@
 
 namespace App\Services\Booking;
 
+use App\Enums\NotificationEvent;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Services\Notifications\NotificationOutboxService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,6 +15,8 @@ use Illuminate\Validation\ValidationException;
 
 class BundleEntitlementService
 {
+    public function __construct(private readonly NotificationOutboxService $notifications) {}
+
     /** Call only after a trusted payment-provider confirmation has been verified. */
     public function activateAfterVerifiedPayment(int $entitlementId): BundleEntitlement
     {
@@ -78,6 +82,7 @@ class BundleEntitlementService
                 'action' => 'bundle.activated',
                 'metadata' => ['expires_at' => $expiresAt->utc()->toIso8601String(), 'free_credits_granted' => $freeCredits],
             ]);
+            $this->notifications->enqueueEntitlementEvent($entitlement->refresh(), NotificationEvent::BundlePurchaseConfirmed);
 
             return $entitlement->refresh();
         }, attempts: 3);
