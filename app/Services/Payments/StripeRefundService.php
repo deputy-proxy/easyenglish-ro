@@ -337,7 +337,11 @@ class StripeRefundService
                 'status' => $newRefundTotal >= $payment->amount_ron ? 'refunded' : $payment->status,
             ]);
             if ($payment->status === 'refunded' && $entitlement->credits_remaining === 0 && $entitlement->free_credits_remaining === 0
-                && ! $entitlement->bookings()->where(function ($query): void {\n                    $query->whereIn('status', ['refund_pending', 'pending'])->orWhere(function ($query): void {\n                        $query->where('status', 'confirmed')->where('starts_at', '>', now());\n                    });\n                })->exists()) {
+                && ! $entitlement->bookings()->where(function ($query): void {
+                    $query->whereIn('status', ['refund_pending', 'pending'])->orWhere(function ($query): void {
+                        $query->where('status', 'confirmed')->where('starts_at', '>', now());
+                    });
+                })->exists()) {
                 $entitlement->update(['status' => 'refunded']);
             }
 
