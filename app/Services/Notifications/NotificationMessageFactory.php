@@ -90,7 +90,8 @@ class NotificationMessageFactory
             if ($event === NotificationEvent::BookingRescheduled && isset($metadata['previous_starts_at'])) {
                 $details[] = $this->detail($locale, 'previous_appointment_date', $this->date(Carbon::parse((string) $metadata['previous_starts_at']), $locale));
             }
-            if ($event === NotificationEvent::BookingNoShow && ($metadata['credit_forfeited'] ?? false)) {\n                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_forfeited'));\n            }\n            if ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_refunded']) && $metadata['credit_refunded']) {\n                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_refunded'));\n            } elseif ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_restored'])) {
+            if ($event === NotificationEvent::BookingNoShow && ($metadata['credit_forfeited'] ?? false)) {
+                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_forfeited'));\n            }\n            if ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_refunded']) && $metadata['credit_refunded']) {\n                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_refunded'));\n            } elseif ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_restored'])) {
                 $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, $metadata['credit_restored'] ? 'values.credit_restored' : 'values.credit_forfeited'));
             }
             if ($event === NotificationEvent::TeacherCancellation && isset($metadata['validity_extended_to'])) {
