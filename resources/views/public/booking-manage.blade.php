@@ -11,7 +11,7 @@
         <dl>
             <dt>{{ __('public.booking_reference') }}</dt><dd>{{ $booking->public_reference }}</dd>
             <dt>{{ __('public.booking_date_time') }}</dt><dd>{{ $booking->starts_at->setTimezone('Europe/Bucharest')->format('d.m.Y H:i') }} (Europe/Bucharest)</dd>
-            <dt>{{ __('public.booking_duration') }}</dt><dd>15 {{ __('public.minutes') }}</dd>
+            <dt>{{ __('public.booking_duration') }}</dt><dd>15 min</dd>
             <dt>{{ __('public.booking_status') }}</dt><dd>{{ __('public.booking_status_'.$booking->status) }}</dd>
         </dl>
         @if($booking->status === 'confirmed' && $actions['can_cancel'])
