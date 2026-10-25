@@ -132,6 +132,10 @@ Check `php artisan schedule:list` after deploying scheduled tasks. Confirm cron 
 | Stripe webhook deliveries fail | Verify the endpoint URL, Stripe mode, signing secret, server clock, raw-body signature validation, and `stripe_webhook_events`; check Stripe delivery logs and application logs. |
 | Payment or refund remains pending | Confirm the scheduled task runs, inspect the provider's current status, and run `php artisan stripe:reconcile` manually if authorized. Do not edit balances or create a second refund while status is ambiguous. |
 
+## Data retention (disabled until approval)
+
+The proposed 12-month session-goal/notes anonymization command is `php artisan bookings:anonymize-old-session-notes`. Run without `--apply` for a count-only dry run. Write mode requires both `--apply` and `DATA_RETENTION_ENABLED=true`. Keep the flag false until the approved retention schedule, lawful bases, exceptions/legal holds, and accounting-record constraints are documented. Do not add the command to the scheduler before that approval. See [the retention policy](../legal/retention-policy.md) and [privacy notice draft](../legal/privacy-notice.md).
+
 ## Security and access control
 
 - Keep `APP_DEBUG=false`, use HTTPS, and store all credentials in server-side environment configuration.
