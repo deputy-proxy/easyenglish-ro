@@ -18,7 +18,7 @@ body{margin:0;background:#f7f8f3;color:#14251f;font-family:system-ui,sans-serif}
 <label class="slot"><input type="radio" name="starts_at" value="{{ $slot['starts_at'] }}" @checked(old('starts_at') === $slot['starts_at']) required><span>{{ $slot['time'] }}</span></label>
 @endforeach
 @else
-<p>{{ __('public.no_available_slots') }}</p>
+<p>{{ __('public.slot_none') }}</p>
 @endif
 </section>
 @endforeach
