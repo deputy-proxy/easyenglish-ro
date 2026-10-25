@@ -164,7 +164,16 @@ class PublicSiteController extends Controller
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (\Throwable $exception) {
-            Log::warning('Contact verification delivery could not be started.', ['exception' => $exception::class]);
+            $reason = $exception->getMessage();
+            $accessToken = config('services.whatsapp.access_token');
+            if (is_string($accessToken) && $accessToken !== '') {
+                $reason = str_replace($accessToken, '[REDACTED]', $reason);
+            }
+
+            Log::warning('Contact verification delivery could not be started.', [
+                'exception' => $exception::class,
+                'reason' => mb_substr($reason, 0, 500),
+            ]);
 
             return back()->withInput()->withErrors(['verification' => __('public.verification_delivery_failed')]);
         }

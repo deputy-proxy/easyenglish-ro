@@ -36,7 +36,16 @@ class MetaWhatsAppCloudApiGateway implements WhatsAppGateway
         ]);
 
         if (! $response->successful()) {
-            throw new RuntimeException('WhatsApp Cloud API rejected the template request (HTTP '.$response->status().').');
+            $error = $response->json('error', []);
+            $error = is_array($error) ? $error : [];
+            $details = array_filter([
+                'code' => isset($error['code']) && is_scalar($error['code']) ? (string) $error['code'] : null,
+                'type' => isset($error['type']) && is_string($error['type']) ? $error['type'] : null,
+                'message' => isset($error['message']) && is_string($error['message']) ? mb_substr($error['message'], 0, 300) : null,
+            ]);
+            $description = $details === [] ? 'no error details returned' : json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            throw new RuntimeException('WhatsApp Cloud API rejected the template request (HTTP '.$response->status().'; '.$description.').');
         }
 
         $messageId = $response->json('messages.0.id');
