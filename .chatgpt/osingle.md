@@ -1,8 +1,6 @@
 ## 1. Select the issue
 
-Get the **oldest open issue** in `deputy-proxy/cr8or`.
-
-Read the **implementation plan in the issue body** and treat that plan as the primary implementation specification.
+Get the **oldest open issue** in `deputy-proxy/easyenglish-ro`. Read its current body and comments before coding. Treat the implementation plan in the issue body as the primary implementation specification, while resolving conflicts in favor of the latest explicitly approved product decisions documented in the issue and repository README. If the README and issue disagree, update the documentation or raise the conflict before implementing.
 
 If there are no open issues, do nothing.
 
@@ -10,7 +8,7 @@ If there are no open issues, do nothing.
 
 Before writing any code, re-check the current repository state and configuration:
 
-- `.github/AI_DEVELOPMENT_RULES.md`
+- `README.md` and linked GitHub issue implementation plan
 - the applicable GitHub Actions workflow(s)
 - `composer.json`
 - `package.json`
@@ -26,7 +24,7 @@ Do not substitute generic Laravel/PHP conventions when the repository establishe
 
 Use the Railway Sandbox MCP `repository_prepare` flow for:
 
-`deputy-proxy/cr8or`
+`deputy-proxy/easyenglish-ro`
 
 Prepare the Sandbox for the issue's dedicated development branch.
 
@@ -36,7 +34,7 @@ Do NOT create a new Sandbox merely because a new issue is being processed.
 
 The expected model is:
 
-- one persistent Sandbox for `deputy-proxy/cr8or`
+- one persistent Sandbox for `deputy-proxy/easyenglish-ro`
 - one development branch per issue
 - reuse the existing Sandbox for subsequent issues
 - create a new Sandbox only when no usable persistent Sandbox for this repository exists
@@ -92,7 +90,7 @@ Once implementation is complete and focused validation is clean, perform the **c
 
 At minimum, reconcile the current workflow and run its equivalent checks locally.
 
-For the current repository, this includes the configured PHP validation and frontend build requirements.
+For this repository, reconcile `.github/workflows/tests.yml` with `composer.json` before running checks. The current workflow uses PHP 8.4 and Node 22, runs `composer setup` (including frontend dependency installation/build), then `composer ci:check` (the configured PHP lint, static analysis, and tests). Do not claim additional checks run unless the workflow or local validation confirms them.
 
 The full local validation is the **pre-PR gate**.
 
