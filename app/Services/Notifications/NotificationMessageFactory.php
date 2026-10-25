@@ -97,6 +97,8 @@ class NotificationMessageFactory
             }
             if ($event === NotificationEvent::BookingNoShow && ($metadata['credit_forfeited'] ?? false)) {
                 $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_forfeited'));
+            } elseif ($event === NotificationEvent::BookingNoShow && ($metadata['free_introduction'] ?? false)) {
+                $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.free_offer_used'));
             }
             if ($event === NotificationEvent::BookingCancelled && isset($metadata['credit_refunded']) && $metadata['credit_refunded']) {
                 $details[] = $this->detail($locale, 'credit_outcome', $this->t($locale, 'values.credit_refunded'));
