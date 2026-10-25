@@ -11,6 +11,10 @@ Route::post('/language', [PublicSiteController::class, 'setLocale'])->middleware
 Route::get('/availability', [PublicSiteController::class, 'availability'])->middleware('throttle:60,1')->name('availability');
 Route::get('/book', [PublicSiteController::class, 'bookingForm'])->name('booking.create');
 Route::post('/book', [PublicSiteController::class, 'submitBooking'])->middleware('throttle:10,1')->name('booking.submit');
+Route::get('/booking/{reference}/manage', [PublicSiteController::class, 'manageBooking'])->middleware(['signed', 'throttle:60,1'])->name('booking.manage');
+Route::post('/booking/{reference}/cancel', [PublicSiteController::class, 'cancelBooking'])->middleware(['signed', 'throttle:20,1'])->name('booking.cancel');
+Route::get('/booking/{reference}/reschedule', [PublicSiteController::class, 'rescheduleForm'])->middleware(['signed', 'throttle:30,1'])->name('booking.reschedule.form');
+Route::post('/booking/{reference}/reschedule', [PublicSiteController::class, 'rescheduleBooking'])->middleware(['signed', 'throttle:20,1'])->name('booking.reschedule');
 Route::get('/booking/confirmed/{reference}', [PublicSiteController::class, 'confirmed'])->name('booking.confirmed');
 Route::post('/stripe/webhook', StripeWebhookController::class)->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('stripe.webhook');
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:60,1')->name('whatsapp.webhook.verify');
