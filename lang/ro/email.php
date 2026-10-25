@@ -37,6 +37,7 @@ return [
     'actions' => [
         'schedule_sessions' => 'Programează sesiunile',
         'manage_sessions' => 'Gestionează sesiunile',
+        'manage_appointment' => 'Gestionează programarea',
     ],
     'events' => [
         'bundle_purchase_confirmed' => [
