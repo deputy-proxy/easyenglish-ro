@@ -28,9 +28,9 @@
 - [ ] Confirm production HTTPS, correct Hostinger web root pointing to Laravel `public/`, writable `storage/` and `bootstrap/cache/`, `APP_ENV=production`, `APP_DEBUG=false`, and a unique `APP_KEY`.
 - [ ] Verify database credentials and least-privilege grants; run migrations only after backup and review.
 - [ ] Verify `/up`, public assets, Romanian default locale, English switching, and `/admin` authorization with a provisioned staff account and an ordinary account/guest.
-- [ ] Provision the first staff account through the documented controlled process; no default password or public staff registration may exist.
+- [ ] Confirm `/register` is unavailable and provision the first staff account through `php artisan staff:provision EMAIL --name="Name"` from a trusted shell; no default password or public staff registration may exist.
 - [ ] Verify HTTPS secure cookies, session configuration, CSRF, password reset, and enabled Fortify two-factor/passkey features.
-- [ ] Verify secrets are configured outside source control, absent from logs, and rotated/revoked if exposed.
+- [ ] Verify secrets are configured outside source control, absent from logs, and rotated/revoked if exposed. Confirm `APP_DEBUG=false`, `.env` and repository metadata are not web-accessible, and the document root is `public/`.
 
 ## 4. Payments and booking integrity
 
