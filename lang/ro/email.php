@@ -74,6 +74,11 @@ return [
             'heading' => 'Ora programării s-a schimbat',
             'intro' => 'Programarea a fost mutată la o altă oră. Folosește noul interval de mai jos și păstrează WhatsApp disponibil pentru apel.',
         ],
+        'booking_no_show' => [
+            'subject' => 'Actualizare despre sesiunea Easy English',
+            'heading' => 'Sesiunea a fost înregistrată ca absență',
+            'intro' => 'Echipa Easy English a înregistrat absența de la sesiune. Creditul aplicabil a fost pierdut conform politicii acceptate. Contactează echipa dacă această înregistrare este incorectă.',
+        ],
         'teacher_cancellation' => [
             'subject' => 'Actualizare despre programarea Easy English',
             'heading' => 'Profesorul a trebuit să anuleze sesiunea',
