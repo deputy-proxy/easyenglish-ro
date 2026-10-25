@@ -15,6 +15,8 @@ use App\Models\Payment;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Models\WhatsAppContact;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
 use App\Services\Notifications\NotificationMessageFactory;
 use App\Services\Notifications\WhatsAppMessageFactory;
 use App\Services\Payments\StripeRefundService;
@@ -399,4 +401,98 @@ test('only staff can initiate a bundle refund', function () {
         ->toThrow(AuthorizationException::class);
     expect($purchase['entitlement']->fresh()->credits_remaining)->toBe(4)
         ->and(app(FakeStripeGateway::class)->refundRequests)->toBe([]);
+});
+
+
+function makeFutureRefundBooking(BundleEntitlement $entitlement, string $creditType = 'paid'): Booking
+{
+    $startsAt = CarbonImmutable::now('UTC')->addDays(2);
+
+    return Booking::query()->create([
+        'public_reference' => (string) Str::uuid(),
+        'bundle_entitlement_id' => $entitlement->id,
+        'customer_name' => $entitlement->customer_name,
+        'customer_email' => $entitlement->customer_email,
+        'customer_phone' => $entitlement->customer_phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Practice speaking',
+        'accepted_policy_version' => '2026-10-25',
+        'starts_at' => $startsAt,
+        'ends_at' => $startsAt->addMinutes(15),
+        'duration_minutes' => 15,
+        'status' => 'confirmed',
+        'credit_type' => $creditType,
+        'locale' => 'en',
+        'confirmed_at' => now(),
+    ]);
+}
+
+test('successful full refund cancels future paid appointments and revokes the included free credit', function () {
+    $bundle = makeActiveStripeBundle(3, 1);
+    $booking = makeFutureRefundBooking($bundle['entitlement'], 'paid');
+
+    $refund = app(StripeRefundService::class)->refundUnusedPaidCredits($bundle['entitlement']->id, $bundle['actor']->id, 'Customer requested a full unused-bundle refund.');
+
+    expect($refund->status)->toBe('succeeded')
+        ->and($refund->amount_ron)->toBe(156)
+        ->and($refund->credits_to_revoke)->toBe(4)
+        ->and($refund->free_credits_to_revoke)->toBe(1)
+        ->and($booking->fresh()->status)->toBe('cancelled')
+        ->and($booking->fresh()->cancelled_by)->toBe('refund')
+        ->and($bundle['entitlement']->fresh()->credits_remaining)->toBe(0)
+        ->and($bundle['entitlement']->fresh()->free_credits_remaining)->toBe(0)
+        ->and($bundle['entitlement']->fresh()->status)->toBe('refunded')
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.cancelled_by_refund')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_cancelled')->exists())->toBeTrue();
+});
+
+test('refund assessment includes future paid appointments even when the available balance is zero', function () {
+    $bundle = makeActiveStripeBundle(0, 1);
+    $booking = makeFutureRefundBooking($bundle['entitlement'], 'paid');
+
+    $refund = app(StripeRefundService::class)->refundUnusedPaidCredits($bundle['entitlement']->id, $bundle['actor']->id, 'Refund the unused booked paid session.');
+
+    expect($refund->status)->toBe('succeeded')
+        ->and($refund->amount_ron)->toBe(39)
+        ->and($refund->credits_to_revoke)->toBe(1)
+        ->and($refund->free_credits_to_revoke)->toBe(0)
+        ->and($booking->fresh()->status)->toBe('cancelled')
+        ->and($bundle['entitlement']->fresh()->credits_remaining)->toBe(0)
+        ->and($bundle['entitlement']->fresh()->free_credits_remaining)->toBe(1)
+        ->and($bundle['entitlement']->fresh()->status)->toBe('active');
+});
+
+test('failed refund restores available credits and returns refund-pending appointments to confirmed', function () {
+    $bundle = makeActiveStripeBundle(3, 1);
+    $booking = makeFutureRefundBooking($bundle['entitlement'], 'paid');
+    app(FakeStripeGateway::class)->nextRefundStatus = 'failed';
+
+    $refund = app(StripeRefundService::class)->refundUnusedPaidCredits($bundle['entitlement']->id, $bundle['actor']->id, 'Customer requested a refund.');
+
+    expect($refund->status)->toBe('failed')
+        ->and($booking->fresh()->status)->toBe('confirmed')
+        ->and($bundle['entitlement']->fresh()->credits_remaining)->toBe(3)
+        ->and($bundle['entitlement']->fresh()->free_credits_remaining)->toBe(1)
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.refund_cancel_reverted')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('event', 'refund_failed')->exists())->toBeTrue();
+});
+
+test('ambiguous refund keeps affected appointments blocked until provider reconciliation', function () {
+    $bundle = makeActiveStripeBundle(3, 1);
+    $booking = makeFutureRefundBooking($bundle['entitlement'], 'paid');
+    $fake = app(FakeStripeGateway::class);
+    $fake->nextRefundStatus = 'pending';
+
+    $refund = app(StripeRefundService::class)->refundUnusedPaidCredits($bundle['entitlement']->id, $bundle['actor']->id, 'Customer requested a refund.');
+
+    expect($refund->status)->toBe('pending')
+        ->and($booking->fresh()->status)->toBe('refund_pending')
+        ->and($bundle['entitlement']->fresh()->credits_remaining)->toBe(0);
+
+    $providerRefund = $fake->refunds[$refund->provider_refund_id];
+    $providerRefund['status'] = 'succeeded';
+    app(StripeRefundService::class)->reconcileProviderRefund($providerRefund, 'evt_refund_lifecycle_succeeded');
+
+    expect($booking->fresh()->status)->toBe('cancelled')
+        ->and($refund->fresh()->status)->toBe('succeeded');
 });
