@@ -113,7 +113,7 @@ class PublicSiteController extends Controller
             'weekStart' => $weekStart,
             'policyVersion' => config('easyenglish.policy_version'),
             'formAction' => $type === 'bundle'
-                ? URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30), false)
+                ? URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30))
                 : route('booking.submit'),
         ]);
     }
@@ -170,7 +170,7 @@ class PublicSiteController extends Controller
         ], $startsAt, $entitlement->id);
         $bookings->confirm($booking->id);
 
-        return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null, false));
+        return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null));
     }
 
     public function confirmed(Request $request, string $reference): View
@@ -195,8 +195,8 @@ class PublicSiteController extends Controller
         return view('public.booking-manage', [
             'booking' => $booking,
             'actions' => $actions,
-            'cancelUrl' => URL::signedRoute('booking.cancel', ['reference' => $reference], $expiresAt, false),
-            'rescheduleUrl' => URL::signedRoute('booking.reschedule.form', ['reference' => $reference], $expiresAt, false),
+            'cancelUrl' => URL::signedRoute('booking.cancel', ['reference' => $reference], $expiresAt),
+            'rescheduleUrl' => URL::signedRoute('booking.reschedule.form', ['reference' => $reference], $expiresAt),
         ]);
     }
 
@@ -207,7 +207,7 @@ class PublicSiteController extends Controller
         $bookings->cancelByCustomer($booking->id, $validated['reason'] ?? 'Customer cancellation request.');
         $expiresAt = $booking->starts_at->addDay();
 
-        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt, false))
+        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt))
             ->with('status', __('public.booking_cancelled'));
     }
 
@@ -234,7 +234,7 @@ class PublicSiteController extends Controller
         return view('public.booking-reschedule', [
             'booking' => $booking,
             'days' => $days,
-            'submitUrl' => URL::signedRoute('booking.reschedule', ['reference' => $reference], $expiresAt, false),
+            'submitUrl' => URL::signedRoute('booking.reschedule', ['reference' => $reference], $expiresAt),
         ]);
     }
 
@@ -247,7 +247,7 @@ class PublicSiteController extends Controller
         $updated = $booking->fresh();
         $expiresAt = $updated->starts_at->addDay();
 
-        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt, false))
+        return redirect()->to(URL::signedRoute('booking.manage', ['reference' => $reference], $expiresAt))
             ->with('status', __('public.booking_rescheduled'));
     }
 
@@ -343,7 +343,7 @@ class PublicSiteController extends Controller
         if ($payment?->status === 'succeeded' && $entitlement?->status === 'active'
             && $entitlement->expires_at?->isFuture()
             && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0) {
-            $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7), false);
+            $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7));
         }
 
         return view('public.purchase-result', [
