@@ -279,17 +279,65 @@ class StripeRefundService
             }
 
             $paidReservation->update(['type' => 'refunded', 'reason' => 'Unused paid credits refunded: '.$lockedRefund->reason]);
+            $metadata = $lockedRefund->metadata ?? [];
+            $paidBookingIds = is_array($metadata['paid_booking_ids'] ?? null) ? array_map('intval', $metadata['paid_booking_ids']) : [];
+            $freeBookingIds = is_array($metadata['free_booking_ids'] ?? null) ? array_map('intval', $metadata['free_booking_ids']) : [];
             if ($lockedRefund->free_credits_to_revoke > 0) {
                 $freeReservation = CreditTransaction::query()->where('idempotency_key', 'refund-reserved-free-credits:'.$lockedRefund->id)->firstOrFail();
                 $freeReservation->update(['type' => 'revoked', 'reason' => 'Included free credit revoked after full bundle refund.']);
-                FreeSessionClaim::query()->where('bundle_entitlement_id', $entitlement->id)->where('status', 'bundle_credit_granted')->update(['status' => 'revoked']);
+                FreeSessionClaim::query()->where('bundle_entitlement_id', $entitlement->id)
+                    ->where(function ($query) use ($freeBookingIds): void {
+                        $query->where('status', 'bundle_credit_granted');
+                        if ($freeBookingIds !== []) {
+                            $query->orWhereIn('booking_id', $freeBookingIds);
+                        }
+                    })->update(['status' => 'revoked']);
+            }
+
+            $affectedBookingIds = array_values(array_unique(array_merge($paidBookingIds, $freeBookingIds)));
+            if ($affectedBookingIds !== []) {
+                $affectedBookings = Booking::query()->whereIn('id', $affectedBookingIds)->where('status', 'refund_pending')->lockForUpdate()->get();
+                foreach ($affectedBookings as $affectedBooking) {
+                    $affectedBooking->update([
+                        'status' => 'cancelled',
+                        'cancelled_at' => now(),
+                        'cancelled_by' => 'refund',
+                        'cancellation_reason' => 'Bundle refund confirmed by Stripe.',
+                    ]);
+                    $creditType = $affectedBooking->credit_type ?? 'paid';
+                    $balanceAfter = $creditType === 'free' ? $entitlement->free_credits_remaining : $entitlement->credits_remaining;
+                    CreditTransaction::query()->firstOrCreate(['idempotency_key' => 'refund-cancel-booking-credit:'.$lockedRefund->id.':'.$affectedBooking->id], [
+                        'bundle_entitlement_id' => $entitlement->id,
+                        'booking_id' => $affectedBooking->id,
+                        'created_by' => $lockedRefund->actor_id,
+                        'type' => 'refunded',
+                        'credit_type' => $creditType,
+                        'quantity' => 0,
+                        'balance_after' => $balanceAfter,
+                        'reason' => 'Future appointment cancelled because the associated session credit was refunded.',
+                    ]);
+                    BookingAudit::query()->create([
+                        'booking_id' => $affectedBooking->id,
+                        'bundle_entitlement_id' => $entitlement->id,
+                        'actor_id' => $lockedRefund->actor_id,
+                        'action' => 'booking.cancelled_by_refund',
+                        'reason' => $lockedRefund->reason,
+                        'metadata' => ['refund_id' => $lockedRefund->id, 'credit_type' => $creditType, 'starts_at' => $affectedBooking->starts_at->toIso8601String()],
+                    ]);
+                    $this->notifications->enqueueBookingEvent($affectedBooking->refresh(), NotificationEvent::BookingCancelled, [
+                        'credit_refunded' => true,
+                        'credit_restored' => false,
+                        'refund_id' => $lockedRefund->id,
+                    ], 'refund-'.$lockedRefund->id);
+                }
             }
 
             $payment->update([
                 'refunded_amount_ron' => $newRefundTotal,
                 'status' => $newRefundTotal >= $payment->amount_ron ? 'refunded' : $payment->status,
             ]);
-            if ($payment->status === 'refunded' && $entitlement->credits_remaining === 0 && $entitlement->free_credits_remaining === 0) {
+            if ($payment->status === 'refunded' && $entitlement->credits_remaining === 0 && $entitlement->free_credits_remaining === 0
+                && ! $entitlement->bookings()->whereIn('status', ['confirmed', 'refund_pending', 'pending'])->exists()) {
                 $entitlement->update(['status' => 'refunded']);
             }
 
@@ -314,8 +362,11 @@ class StripeRefundService
                 return;
             }
             $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($lockedRefund->payment->bundle_entitlement_id);
-            $paidBalance = $entitlement->credits_remaining + $lockedRefund->credits_to_revoke;
-            $freeBalance = $entitlement->free_credits_remaining + $lockedRefund->free_credits_to_revoke;
+            $metadata = $lockedRefund->metadata ?? [];
+            $balancePaidReserved = (int) ($metadata['balance_paid_credits_reserved'] ?? $lockedRefund->credits_to_revoke);
+            $balanceFreeReserved = (int) ($metadata['balance_free_credits_reserved'] ?? $lockedRefund->free_credits_to_revoke);
+            $paidBalance = $entitlement->credits_remaining + $balancePaidReserved;
+            $freeBalance = $entitlement->free_credits_remaining + $balanceFreeReserved;
             $entitlement->update(['credits_remaining' => $paidBalance, 'free_credits_remaining' => $freeBalance]);
 
             CreditTransaction::query()->create([
@@ -323,9 +374,9 @@ class StripeRefundService
                 'created_by' => $lockedRefund->actor_id,
                 'type' => 'refund_released',
                 'credit_type' => 'paid',
-                'quantity' => $lockedRefund->credits_to_revoke,
+                'quantity' => $balancePaidReserved,
                 'balance_after' => $paidBalance,
-                'reason' => 'Stripe refund failed; reserved credits restored.',
+                'reason' => 'Stripe refund failed; available balance credits restored.',
                 'idempotency_key' => 'refund-release-paid-credits:'.$lockedRefund->id,
             ]);
             if ($lockedRefund->free_credits_to_revoke > 0) {
@@ -334,14 +385,29 @@ class StripeRefundService
                     'created_by' => $lockedRefund->actor_id,
                     'type' => 'refund_released',
                     'credit_type' => 'free',
-                    'quantity' => $lockedRefund->free_credits_to_revoke,
+                    'quantity' => $balanceFreeReserved,
                     'balance_after' => $freeBalance,
-                    'reason' => 'Stripe refund failed; reserved free credit restored.',
+                    'reason' => 'Stripe refund failed; available free credit restored.',
                     'idempotency_key' => 'refund-release-free-credits:'.$lockedRefund->id,
                 ]);
             }
             CreditTransaction::query()->where('idempotency_key', 'refund-reserved-paid-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
             CreditTransaction::query()->where('idempotency_key', 'refund-reserved-free-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
+            $affectedBookingIds = array_values(array_unique(array_merge(
+                is_array($metadata['paid_booking_ids'] ?? null) ? array_map('intval', $metadata['paid_booking_ids']) : [],
+                is_array($metadata['free_booking_ids'] ?? null) ? array_map('intval', $metadata['free_booking_ids']) : [],
+            )));
+            foreach (Booking::query()->whereIn('id', $affectedBookingIds)->where('status', 'refund_pending')->lockForUpdate()->get() as $affectedBooking) {
+                $affectedBooking->update(['status' => 'confirmed']);
+                BookingAudit::query()->create([
+                    'booking_id' => $affectedBooking->id,
+                    'bundle_entitlement_id' => $entitlement->id,
+                    'actor_id' => $lockedRefund->actor_id,
+                    'action' => 'booking.refund_cancel_reverted',
+                    'reason' => 'Stripe refund failed; original appointment remains confirmed.',
+                    'metadata' => ['refund_id' => $lockedRefund->id, 'provider_status' => $providerStatus, 'starts_at' => $affectedBooking->starts_at->toIso8601String()],
+                ]);
+            }
             $lockedRefund->update(['status' => 'failed', 'provider_status' => $providerStatus]);
             $this->notifications->enqueueRefundOutcome($lockedRefund->refresh());
             BookingAudit::query()->create([
