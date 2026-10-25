@@ -9,6 +9,8 @@ use App\Services\Booking\BookingService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Textarea;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -82,18 +84,18 @@ class BookingResource extends Resource
             ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
                 app(BookingService::class)->cancelAtCustomerRequest($record->id, (int) Auth::id(), $data['reason']);
             }),
-            Action::make('reschedule')->label('Reschedule')->icon(Heroicon::OutlinedCalendarClock)->color('warning')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
+            Action::make('reschedule')->label('Reschedule')->icon(Heroicon::OutlinedCalendar)->color('warning')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
                 DateTimePicker::make('starts_at')->label('New start time (Bucharest)')->timezone('Europe/Bucharest')->seconds(false)->required(),
                 Textarea::make('reason')->label('Reason for audit log')->minLength(10)->maxLength(500)->required(),
             ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
                 app(BookingService::class)->rescheduleByStaff($record->id, CarbonImmutable::parse($data['starts_at'], 'Europe/Bucharest'), (int) Auth::id(), $data['reason']);
             }),
-            Action::make('teacherCancellation')->label('Teacher cancellation')->icon(Heroicon::OutlinedCalendarX)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
+            Action::make('teacherCancellation')->label('Teacher cancellation')->icon(Heroicon::OutlinedXCircle)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
                 Textarea::make('reason')->label('Teacher cancellation reason')->minLength(10)->maxLength(500)->required(),
             ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
                 app(BookingService::class)->cancelByTeacher($record->id, (int) Auth::id(), $data['reason']);
             }),
-            Action::make('noShow')->label('Record no-show')->icon(Heroicon::OutlinedUserX)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->lessThanOrEqualTo(now()))->schema([
+            Action::make('noShow')->label('Record no-show')->icon(Heroicon::OutlinedExclamationCircle)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->lessThanOrEqualTo(now()))->schema([
                 Textarea::make('reason')->label('No-show evidence / reason')->minLength(10)->maxLength(500)->required(),
             ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
                 app(BookingService::class)->markNoShow($record->id, (int) Auth::id(), $data['reason']);
