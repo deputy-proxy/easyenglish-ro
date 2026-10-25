@@ -14,7 +14,7 @@ The form collects full name, email, phone/WhatsApp number, English level (A1–C
 
 A paid-bundle booking requires a valid active entitlement, sufficient credits, matching customer contact details, and an appointment start before bundle expiry. The booking service holds the slot transactionally and the already-paid bundle booking is confirmed through the domain service. The confirmation URL is signed and contains only a public reference.
 
-The standalone free introduction must not bypass the domain's verified-email-and-phone checks. Until the email and WhatsApp verification delivery workflows are completed in their integration phases, a free-introduction form submission returns a clear message and creates no booking. Likewise, bundle purchase displays an explicit not-yet-enabled checkout state until the Stripe integration is delivered. Neither flow pretends that a payment or verification succeeded.
+The standalone free introduction requires the customer to verify an email link and a six-digit WhatsApp OTP. The challenge expires after 30 minutes, the email link and OTP are single-use, and invalid or unverified contacts never create a booking or slot hold. The same verification flow can be completed from bundle checkout to qualify for the included free credit; bundle purchase itself remains available without verification, and the free credit is granted only after both channels are verified and the shared free offer remains unused. Live SMTP delivery, the approved WhatsApp verification template, and end-to-end production delivery remain launch gates. Likewise, bundle purchase displays an explicit not-yet-enabled checkout state until the Stripe integration is configured. Neither flow pretends that a payment or verification succeeded.
 
 ## Cancellation and privacy disclosure
 
@@ -25,10 +25,10 @@ The booking form links to public privacy and cancellation pages and displays the
 - Availability loading, no times for a day, and load failure.
 - Validation errors for customer details, policy acceptance, and stale/unavailable slots.
 - Expired or exhausted bundle entitlement.
-- Free introduction requiring verified email and phone; no booking is created until verification is available and successful.
+- Free introduction requiring email-link and WhatsApp OTP verification; incomplete, expired, or mismatched verification creates no booking.
 - Checkout not yet enabled; no order or charge is created.
 - Confirmed booking with a signed reference URL.
 
 ## Dependencies / launch gates
 
-Stripe Checkout, transactional email, and the WhatsApp Cloud API adapter/outbox are implemented by their dedicated issues. Live SMTP/domain authentication, Meta account/template approval, and live webhook verification must be configured before launch; email/phone contact verification remains an explicit launch gate. The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms.
+Stripe Checkout, transactional email, the WhatsApp Cloud API adapter/outbox, and the email-link/WhatsApp OTP verification flow are implemented. Live SMTP/domain authentication, Meta account/template approval (including the one-parameter `contact_verification` template), and live webhook/delivery verification must be configured before launch. See [verification integration documentation](../integrations/verification.md). The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms.

@@ -6,7 +6,7 @@
 
 - [ ] Confirm the public Romanian and English landing pages, booking form, bundle purchase page, privacy notice, and terms against the approved copy.
 - [ ] Verify only 15-minute sessions are offered and the 15-minute inter-session buffer is respected.
-- [ ] Verify the standalone free introduction requires no purchase and is limited to one per person using verified email and phone; a no-show forfeits the offer.
+- [ ] Verify the standalone free introduction requires no purchase and is limited to one per person using verified email and phone; a no-show forfeits the offer. Test expired/reused email links, expired/reused OTPs, five incorrect OTP attempts, resend cooldown, and mismatched contact details.
 - [ ] Verify the three tax-inclusive bundles: 156 RON for 1 free + 4 paid; 390 RON for 1 free + 10 paid; 780 RON for 1 free + 20 paid.
 - [ ] Verify bundle activation only after confirmed payment and expiry three calendar months from activation in Europe/Bucharest.
 - [ ] Verify appointment start must precede bundle expiry, including a booking submitted before expiry for a post-expiry appointment.
@@ -44,11 +44,11 @@
 
 ## 5. Email and WhatsApp
 
-- [ ] Configure SMTP host, port, encryption, credentials, verified sender, and SPF/DKIM/DMARC; test delivery to representative inbox providers.
+- [ ] Configure SMTP host, port, encryption, credentials, verified sender, and SPF/DKIM/DMARC; test delivery to representative inbox providers. Do not use `MAIL_MAILER=log` for verification because the email link would be exposed in logs.
 - [ ] Confirm transactional email locale persists from the booking/purchase and outbox retries are visible in Filament.
-- [ ] Configure Meta business assets, production system-user token and minimum permissions, phone number, approved template names/languages, signed webhook, and status subscriptions.
+- [ ] Configure Meta business assets, production system-user token and minimum permissions, phone number, approved template names/languages, signed webhook, and status subscriptions. Approve `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION` with exactly one body text parameter for the six-digit OTP in both Romanian and English.
 - [ ] Verify separate explicit WhatsApp service-message consent, `STOP` opt-out, and that marketing consent is neither assumed nor requested by this service flow.
-- [ ] Test live WhatsApp delivery for purchase, free intro, appointment confirmation, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund success/failure, and 14-day/3-day expiry reminders.
+- [ ] Test live WhatsApp OTP delivery and phone verification on real devices, then test live delivery for purchase, free intro, appointment confirmation, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund success/failure, and 14-day/3-day expiry reminders.
 - [ ] Test provider rejection, timeout, duplicate/out-of-order status webhooks, retries, unconfigured credentials, and opt-out while a message is queued.
 - [ ] Keep `WHATSAPP_ENABLED=false` until live delivery and opt-out verification pass; CI must continue to use fakes/mocks.
 

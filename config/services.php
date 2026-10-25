@@ -18,6 +18,7 @@ return [
         'verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
         'template_languages' => ['ro' => env('WHATSAPP_TEMPLATE_LANGUAGE_RO', 'ro'), 'en' => env('WHATSAPP_TEMPLATE_LANGUAGE_EN', 'en_US')],
         'templates' => [
+            'contact_verification' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION', 'easyenglish_contact_verification'),
             'purchase_confirmation' => env('WHATSAPP_TEMPLATE_PURCHASE_CONFIRMATION', 'easyenglish_purchase_confirmation'),
             'intro_booking_confirmation' => env('WHATSAPP_TEMPLATE_INTRO_BOOKING_CONFIRMATION', 'easyenglish_intro_booking_confirmation'),
             'appointment_confirmation' => env('WHATSAPP_TEMPLATE_APPOINTMENT_CONFIRMATION', 'easyenglish_appointment_confirmation'),
