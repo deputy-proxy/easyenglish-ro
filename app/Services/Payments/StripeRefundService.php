@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Contracts\Payments\StripeGateway;
+use App\Enums\NotificationEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
@@ -47,25 +48,33 @@ class StripeRefundService
                 throw ValidationException::withMessages(['refund' => 'No successfully paid Stripe payment is available to refund.']);
             }
 
-            $existingPending = $payment->refunds()->where('status', 'pending')->latest('id')->first();
+            $existingPending = $payment->refunds()->whereIn('status', ['pending', 'processing'])->latest('id')->first();
             if ($existingPending) {
                 return $existingPending;
-            }
-            if ($lockedEntitlement->credits_remaining < 1) {
-                throw ValidationException::withMessages(['refund' => 'This bundle has no unused paid credits to refund.']);
             }
             if (Booking::query()->where('bundle_entitlement_id', $lockedEntitlement->id)->where('status', 'pending')->exists()) {
                 throw ValidationException::withMessages(['refund' => 'A pending booking hold must be resolved before refunding unused credits.']);
             }
 
-            $credits = $lockedEntitlement->credits_remaining;
+            $futureBookings = Booking::query()->where('bundle_entitlement_id', $lockedEntitlement->id)
+                ->where('status', 'confirmed')->where('starts_at', '>', now())
+                ->orderBy('id')->lockForUpdate()->get();
+            $paidBookingIds = $futureBookings->where('credit_type', 'paid')->pluck('id')->values()->all();
+            $freeBookingIds = $futureBookings->where('credit_type', 'free')->pluck('id')->values()->all();
+            $balancePaidCredits = $lockedEntitlement->credits_remaining;
+            $credits = $balancePaidCredits + count($paidBookingIds);
+            if ($credits < 1) {
+                throw ValidationException::withMessages(['refund' => 'This bundle has no unused paid credits to refund.']);
+            }
             $amountRon = $credits * 39;
             $pendingRefunds = (int) $payment->refunds()->whereIn('status', ['pending', 'processing'])->sum('amount_ron');
             if ($payment->refunded_amount_ron + $pendingRefunds + $amountRon > $payment->amount_ron) {
                 throw ValidationException::withMessages(['refund' => 'The requested refund exceeds the remaining refundable payment amount. Reconcile existing refunds first.']);
             }
-            $fullRefund = $payment->refunded_amount_ron + $amountRon >= $payment->amount_ron;
-            $freeCredits = $fullRefund ? $lockedEntitlement->free_credits_remaining : 0;
+            $fullRefund = $payment->refunded_amount_ron + $pendingRefunds + $amountRon >= $payment->amount_ron;
+            $balanceFreeCredits = $fullRefund ? $lockedEntitlement->free_credits_remaining : 0;
+            $freeBookingIdsToCancel = $fullRefund ? $freeBookingIds : [];
+            $freeCredits = $balanceFreeCredits + count($freeBookingIdsToCancel);
             $attempt = $payment->refunds()->count() + 1;
             $created = $payment->refunds()->create([
                 'amount_ron' => $amountRon,
@@ -76,19 +85,27 @@ class StripeRefundService
                 'reason' => trim($reason),
                 'actor_id' => $actorId,
                 'idempotency_key' => 'unused-credits-refund:'.$payment->id.':'.$attempt,
+                'metadata' => [
+                    'balance_paid_credits_reserved' => $balancePaidCredits,
+                    'balance_free_credits_reserved' => $balanceFreeCredits,
+                    'paid_booking_ids' => $paidBookingIds,
+                    'free_booking_ids' => $freeBookingIdsToCancel,
+                    'full_refund' => $fullRefund,
+                    'accepted_policy_version' => $futureBookings->first()?->accepted_policy_version,
+                ],
             ]);
 
-            $newPaidBalance = $lockedEntitlement->credits_remaining - $credits;
-            $newFreeBalance = $lockedEntitlement->free_credits_remaining - $freeCredits;
+            $newPaidBalance = $lockedEntitlement->credits_remaining - $balancePaidCredits;
+            $newFreeBalance = $lockedEntitlement->free_credits_remaining - $balanceFreeCredits;
             $lockedEntitlement->update(['credits_remaining' => $newPaidBalance, 'free_credits_remaining' => $newFreeBalance]);
             CreditTransaction::query()->create([
                 'bundle_entitlement_id' => $lockedEntitlement->id,
                 'created_by' => $actorId,
                 'type' => 'refund_reserved',
                 'credit_type' => 'paid',
-                'quantity' => -$credits,
+                'quantity' => -$balancePaidCredits,
                 'balance_after' => $newPaidBalance,
-                'reason' => 'Paid credits reserved while Stripe refund is pending: '.trim($reason),
+                'reason' => 'Available paid credits reserved while Stripe refund is pending: '.trim($reason),
                 'idempotency_key' => 'refund-reserved-paid-credits:'.$created->id,
             ]);
             if ($freeCredits > 0) {
@@ -97,12 +114,42 @@ class StripeRefundService
                     'created_by' => $actorId,
                     'type' => 'refund_reserved',
                     'credit_type' => 'free',
-                    'quantity' => -$freeCredits,
+                    'quantity' => -$balanceFreeCredits,
                     'balance_after' => $newFreeBalance,
                     'reason' => 'Included free credit reserved while full Stripe refund is pending.',
                     'idempotency_key' => 'refund-reserved-free-credits:'.$created->id,
                 ]);
             }
+            $affectedBookingIds = array_values(array_unique(array_merge($paidBookingIds, $freeBookingIdsToCancel)));
+            if ($affectedBookingIds !== []) {
+                Booking::query()->whereIn('id', $affectedBookingIds)->where('status', 'confirmed')->update(['status' => 'refund_pending']);
+                foreach (Booking::query()->whereIn('id', $affectedBookingIds)->get() as $affectedBooking) {
+                    BookingAudit::query()->create([
+                        'booking_id' => $affectedBooking->id,
+                        'bundle_entitlement_id' => $lockedEntitlement->id,
+                        'actor_id' => $actorId,
+                        'action' => 'booking.refund_pending',
+                        'reason' => trim($reason),
+                        'metadata' => ['refund_id' => $created->id, 'credit_type' => $affectedBooking->credit_type, 'starts_at' => $affectedBooking->starts_at->toIso8601String()],
+                    ]);
+                }
+            }
+            BookingAudit::query()->create([
+                'bundle_entitlement_id' => $lockedEntitlement->id,
+                'actor_id' => $actorId,
+                'action' => 'payment.refund_requested',
+                'reason' => trim($reason),
+                'metadata' => [
+                    'payment_id' => $payment->id,
+                    'refund_id' => $created->id,
+                    'amount_ron' => $amountRon,
+                    'paid_credits_to_revoke' => $credits,
+                    'balance_paid_credits_reserved' => $balancePaidCredits,
+                    'free_credits_to_revoke' => $freeCredits,
+                    'affected_booking_ids' => $affectedBookingIds,
+                    'full_refund' => $fullRefund,
+                ],
+            ]);
 
             return $created;
         }, attempts: 3);
@@ -181,7 +228,7 @@ class StripeRefundService
             try {
                 $providerRefund = $this->stripe->retrieveRefund($refund->provider_refund_id);
             } catch (\Throwable $exception) {
-                $refund->forceFill(['metadata' => ['last_error' => Str::limit($exception->getMessage(), 1000)]])->save();
+                $refund->forceFill(['metadata' => array_merge($refund->metadata ?? [], ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
                 throw new RuntimeException('The existing Stripe refund could not be reconciled. Reserved credits remain unavailable until provider status is known.', previous: $exception);
             }
             $this->reconcileProviderRefund($providerRefund, 'server-reconciliation');
@@ -202,7 +249,7 @@ class StripeRefundService
                 ],
             ], $refund->idempotency_key);
         } catch (\Throwable $exception) {
-            $refund->forceFill(['metadata' => ['last_error' => Str::limit($exception->getMessage(), 1000)]])->save();
+            $refund->forceFill(['metadata' => array_merge($refund->metadata ?? [], ['last_error' => Str::limit($exception->getMessage(), 1000)])])->save();
             throw new RuntimeException('Stripe refund status is uncertain. Credits remain reserved until a safe retry or reconciliation.', previous: $exception);
         }
 
