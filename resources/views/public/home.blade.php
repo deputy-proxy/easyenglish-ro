@@ -704,7 +704,7 @@
 <body>
     <header class="wrap topbar">
         <a class="brand" href="{{ route('home') }}" aria-label="Easy English home">
-            <svg width="50%" height="50%" viewBox="0 0 560 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+            <svg width="20%" height="20%" viewBox="0 0 560 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
                 <g transform="matrix(1.152159,0,0,1.152159,-39.3185,-47.74451)">
                     <g transform="matrix(1,0,0,1,0,33.343262)">
                         <g transform="matrix(4.154657,0,0,4.154657,48.046046,-21.433887)">
