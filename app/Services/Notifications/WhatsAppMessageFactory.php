@@ -64,7 +64,7 @@ class WhatsAppMessageFactory
                 $this->date($booking?->starts_at),
             ],
             NotificationEvent::TeacherCancellation => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->date($delivery->metadata['validity_extended_to'] ?? null)],
-            NotificationEvent::BookingNoShow => [$booking->customer_name ?? '', $this->date($booking?->starts_at)],
+            NotificationEvent::BookingNoShow => [$booking->customer_name ?? '', $this->date($booking?->starts_at), $this->noShowOutcome($delivery->metadata ?? [], $locale)],
             NotificationEvent::RefundSucceeded, NotificationEvent::RefundFailed => [
                 $entitlement->customer_name ?? '', $this->money($refund->amount_ron ?? 0), $refund->reason ?? '',
             ],
@@ -113,6 +113,19 @@ class WhatsAppMessageFactory
             'language' => (string) $language,
             'components' => [['type' => 'body', 'parameters' => $textParameters]],
         ];
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function noShowOutcome(array $metadata, string $locale): string
+    {
+        if (($metadata['credit_forfeited'] ?? false) === true) {
+            return $locale === 'ro' ? 'credit pierdut' : 'session credit forfeited';
+        }
+        if (($metadata['free_introduction'] ?? false) === true) {
+            return $locale === 'ro' ? 'oferta gratuită utilizată' : 'one-time free offer used';
+        }
+
+        return $locale === 'ro' ? 'înregistrat' : 'recorded';
     }
 
     /** @param array<string, mixed> $metadata */
