@@ -26,6 +26,7 @@ return [
             'booking_cancelled' => env('WHATSAPP_TEMPLATE_BOOKING_CANCELLED', 'easyenglish_booking_cancelled'),
             'booking_rescheduled' => env('WHATSAPP_TEMPLATE_BOOKING_RESCHEDULED', 'easyenglish_booking_rescheduled'),
             'teacher_cancellation' => env('WHATSAPP_TEMPLATE_TEACHER_CANCELLATION', 'easyenglish_teacher_cancellation'),
+            'booking_no_show' => env('WHATSAPP_TEMPLATE_BOOKING_NO_SHOW', 'easyenglish_booking_no_show'),
             'refund_succeeded' => env('WHATSAPP_TEMPLATE_REFUND_SUCCEEDED', 'easyenglish_refund_succeeded'),
             'refund_failed' => env('WHATSAPP_TEMPLATE_REFUND_FAILED', 'easyenglish_refund_failed'),
             'bundle_expiry_14d' => env('WHATSAPP_TEMPLATE_BUNDLE_EXPIRY_14D', 'easyenglish_bundle_expiry_14d'),
