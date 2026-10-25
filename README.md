@@ -2,7 +2,7 @@
 
 Easy English is an EdVenture product for adults who want to practise spoken English with an experienced teacher or conversation partner. The initial audience is working adults around A2–B2 who want practical speaking time, confidence, and focused practice.
 
-This repository currently provides the Laravel application foundation, authentication/account-security scaffolding, Filament, and CI. The plan below describes the intended product implementation; it is not a claim that these product features already exist.
+The application foundation, booking/availability domain, staff administration, bilingual public landing page, weekly availability endpoint, and signed no-account scheduling path for already-active bundles are implemented. Stripe checkout and live email/WhatsApp delivery and verification remain explicit launch gates; the public site does not fake successful payment or unverified free-introduction bookings.
 
 ## Developer setup
 
@@ -16,7 +16,7 @@ composer setup
 composer run dev
 ```
 
-`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics.
+`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics. See [the public booking journey](docs/product/public-booking-journey.md) for the bilingual website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates.
 
 ## Product goal
 
