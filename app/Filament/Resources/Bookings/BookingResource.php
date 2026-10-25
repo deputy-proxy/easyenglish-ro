@@ -19,6 +19,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Carbon\CarbonImmutable;
 
 class BookingResource extends Resource
 {
@@ -67,14 +68,35 @@ class BookingResource extends Resource
             TextColumn::make('customer_email')->searchable(),
             TextColumn::make('starts_at')->dateTime('d M Y H:i')->timezone('Europe/Bucharest')->sortable(),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
-                'confirmed' => 'success', 'pending' => 'warning', 'expired', 'cancelled', 'failed' => 'danger', default => 'gray'
+                'confirmed' => 'success', 'pending', 'refund_pending' => 'warning', 'expired', 'cancelled', 'no_show', 'failed' => 'danger', default => 'gray'
             }),
             TextColumn::make('entitlement.credits_remaining')->label('Credits left')->placeholder('Free intro'),
-        ])->filters([SelectFilter::make('status')->options(['pending' => 'Pending hold', 'confirmed' => 'Confirmed', 'expired' => 'Expired', 'cancelled' => 'Cancelled'])])->defaultSort('starts_at')->recordActions([
+        ])->filters([SelectFilter::make('status')->options(['pending' => 'Pending hold', 'confirmed' => 'Confirmed', 'refund_pending' => 'Refund pending', 'expired' => 'Expired', 'cancelled' => 'Cancelled', 'no_show' => 'No-show'])])->defaultSort('starts_at')->recordActions([
             ViewAction::make(),
             Action::make('confirm')->label('Confirm hold')->icon(Heroicon::OutlinedCheckCircle)->color('success')->requiresConfirmation()->visible(fn (Booking $record): bool => $record->status === 'pending' && $record->hold_expires_at?->isFuture())->action(function (Booking $record): void {
                 app(BookingService::class)->confirm($record->id);
                 BookingAudit::query()->create(['booking_id' => $record->id, 'actor_id' => Auth::id(), 'action' => 'staff.booking_confirmed']);
+            }),
+            Action::make('cancelAtCustomerRequest')->label('Cancel at customer request')->icon(Heroicon::OutlinedXCircle)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
+                Textarea::make('reason')->label('Customer request / reason')->minLength(10)->maxLength(500)->required(),
+            ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
+                app(BookingService::class)->cancelAtCustomerRequest($record->id, (int) Auth::id(), $data['reason']);
+            }),
+            Action::make('reschedule')->label('Reschedule')->icon(Heroicon::OutlinedCalendarClock)->color('warning')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
+                DateTimePicker::make('starts_at')->label('New start time (Bucharest)')->timezone('Europe/Bucharest')->seconds(false)->required(),
+                Textarea::make('reason')->label('Reason for audit log')->minLength(10)->maxLength(500)->required(),
+            ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
+                app(BookingService::class)->rescheduleByStaff($record->id, CarbonImmutable::parse($data['starts_at'], 'Europe/Bucharest'), (int) Auth::id(), $data['reason']);
+            }),
+            Action::make('teacherCancellation')->label('Teacher cancellation')->icon(Heroicon::OutlinedCalendarX)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->isFuture())->schema([
+                Textarea::make('reason')->label('Teacher cancellation reason')->minLength(10)->maxLength(500)->required(),
+            ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
+                app(BookingService::class)->cancelByTeacher($record->id, (int) Auth::id(), $data['reason']);
+            }),
+            Action::make('noShow')->label('Record no-show')->icon(Heroicon::OutlinedUserX)->color('danger')->visible(fn (Booking $record): bool => $record->status === 'confirmed' && $record->starts_at->lessThanOrEqualTo(now()))->schema([
+                Textarea::make('reason')->label('No-show evidence / reason')->minLength(10)->maxLength(500)->required(),
+            ])->requiresConfirmation()->action(function (Booking $record, array $data): void {
+                app(BookingService::class)->markNoShow($record->id, (int) Auth::id(), $data['reason']);
             }),
         ]);
     }
