@@ -24,6 +24,7 @@ return [
     'values' => [
         'credit_restored' => 'The session credit was restored to your bundle.',
         'credit_forfeited' => 'The session credit was forfeited under the cancellation policy.',
+        'free_offer_used' => 'The one-time free introductory offer has been used.',
         'succeeded' => 'Confirmed by Stripe',
         'failed' => 'Not completed by Stripe; reserved credits were restored where applicable.',
         'not_available' => 'Not available',
@@ -78,7 +79,7 @@ return [
         'booking_no_show' => [
             'subject' => 'An update about your Easy English session',
             'heading' => 'The session was recorded as a no-show',
-            'intro' => 'The Easy English team recorded that the session was missed. The applicable session credit has been forfeited under the accepted policy. Contact the team if you believe this was recorded incorrectly.',
+            'intro' => 'The Easy English team recorded that the session was missed. The applicable credit or one-time free offer outcome is shown below. Contact the team if you believe this was recorded incorrectly.',
         ],
         'teacher_cancellation' => [
             'subject' => 'An update to your Easy English appointment',
