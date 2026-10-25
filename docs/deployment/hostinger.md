@@ -58,6 +58,7 @@ LOG_LEVEL=info
 MAIL_MAILER=smtp
 MAIL_HOST=your-smtp-host
 MAIL_PORT=587
+MAIL_TIMEOUT=10
 MAIL_USERNAME=your-smtp-username
 MAIL_PASSWORD=your-smtp-password
 MAIL_SCHEME=tls
@@ -93,6 +94,8 @@ Run the scheduler every minute if the plan permits:
 * * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
+The scheduler includes `notifications:dispatch` every minute to generate reminders and queue due transactional emails. Review [the email integration runbook](../integrations/email.md) for outbox states, retry policy, SMTP configuration, and delivery troubleshooting.
+
 Run a bounded queue worker periodically, for example every five minutes:
 
 ```sh
@@ -121,6 +124,7 @@ Check `php artisan schedule:list` after deploying scheduled tasks. Confirm cron 
 | Database connection failure | Verify host/database/user/password, grants, PDO driver, and that the target database is reachable from the hosting account. |
 | Missing frontend assets | Confirm `npm ci && npm run build` completed and the matching `public/build/manifest.json` and assets were deployed together. |
 | Scheduled reminders do not run | Check Hostinger cron history, command paths, `php artisan schedule:list`, application logs, and timezone assumptions. |
+| Transactional emails remain queued | Check the database queue cron, `MAIL_*` configuration, `notification_deliveries`, and the Operations → Notification delivery admin view. See [the email integration runbook](../integrations/email.md). |
 | Jobs remain queued | Verify `QUEUE_CONNECTION=database`, queue table migrations, cron worker cadence, worker output, and `php artisan queue:failed`. |
 | Email delivery failure | Verify SMTP host/port/TLS, sender identity, provider limits, SPF/DKIM/DMARC, and redacted transport errors. |
 | Payment/notification state is unclear | Do not infer payment success from a browser redirect or notification result. Reconcile against the authoritative provider event and database state; record the investigation. |

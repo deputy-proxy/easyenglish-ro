@@ -7,6 +7,7 @@ use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Services\Notifications\NotificationOutboxService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -17,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 
 class BookingService
 {
-    public function __construct(private readonly AvailabilityService $availability) {}
+    public function __construct(private readonly AvailabilityService $availability, private readonly NotificationOutboxService $notifications) {}
 
     /** @param array{name:string,email:string,phone:string,english_level:string,session_goal:string,notes?:?string,accepted_policy_version:string} $customer */
     public function holdSlot(array $customer, CarbonImmutable $startsAt, ?int $entitlementId = null, bool $freeIntroduction = false, bool $emailVerified = false, bool $phoneVerified = false): Booking
@@ -35,8 +36,10 @@ class BookingService
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy_version' => ['required', 'string', 'max:64'],
+            'locale' => ['sometimes', 'in:ro,en'],
         ])->validate();
         $customer['phone'] = PhoneNumber::normalize($customer['phone']);
+        $customer['locale'] = $customer['locale'] ?? 'ro';
 
         return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.
@@ -96,6 +99,7 @@ class BookingService
                 'starts_at' => $startUtc,
                 'ends_at' => $startUtc->addMinutes(AvailabilityService::SESSION_MINUTES),
                 'duration_minutes' => AvailabilityService::SESSION_MINUTES,
+                'locale' => $customer['locale'],
                 'status' => 'pending',
                 'credit_type' => $creditType,
                 'hold_expires_at' => now()->addMinutes(5),
@@ -153,6 +157,8 @@ class BookingService
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
             $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
             if ($booking->status === 'confirmed') {
+                $this->notifications->enqueueBookingConfirmation($booking);
+
                 return $booking;
             }
             if ($booking->status !== 'pending' || $booking->hold_expires_at === null || $booking->hold_expires_at->lessThanOrEqualTo(now())) {
@@ -175,6 +181,7 @@ class BookingService
                 FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'used', 'used_at' => now()]);
             }
             BookingAudit::query()->create(['booking_id' => $booking->id, 'bundle_entitlement_id' => $booking->bundle_entitlement_id, 'action' => 'booking.confirmed']);
+            $this->notifications->enqueueBookingConfirmation($booking->refresh());
 
             return $booking->refresh();
         }, attempts: 3);

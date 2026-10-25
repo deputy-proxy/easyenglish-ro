@@ -76,5 +76,5 @@ Do not ship default credentials, expose a public staff-registration path, or all
 ## Operational follow-up
 
 - Configure and verify the scheduler on Hostinger so `bookings:expire-holds` runs at the intended cadence.
-- Stripe webhook verification, checkout reconciliation, payment-state transitions, notification retries, cancellation/refund policies, and production integration credentials are deliberately deferred to their dedicated issues.
+- Stripe webhook verification, checkout reconciliation, payment-state transitions, and transactional email retries are implemented by their dedicated issues. WhatsApp delivery/contact verification, cancellation/rescheduling workflows, and production integration credentials remain explicit launch gates.
 - Before launch, verify concurrency on the production MySQL/MariaDB engine as well as the SQLite CI suite.

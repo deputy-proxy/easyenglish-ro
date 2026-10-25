@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int|null $bundle_entitlement_id
  * @property int|null $free_session_claim_id
  * @property string $status
+ * @property string $locale
  * @property string|null $credit_type
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
@@ -34,7 +35,7 @@ class Booking extends Model
     protected $fillable = [
         'public_reference', 'bundle_entitlement_id', 'free_session_claim_id', 'customer_name', 'customer_email',
         'customer_phone', 'english_level', 'session_goal', 'notes', 'accepted_policy_version', 'starts_at', 'ends_at',
-        'duration_minutes', 'status', 'credit_type', 'hold_expires_at', 'confirmed_at', 'cancelled_at', 'expired_at',
+        'duration_minutes', 'status', 'locale', 'credit_type', 'hold_expires_at', 'confirmed_at', 'cancelled_at', 'expired_at',
     ];
 
     protected function casts(): array

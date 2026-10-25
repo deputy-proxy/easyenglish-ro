@@ -11,6 +11,7 @@ use App\Models\FreeSessionClaim;
 use App\Models\Payment;
 use App\Models\PaymentRefund;
 use App\Models\User;
+use App\Services\Notifications\NotificationOutboxService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -19,7 +20,7 @@ use RuntimeException;
 
 class StripeRefundService
 {
-    public function __construct(private readonly StripeGateway $stripe) {}
+    public function __construct(private readonly StripeGateway $stripe, private readonly NotificationOutboxService $notifications) {}
 
     public function refundUnusedPaidCredits(BundleEntitlement $entitlement, int $actorId, string $reason): PaymentRefund
     {
@@ -246,6 +247,7 @@ class StripeRefundService
             }
 
             $lockedRefund->update(['status' => 'succeeded', 'confirmed_at' => now()]);
+            $this->notifications->enqueueRefundOutcome($lockedRefund->refresh());
             BookingAudit::query()->create([
                 'bundle_entitlement_id' => $entitlement->id,
                 'actor_id' => $lockedRefund->actor_id,
@@ -294,6 +296,7 @@ class StripeRefundService
             CreditTransaction::query()->where('idempotency_key', 'refund-reserved-paid-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
             CreditTransaction::query()->where('idempotency_key', 'refund-reserved-free-credits:'.$lockedRefund->id)->update(['type' => 'refund_reservation_released']);
             $lockedRefund->update(['status' => 'failed', 'provider_status' => $providerStatus]);
+            $this->notifications->enqueueRefundOutcome($lockedRefund->refresh());
             BookingAudit::query()->create([
                 'bundle_entitlement_id' => $entitlement->id,
                 'actor_id' => $lockedRefund->actor_id,

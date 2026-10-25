@@ -2,16 +2,32 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $attempts
+ * @property string $channel
+ * @property string $event
+ * @property string $status
+ * @property string $idempotency_key
+ * @property string|null $last_error
+ * @property CarbonImmutable|null $next_attempt_at
+ * @property CarbonImmutable|null $sent_at
+ * @property array<string, mixed>|null $metadata
+ * @property Booking|null $booking
+ * @property BundleEntitlement|null $entitlement
+ * @property PaymentRefund|null $refund
+ */
 class NotificationDelivery extends Model
 {
-    protected $fillable = ['booking_id', 'bundle_entitlement_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key'];
+    protected $fillable = ['booking_id', 'bundle_entitlement_id', 'payment_refund_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key', 'metadata'];
 
     protected function casts(): array
     {
-        return ['next_attempt_at' => 'immutable_datetime', 'sent_at' => 'immutable_datetime'];
+        return ['next_attempt_at' => 'immutable_datetime', 'sent_at' => 'immutable_datetime', 'metadata' => 'array'];
     }
 
     /** @return BelongsTo<Booking, $this> */
@@ -24,5 +40,11 @@ class NotificationDelivery extends Model
     public function entitlement(): BelongsTo
     {
         return $this->belongsTo(BundleEntitlement::class, 'bundle_entitlement_id');
+    }
+
+    /** @return BelongsTo<PaymentRefund, $this> */
+    public function refund(): BelongsTo
+    {
+        return $this->belongsTo(PaymentRefund::class, 'payment_refund_id');
     }
 }

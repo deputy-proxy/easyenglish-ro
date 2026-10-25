@@ -1,18 +1,23 @@
 <?php
 
 use App\Contracts\Payments\StripeGateway;
+use App\Jobs\SendNotificationDelivery;
+use App\Mail\TransactionalNotificationEmail;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
+use App\Models\NotificationDelivery;
 use App\Models\Payment;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
+use App\Services\Notifications\NotificationMessageFactory;
 use App\Services\Payments\StripeRefundService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Testing\TestCase as LaravelTestCase;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 use Stripe\WebhookSignature;
 use Tests\Support\FakeStripeGateway;
@@ -25,10 +30,10 @@ beforeEach(function (): void {
 });
 
 /** @return array{bundle:BundleDefinition,token:string,entitlement:BundleEntitlement,payment:Payment,session:array<string,mixed>} */
-function startStripePurchase(LaravelTestCase $test, string $token = 'AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789'): array
+function startStripePurchase(LaravelTestCase $test, string $token = 'AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789', string $locale = 'ro'): array
 {
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
-    $test->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
+    $test->withSession(['bundle_checkout_tokens' => [$bundle->id => $token], 'locale' => $locale])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $token,
             'name' => 'Stripe Test Customer',
@@ -99,7 +104,8 @@ test('checkout creates a pending purchase using server-controlled tax-inclusive 
         ->and($purchase['entitlement']->status)->toBe('pending_payment')
         ->and($purchase['entitlement']->credits_remaining)->toBe(0)
         ->and($purchase['payment']->status)->toBe('pending')
-        ->and($purchase['payment']->provider_checkout_id)->toBe('cs_test_1');
+        ->and($purchase['payment']->provider_checkout_id)->toBe('cs_test_1')
+        ->and(NotificationDelivery::query()->count())->toBe(0);
 });
 
 test('all three server-configured bundle prices are sent to Stripe in RON minor units', function () {
@@ -192,7 +198,28 @@ test('signed checkout webhook activates once and duplicate delivery is idempoten
         ->and($purchase['entitlement']->fresh()->status)->toBe('active')
         ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(4)
         ->and(CreditTransaction::query()->where('idempotency_key', 'bundle-paid-grant:'.$purchase['entitlement']->id)->count())->toBe(1)
-        ->and(StripeWebhookEvent::query()->where('provider_event_id', 'evt_checkout_paid_1')->count())->toBe(1);
+        ->and(StripeWebhookEvent::query()->where('provider_event_id', 'evt_checkout_paid_1')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'bundle_purchase_confirmed')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'bundle_purchase_confirmed')->value('channel'))->toBe('email');
+});
+
+test('verified bundle purchase queues a Romanian or English transactional email using the checkout locale', function () {
+    Mail::fake();
+    $purchase = startStripePurchase($this, str_repeat('Q', 48), 'en');
+    expect($purchase['entitlement']->locale)->toBe('en')
+        ->and(NotificationDelivery::query()->count())->toBe(0);
+
+    $fake = app(FakeStripeGateway::class);
+    $fake->setSessionStatus('cs_test_1', 'complete', 'paid', 'pi_test_email_locale');
+    postStripeTestEvent($this, stripeTestEvent('evt_bundle_email_locale', 'checkout.session.completed', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
+    $delivery = NotificationDelivery::query()->where('event', 'bundle_purchase_confirmed')->firstOrFail();
+    $delivery->update(['status' => 'queued']);
+    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class));
+
+    expect($delivery->fresh()->status)->toBe('sent');
+    Mail::assertSent(TransactionalNotificationEmail::class, fn (TransactionalNotificationEmail $mail): bool => $mail->messageData['locale'] === 'en'
+        && $mail->messageData['subject'] === 'Your Easy English bundle purchase is confirmed'
+        && str_contains($mail->render(), 'appointments are not scheduled automatically'));
 });
 
 test('a processed Stripe event ID cannot be replayed with a different payload', function () {
@@ -301,6 +328,7 @@ test('successful full refund reserves then revokes paid and unused included free
         ->and(FreeSessionClaim::query()->where('bundle_entitlement_id', $records['entitlement']->id)->value('status'))->toBe('revoked')
         ->and(CreditTransaction::query()->where('idempotency_key', 'refund-reserved-paid-credits:'.$refund->id)->value('type'))->toBe('refunded')
         ->and(BookingAudit::query()->where('action', 'payment.refund_succeeded')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('event', 'refund_succeeded')->count())->toBe(1)
         ->and($fake->refundRequests[0]['parameters']['amount'])->toBe(15600);
 });
 
@@ -327,7 +355,8 @@ test('failed Stripe refund restores reserved credits and keeps the payment refun
         ->and($records['entitlement']->fresh()->credits_remaining)->toBe(4)
         ->and($records['payment']->fresh()->status)->toBe('succeeded')
         ->and($records['payment']->fresh()->refunded_amount_ron)->toBe(0)
-        ->and(CreditTransaction::query()->where('idempotency_key', 'refund-release-paid-credits:'.$refund->id)->exists())->toBeTrue();
+        ->and(CreditTransaction::query()->where('idempotency_key', 'refund-release-paid-credits:'.$refund->id)->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('event', 'refund_failed')->count())->toBe(1);
 });
 
 test('ambiguous refund stays reserved until idempotent reconciliation confirms provider status', function () {

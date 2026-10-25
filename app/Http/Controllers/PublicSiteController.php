@@ -162,6 +162,7 @@ class PublicSiteController extends Controller
             'session_goal' => $validated['session_goal'],
             'notes' => $validated['notes'] ?? null,
             'accepted_policy_version' => config('easyenglish.policy_version'),
+            'locale' => app()->getLocale(),
         ], $startsAt, $entitlement->id);
         $bookings->confirm($booking->id);
 
