@@ -274,7 +274,7 @@ test('email-only mode permits a free introduction after email verification witho
         ])->assertRedirect();
 
     expect(Booking::query()->where('customer_email', 'email-only-booking@example.com')->where('status', 'confirmed')->count())->toBe(1)
-        ->and(WhatsAppContact::query()->where('phone', '+40722123459')->exists())->toBeFalse()
+        ->and(WhatsAppContact::query()->count())->toBe(0)
         ->and($challenge->fresh()->consumed_at)->not->toBeNull();
 });
 
