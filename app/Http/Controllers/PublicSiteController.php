@@ -145,7 +145,7 @@ class PublicSiteController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:254'],
             'phone' => ['required', 'string', 'max:32', 'regex:/^\\+?[0-9\\s().-]{7,32}$/'],
-            'whatsapp_service_consent' => ['accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'return_to' => ['required', 'in:booking,purchase'],
             'bundle_id' => ['nullable', 'integer', 'required_if:return_to,purchase'],
         ]);
@@ -159,7 +159,9 @@ class PublicSiteController extends Controller
             $bundleId = $bundle->id;
         }
         try {
-            WhatsAppContact::recordConsent($validated['phone'], 'contact_verification');
+            if (($validated['whatsapp_service_consent'] ?? null) === '1') {
+                WhatsAppContact::recordConsent($validated['phone'], 'contact_verification');
+            }
             $challenge = $verificationService->start($validated['email'], $validated['phone'], app()->getLocale(), $validated['return_to'], $bundleId);
         } catch (ValidationException $exception) {
             throw $exception;
@@ -218,7 +220,7 @@ class PublicSiteController extends Controller
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy' => ['accepted'],
-            'whatsapp_service_consent' => ['accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
             'verification_id' => ['nullable', 'uuid'],
         ]);
@@ -249,7 +251,9 @@ class PublicSiteController extends Controller
             }
         }
 
-        WhatsAppContact::recordConsent($validated['phone'], 'booking_form');
+        if (($validated['whatsapp_service_consent'] ?? null) === '1') {
+            WhatsAppContact::recordConsent($validated['phone'], 'booking_form');
+        }
         $booking = $bookings->holdSlot([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -429,7 +433,7 @@ class PublicSiteController extends Controller
                     $fail(__('public.phone_invalid'));
                 }
             }],
-            'whatsapp_service_consent' => ['accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'verification_id' => ['nullable', 'uuid'],
         ]);
         $expectedToken = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
@@ -453,7 +457,9 @@ class PublicSiteController extends Controller
         }
 
         try {
-            WhatsAppContact::recordConsent($validated['phone'], 'bundle_checkout');
+            if (($validated['whatsapp_service_consent'] ?? null) === '1') {
+                WhatsAppContact::recordConsent($validated['phone'], 'bundle_checkout');
+            }
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
             ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge);

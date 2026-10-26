@@ -59,8 +59,11 @@ class BookingService
             $bundleFreeClaim = null;
             $creditType = null;
             if ($freeIntroduction) {
-                if (! $emailVerified || ! $phoneVerified) {
-                    throw ValidationException::withMessages(['verification' => 'Email and phone must be verified before claiming the free introduction.']);
+                $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+                if (! $emailVerified || (! $emailOnly && ! $phoneVerified)) {
+                    throw ValidationException::withMessages(['verification' => $emailOnly
+                        ? 'Email must be verified before claiming the free introduction.'
+                        : 'Email and phone must be verified before claiming the free introduction.']);
                 }
                 $reusableClaim = FreeSessionClaim::query()->where(function ($query) use ($customer): void {
                     $query->where('customer_email', mb_strtolower($customer['email']))->orWhere('customer_phone', $customer['phone']);
