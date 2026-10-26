@@ -44,6 +44,10 @@ class ContactVerificationChallenge extends Model
 
     public function isComplete(): bool
     {
+        if (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only') {
+            return $this->email_verified_at !== null;
+        }
+
         return $this->email_verified_at !== null && $this->phone_verified_at !== null;
     }
 }
