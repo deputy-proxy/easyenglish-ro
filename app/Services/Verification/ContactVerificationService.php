@@ -88,10 +88,18 @@ class ContactVerificationService
             });
             if (! $emailOnly) {
                 $language = config('services.whatsapp.template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en_US' : 'ro');
-                $this->whatsapp->sendTemplate($phone, (string) $template, $language, [[
-                    'type' => 'body',
-                    'parameters' => [['type' => 'text', 'text' => $code]],
-                ]], 'contact-verification:'.$challenge->id);
+                $this->whatsapp->sendTemplate($phone, (string) $template, $language, [
+                    [
+                        'type' => 'body',
+                        'parameters' => [['type' => 'text', 'text' => $code]],
+                    ],
+                    [
+                        'type' => 'button',
+                        'sub_type' => 'copy_code',
+                        'index' => '0',
+                        'parameters' => [['type' => 'payload', 'payload' => $code]],
+                    ],
+                ], 'contact-verification:'.$challenge->id);
             }
         } catch (\Throwable $exception) {
             // Invalidate a partially delivered challenge so a single channel cannot leave it usable.
