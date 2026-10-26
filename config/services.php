@@ -8,6 +8,10 @@ return [
         'checkout_enabled' => (bool) env('STRIPE_CHECKOUT_ENABLED', false),
     ],
 
+    'contact_verification' => [
+        'mode' => env('CONTACT_VERIFICATION_MODE', 'email_and_whatsapp'),
+    ],
+
     'whatsapp' => [
         'enabled' => (bool) env('WHATSAPP_ENABLED', false),
         'api_version' => env('WHATSAPP_API_VERSION', 'v26.0'),
