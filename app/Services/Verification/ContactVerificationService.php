@@ -95,9 +95,9 @@ class ContactVerificationService
                     ],
                     [
                         'type' => 'button',
-                        'sub_type' => 'copy_code',
+                        'sub_type' => 'url',
                         'index' => '0',
-                        'parameters' => [['type' => 'payload', 'payload' => $code]],
+                        'parameters' => [['type' => 'text', 'text' => $code]],
                     ],
                 ], 'contact-verification:'.$challenge->id);
             }
