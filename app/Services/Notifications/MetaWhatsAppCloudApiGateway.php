@@ -42,6 +42,9 @@ class MetaWhatsAppCloudApiGateway implements WhatsAppGateway
                 'code' => isset($error['code']) && is_scalar($error['code']) ? (string) $error['code'] : null,
                 'type' => isset($error['type']) && is_string($error['type']) ? $error['type'] : null,
                 'message' => isset($error['message']) && is_string($error['message']) ? mb_substr($error['message'], 0, 300) : null,
+                'details' => isset($error['error_data']['details']) && is_string($error['error_data']['details'])
+                    ? mb_substr($error['error_data']['details'], 0, 300)
+                    : null,
             ]);
             $description = $details === [] ? 'no error details returned' : json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
