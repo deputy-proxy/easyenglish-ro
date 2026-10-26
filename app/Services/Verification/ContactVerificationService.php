@@ -23,9 +23,10 @@ class ContactVerificationService
         ContactVerificationChallenge::query()->where('expires_at', '<', now()->subDay())->delete();
         $email = mb_strtolower(trim($email));
         $phone = PhoneNumber::normalize($phone);
-        if (! (bool) config('services.whatsapp.enabled')
+        $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        if (! $emailOnly && (! (bool) config('services.whatsapp.enabled')
             || ! is_string(config('services.whatsapp.access_token')) || config('services.whatsapp.access_token') === ''
-            || ! is_string(config('services.whatsapp.phone_number_id')) || config('services.whatsapp.phone_number_id') === '') {
+            || ! is_string(config('services.whatsapp.phone_number_id')) || config('services.whatsapp.phone_number_id') === '')) {
             throw new RuntimeException('WhatsApp verification delivery is not configured.');
         }
         if (! app()->environment('testing') && $this->usesNonDeliveringMailer((string) config('mail.default'))) {
@@ -54,11 +55,11 @@ class ContactVerificationService
         }
 
         $template = config('services.whatsapp.templates.contact_verification');
-        if (! is_string($template) || $template === '') {
+        if (! $emailOnly && (! is_string($template) || $template === '')) {
             throw new RuntimeException('The WhatsApp contact-verification template is not configured.');
         }
         $token = Str::random(64);
-        $code = (string) random_int(100000, 999999);
+        $code = $emailOnly ? '' : (string) random_int(100000, 999999);
         $challenge = ContactVerificationChallenge::query()->create([
             'id' => (string) Str::uuid(),
             'customer_email' => $email,
@@ -67,7 +68,7 @@ class ContactVerificationService
             'return_to' => $returnTo === 'purchase' && $returnBundleId !== null ? 'purchase' : 'booking',
             'return_bundle_id' => $returnTo === 'purchase' ? $returnBundleId : null,
             'email_token_hash' => hash('sha256', $token),
-            'phone_code_hash' => hash_hmac('sha256', $code, (string) config('app.key')),
+            'phone_code_hash' => hash_hmac('sha256', $code !== '' ? $code : Str::random(32), (string) config('app.key')),
             'expires_at' => now()->addMinutes(30),
             'phone_attempts' => 0,
         ]);
@@ -85,11 +86,13 @@ class ContactVerificationService
             Mail::raw($body, function ($message) use ($email, $subject): void {
                 $message->to($email)->subject($subject);
             });
-            $language = config('services.whatsapp.template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en_US' : 'ro');
-            $this->whatsapp->sendTemplate($phone, $template, $language, [[
-                'type' => 'body',
-                'parameters' => [['type' => 'text', 'text' => $code]],
-            ]], 'contact-verification:'.$challenge->id);
+            if (! $emailOnly) {
+                $language = config('services.whatsapp.template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en_US' : 'ro');
+                $this->whatsapp->sendTemplate($phone, (string) $template, $language, [[
+                    'type' => 'body',
+                    'parameters' => [['type' => 'text', 'text' => $code]],
+                ]], 'contact-verification:'.$challenge->id);
+            }
         } catch (\Throwable $exception) {
             // Invalidate a partially delivered challenge so a single channel cannot leave it usable.
             $challenge->forceFill([
@@ -100,7 +103,7 @@ class ContactVerificationService
 
             throw $exception;
         }
-        $challenge->update(['email_sent_at' => now(), 'phone_sent_at' => now()]);
+        $challenge->update(['email_sent_at' => now(), 'phone_sent_at' => $emailOnly ? null : now()]);
 
         return $challenge->refresh();
     }
