@@ -56,6 +56,25 @@ function makeVerificationChallenge(array $overrides = []): ContactVerificationCh
     ], $overrides));
 }
 
+test('email-only mode sends verification email without requiring WhatsApp configuration', function () {
+    config([
+        'services.contact_verification.mode' => 'email_only',
+        'services.whatsapp.enabled' => false,
+        'services.whatsapp.access_token' => null,
+        'services.whatsapp.phone_number_id' => null,
+    ]);
+
+    $challenge = app(ContactVerificationService::class)->start('Email-only@example.com', '+40722123456', 'en');
+
+    expect($challenge->customer_email)->toBe('email-only@example.com')
+        ->and($challenge->email_sent_at)->not->toBeNull()
+        ->and($challenge->phone_sent_at)->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
+
+    $challenge->update(['email_verified_at' => now()]);
+    expect($challenge->fresh()->isComplete())->toBeTrue();
+});
+
 test('verification start stores hashes and sends a WhatsApp code without logging secrets', function () {
     $challenge = app(ContactVerificationService::class)->start('Learner@example.com', '+40722123456', 'en');
     $gateway = app(FakeWhatsAppGateway::class);
@@ -227,6 +246,35 @@ test('free introduction is created only when both contact channels are verified'
         ])->assertRedirect();
 
     expect(Booking::query()->where('status', 'confirmed')->count())->toBe(1)
+        ->and($challenge->fresh()->consumed_at)->not->toBeNull();
+});
+
+test('email-only mode permits a free introduction after email verification without WhatsApp consent', function () {
+    config(['services.contact_verification.mode' => 'email_only']);
+    $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
+    addVerificationAvailability($day);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => 'email-only-booking@example.com',
+        'customer_phone' => '+40722123459',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+    ]);
+
+    $this->withSession(['contact_verification_id' => $challenge->id, 'locale' => 'en'])
+        ->post('/book', [
+            'type' => 'intro',
+            'verification_id' => $challenge->id,
+            'starts_at' => '2026-10-27T09:00:00+02:00',
+            'name' => 'Email Only Learner',
+            'email' => 'email-only-booking@example.com',
+            'phone' => '+40722123459',
+            'english_level' => 'B1',
+            'session_goal' => 'Work conversations',
+            'accepted_policy' => '1',
+        ])->assertRedirect();
+
+    expect(Booking::query()->where('customer_email', 'email-only-booking@example.com')->where('status', 'confirmed')->count())->toBe(1)
+        ->and(WhatsAppContact::query()->where('phone', '+40722123459')->exists())->toBeFalse()
         ->and($challenge->fresh()->consumed_at)->not->toBeNull();
 });
 
