@@ -15,7 +15,7 @@ class WhatsAppWebhookService
     public function verifySignature(string $payload, string $signature): bool
     {
         $secret = config('services.whatsapp.app_secret');
-        if (! is_string($secret) || $secret === '' || ! str_starts_with($signature, 'sha256=')) {
+        if (!is_string($secret) || $secret === '' || !str_starts_with($signature, 'sha256=')) {
             return false;
         }
         $expected = 'sha256='.hash_hmac('sha256', $payload, $secret);
@@ -28,7 +28,7 @@ class WhatsAppWebhookService
     {
         foreach (($payload['entry'] ?? []) as $entry) {
             foreach (($entry['changes'] ?? []) as $change) {
-                if (! is_array($change) || ! is_array($change['value'] ?? null)) {
+                if (!is_array($change) || !is_array($change['value'] ?? null)) {
                     continue;
                 }
                 $value = $change['value'];
@@ -52,16 +52,16 @@ class WhatsAppWebhookService
     {
         $messageId = $status['id'] ?? null;
         $providerStatus = $status['status'] ?? null;
-        if (! is_string($messageId) || ! is_string($providerStatus)) {
+        if (!is_string($messageId) || !is_string($providerStatus)) {
             return;
         }
         $timestamp = (string) ($status['timestamp'] ?? '');
         $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->first();
-        if (! $delivery) {
+        if (!$delivery) {
             return;
         }
         $eventKey = hash('sha256', implode('|', [$messageId, $providerStatus, $timestamp]));
-        if (! $this->claimEvent($eventKey, 'status')) {
+        if (!$this->claimEvent($eventKey, 'status')) {
             return;
         }
         $priority = ['accepted' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3, 'failed' => 4];
@@ -100,7 +100,7 @@ class WhatsAppWebhookService
     {
         $messageId = $message['id'] ?? null;
         $from = $message['from'] ?? null;
-        if (! is_string($messageId) || ! is_string($from)) {
+        if (!is_string($messageId) || !is_string($from)) {
             return;
         }
 
@@ -118,7 +118,7 @@ class WhatsAppWebhookService
         }
 
         $eventKey = hash('sha256', 'inbound-message|'.$messageId);
-        if (! $this->claimEvent($eventKey, 'inbound_message')) {
+        if (!$this->claimEvent($eventKey, 'inbound_message')) {
             return;
         }
 
@@ -143,12 +143,12 @@ class WhatsAppWebhookService
 
         $keyword = Str::upper(trim($body));
         $optOutKeywords = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'PARAR', 'OPRIRE', 'DEZABONARE', 'NU MAI TRIMITE'];
-        if (! in_array($keyword, $optOutKeywords, true)) {
+        if (!in_array($keyword, $optOutKeywords, true)) {
             return;
         }
 
         $optOutEventKey = hash('sha256', 'inbound-optout|'.$messageId);
-        if (! $this->claimEvent($optOutEventKey, 'opt_out')) {
+        if (!$this->claimEvent($optOutEventKey, 'opt_out')) {
             return;
         }
 
@@ -181,7 +181,7 @@ class WhatsAppWebhookService
     {
         $latitude = data_get($message, 'location.latitude');
         $longitude = data_get($message, 'location.longitude');
-        if (! is_numeric($latitude) || ! is_numeric($longitude)) {
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
             return null;
         }
 
