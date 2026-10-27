@@ -95,6 +95,7 @@ class ContactVerificationService
                     ],
                     [
                         'type' => 'button',
+                        // Native COPY_CODE authentication templates use the URL subtype when sent.
                         'sub_type' => 'url',
                         'index' => '0',
                         'parameters' => [['type' => 'text', 'text' => $code]],
