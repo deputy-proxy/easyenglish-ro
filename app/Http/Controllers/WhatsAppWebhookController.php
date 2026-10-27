@@ -20,24 +20,54 @@ class WhatsAppWebhookController extends Controller
             return response($challenge, 200)->header('Content-Type', 'text/plain');
         }
 
+        Log::warning('WhatsApp webhook verification rejected.', [
+            'mode_subscribe' => $mode === 'subscribe',
+            'verify_token_configured' => is_string($verifyToken) && $verifyToken !== '',
+        ]);
+
         return response('Webhook verification failed.', 403)->header('Content-Type', 'text/plain');
     }
 
     public function receive(Request $request, WhatsAppWebhookService $webhooks): Response
     {
         $payload = $request->getContent();
-        if (! $webhooks->verifySignature($payload, $request->header('X-Hub-Signature-256', ''))) {
+        $signature = $request->header('X-Hub-Signature-256', '');
+
+        Log::info('WhatsApp webhook request received.', [
+            'method' => $request->method(),
+            'signature_header_present' => $signature !== '',
+            'payload_bytes' => strlen($payload),
+        ]);
+
+        if (! $webhooks->verifySignature($payload, $signature)) {
+            Log::warning('WhatsApp webhook signature rejected.', [
+                'signature_header_present' => $signature !== '',
+                'app_secret_configured' => is_string(config('services.whatsapp.app_secret'))
+                    && config('services.whatsapp.app_secret') !== '',
+                'payload_bytes' => strlen($payload),
+            ]);
+
             return response('Invalid webhook signature.', 401);
         }
+
         $data = json_decode($payload, true);
         if (! is_array($data) || ($data['object'] ?? null) !== 'whatsapp_business_account') {
+            Log::warning('WhatsApp webhook payload rejected.', [
+                'json_valid' => json_last_error() === JSON_ERROR_NONE,
+                'object_valid' => is_array($data) && ($data['object'] ?? null) === 'whatsapp_business_account',
+                'payload_bytes' => strlen($payload),
+            ]);
+
             return response('Invalid webhook payload.', 400);
         }
 
         try {
-            $webhooks->handle($data);
+            $summary = $webhooks->handle($data);
+            Log::info('WhatsApp webhook processed.', $summary);
         } catch (\Throwable $exception) {
-            Log::error('WhatsApp webhook processing failed.', ['exception' => $exception::class]);
+            Log::error('WhatsApp webhook processing failed.', [
+                'exception' => $exception::class,
+            ]);
 
             return response('Webhook processing failed.', 500);
         }

@@ -23,28 +23,52 @@ class WhatsAppWebhookService
         return hash_equals($expected, $signature);
     }
 
-    /** @param array<string, mixed> $payload */
-    public function handle(array $payload): void
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{entries: int, changes: int, statuses_received: int, messages_received: int, messages_persisted: int, messages_duplicate: int, messages_ignored: int}
+     */
+    public function handle(array $payload): array
     {
+        $summary = [
+            'entries' => 0,
+            'changes' => 0,
+            'statuses_received' => 0,
+            'messages_received' => 0,
+            'messages_persisted' => 0,
+            'messages_duplicate' => 0,
+            'messages_ignored' => 0,
+        ];
+
         foreach (($payload['entry'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $summary['entries']++;
             foreach (($entry['changes'] ?? []) as $change) {
                 if (! is_array($change) || ! is_array($change['value'] ?? null)) {
                     continue;
                 }
+                $summary['changes']++;
                 $value = $change['value'];
                 $metadata = is_array($value['metadata'] ?? null) ? $value['metadata'] : [];
                 foreach (($value['statuses'] ?? []) as $status) {
                     if (is_array($status)) {
+                        $summary['statuses_received']++;
                         $this->handleStatus($status);
                     }
                 }
                 foreach (($value['messages'] ?? []) as $message) {
-                    if (is_array($message)) {
-                        $this->handleInboundMessage($message, $metadata);
+                    if (! is_array($message)) {
+                        continue;
                     }
+                    $summary['messages_received']++;
+                    $result = $this->handleInboundMessage($message, $metadata);
+                    $summary['messages_'.$result]++;
                 }
             }
         }
+
+        return $summary;
     }
 
     /** @param array<string, mixed> $status */
@@ -96,17 +120,17 @@ class WhatsAppWebhookService
      * @param  array<string, mixed>  $message
      * @param  array<string, mixed>  $metadata
      */
-    private function handleInboundMessage(array $message, array $metadata): void
+    private function handleInboundMessage(array $message, array $metadata): string
     {
         $messageId = $message['id'] ?? null;
         $from = $message['from'] ?? null;
-        if (! is_string($messageId) || ! is_string($from)) {
-            return;
+        if (! is_string($messageId) || $messageId === '' || ! is_string($from)) {
+            return 'ignored';
         }
 
         $phone = PhoneNumber::normalize($from);
         if ($phone === '') {
-            return;
+            return 'ignored';
         }
 
         $type = is_string($message['type'] ?? null) ? $message['type'] : 'unknown';
@@ -118,38 +142,46 @@ class WhatsAppWebhookService
         }
 
         $eventKey = hash('sha256', 'inbound-message|'.$messageId);
-        if (! $this->claimEvent($eventKey, 'inbound_message')) {
-            return;
+        $persisted = DB::transaction(function () use ($eventKey, $messageId, $phone, $metadata, $type, $body, $providerTimestamp, $receivedAt, $message): bool {
+            if (! $this->claimEvent($eventKey, 'inbound_message')) {
+                return false;
+            }
+
+            Message::query()->create([
+                'provider_message_id' => $messageId,
+                'channel' => 'whatsapp',
+                'direction' => 'inbound',
+                'from_phone' => $phone,
+                'to_phone' => is_string($metadata['display_phone_number'] ?? null)
+                    ? PhoneNumber::normalize($metadata['display_phone_number'])
+                    : null,
+                'type' => substr($type, 0, 32),
+                'body' => $body,
+                'provider_timestamp' => $providerTimestamp,
+                'received_at' => $receivedAt,
+                'context' => is_array($message['context'] ?? null) ? $message['context'] : null,
+            ]);
+
+            return true;
+        });
+
+        if (! $persisted) {
+            return 'duplicate';
         }
 
-        Message::query()->create([
-            'provider_message_id' => $messageId,
-            'channel' => 'whatsapp',
-            'direction' => 'inbound',
-            'from_phone' => $phone,
-            'to_phone' => is_string($metadata['display_phone_number'] ?? null)
-                ? PhoneNumber::normalize($metadata['display_phone_number'])
-                : null,
-            'type' => substr($type, 0, 32),
-            'body' => $body,
-            'provider_timestamp' => $providerTimestamp,
-            'received_at' => $receivedAt,
-            'context' => is_array($message['context'] ?? null) ? $message['context'] : null,
-        ]);
-
         if ($type !== 'text' || $body === null) {
-            return;
+            return 'persisted';
         }
 
         $keyword = Str::upper(trim($body));
         $optOutKeywords = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'PARAR', 'OPRIRE', 'DEZABONARE', 'NU MAI TRIMITE'];
         if (! in_array($keyword, $optOutKeywords, true)) {
-            return;
+            return 'persisted';
         }
 
         $optOutEventKey = hash('sha256', 'inbound-optout|'.$messageId);
         if (! $this->claimEvent($optOutEventKey, 'opt_out')) {
-            return;
+            return 'persisted';
         }
 
         WhatsAppContact::recordOptOut($phone, 'whatsapp_reply');
@@ -158,6 +190,8 @@ class WhatsAppWebhookService
                 $query->whereHas('booking', fn ($booking) => $booking->where('customer_phone', $phone))
                     ->orWhereHas('entitlement', fn ($entitlement) => $entitlement->where('customer_phone', $phone));
             })->update(['status' => 'skipped', 'next_attempt_at' => null, 'last_error' => 'Customer opted out of WhatsApp service messages.']);
+
+        return 'persisted';
     }
 
     /** @param array<string, mixed> $message */
