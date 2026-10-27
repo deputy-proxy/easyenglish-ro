@@ -57,11 +57,11 @@ class WhatsAppWebhookService
         }
         $timestamp = (string) ($status['timestamp'] ?? '');
         $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->first();
-        if (! $delivery) {
+        if (!$delivery) {
             return;
         }
         $eventKey = hash('sha256', implode('|', [$messageId, $providerStatus, $timestamp]));
-        if (! $this->claimEvent($eventKey, 'status')) {
+        if (!$this->claimEvent($eventKey, 'status')) {
             return;
         }
         $priority = ['accepted' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3, 'failed' => 4];
@@ -118,7 +118,7 @@ class WhatsAppWebhookService
         }
 
         $eventKey = hash('sha256', 'inbound-message|'.$messageId);
-        if (! $this->claimEvent($eventKey, 'inbound_message')) {
+        if (!$this->claimEvent($eventKey, 'inbound_message')) {
             return;
         }
 
@@ -148,7 +148,7 @@ class WhatsAppWebhookService
         }
 
         $optOutEventKey = hash('sha256', 'inbound-optout|'.$messageId);
-        if (! $this->claimEvent($optOutEventKey, 'opt_out')) {
+        if (!$this->claimEvent($optOutEventKey, 'opt_out')) {
             return;
         }
 
