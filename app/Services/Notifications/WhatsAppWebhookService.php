@@ -1,14 +1,14 @@
 <?php
 
-namespace App\\Services\\Notifications;
+namespace App\Services\Notifications;
 
-use App\\Models\\Message;
-use App\\Models\\NotificationDelivery;
-use App\\Models\\WhatsAppContact;
-use App\\Support\\PhoneNumber;
-use Carbon\\CarbonImmutable;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
+use App\Models\Message;
+use App\Models\NotificationDelivery;
+use App\Models\WhatsAppContact;
+use App\Support\PhoneNumber;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class WhatsAppWebhookService
 {
