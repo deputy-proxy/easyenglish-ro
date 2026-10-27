@@ -93,8 +93,8 @@ class WhatsAppWebhookService
     }
 
     /**
-     * @param array<string, mixed> $message
-     * @param array<string, mixed> $metadata
+     * @param  array<string, mixed>  $message
+     * @param  array<string, mixed>  $metadata
      */
     private function handleInboundMessage(array $message, array $metadata): void
     {
