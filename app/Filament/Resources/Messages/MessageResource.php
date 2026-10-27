@@ -1,18 +1,18 @@
 <?php
 
-namespace App\\Filament\\Resources\\Messages;
+namespace App\Filament\Resources\Messages;
 
-use App\\Filament\\Resources\\Messages\\Pages\\ManageMessages;
-use App\\Models\\Message;
+use App\Filament\Resources\Messages\Pages\ManageMessages;
+use App\Models\Message;
 use BackedEnum;
-use Filament\\Resources\\Resource;
-use Filament\\Schemas\\Schema;
-use Filament\\Support\\Icons\\Heroicon;
-use Filament\\Tables\\Columns\\TextColumn;
-use Filament\\Tables\\Filters\\SelectFilter;
-use Filament\\Tables\\Table;
-use Illuminate\\Database\\Eloquent\\Builder;
-use Illuminate\\Database\\Eloquent\\Model;
+use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class MessageResource extends Resource
 {
@@ -22,7 +22,7 @@ class MessageResource extends Resource
 
     protected static ?string $navigationLabel = 'WhatsApp messages';
 
-    protected static string|\\UnitEnum|null $navigationGroup = 'Operations';
+    protected static string|\UnitEnum|null $navigationGroup = 'Operations';
 
     public static function form(Schema $schema): Schema
     {
