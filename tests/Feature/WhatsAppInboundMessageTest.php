@@ -1,8 +1,8 @@
 <?php
 
-use App\\Models\\Message;
-use App\\Services\\Notifications\\WhatsAppWebhookService;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\Message;
+use App\Services\Notifications\WhatsAppWebhookService;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function (): void {
     config(['services.whatsapp.app_secret' => 'inbound-test-secret']);
