@@ -1,9 +1,9 @@
 <?php
 
-namespace App\\Filament\\Resources\\Messages\\Pages;
+namespace App\Filament\Resources\Messages\Pages;
 
-use App\\Filament\\Resources\\Messages\\MessageResource;
-use Filament\\Resources\\Pages\\ManageRecords;
+use App\Filament\Resources\Messages\MessageResource;
+use Filament\Resources\Pages\ManageRecords;
 
 class ManageMessages extends ManageRecords
 {
