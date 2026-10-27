@@ -97,8 +97,7 @@ test('invalid inbound webhook signatures are logged without exposing payloads', 
 
     $response->assertUnauthorized();
     Log::shouldHaveReceived('warning')
-        ->with('WhatsApp webhook signature rejected.', Mockery::on(fn (array $context): bool =>
-            $context['signature_header_present'] === true
+        ->with('WhatsApp webhook signature rejected.', Mockery::on(fn (array $context): bool => $context['signature_header_present'] === true
             && $context['app_secret_configured'] === true
             && $context['payload_bytes'] === strlen($payload)
         ));
@@ -122,8 +121,7 @@ test('valid inbound webhooks log processing counts without message content', fun
 
     $response->assertOk()->assertSeeText('EVENT_RECEIVED');
     Log::shouldHaveReceived('info')
-        ->with('WhatsApp webhook processed.', Mockery::on(fn (array $context): bool =>
-            $context['entries'] === 1
+        ->with('WhatsApp webhook processed.', Mockery::on(fn (array $context): bool => $context['entries'] === 1
             && $context['changes'] === 1
             && $context['messages_received'] === 1
             && $context['messages_persisted'] === 1
@@ -144,8 +142,7 @@ test('signed malformed inbound payloads are logged and rejected', function () {
 
     $response->assertBadRequest();
     Log::shouldHaveReceived('warning')
-        ->with('WhatsApp webhook payload rejected.', Mockery::on(fn (array $context): bool =>
-            $context['json_valid'] === true
+        ->with('WhatsApp webhook payload rejected.', Mockery::on(fn (array $context): bool => $context['json_valid'] === true
             && $context['object_valid'] === false
             && $context['payload_bytes'] === strlen($payload)
         ));

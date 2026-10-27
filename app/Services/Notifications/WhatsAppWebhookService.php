@@ -63,7 +63,13 @@ class WhatsAppWebhookService
                     }
                     $summary['messages_received']++;
                     $result = $this->handleInboundMessage($message, $metadata);
-                    $summary['messages_'.$result]++;
+                    if ($result === 'persisted') {
+                        $summary['messages_persisted']++;
+                    } elseif ($result === 'duplicate') {
+                        $summary['messages_duplicate']++;
+                    } else {
+                        $summary['messages_ignored']++;
+                    }
                 }
             }
         }
