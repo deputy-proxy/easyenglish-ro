@@ -85,7 +85,13 @@ test('verification start stores hashes and sends a WhatsApp code without logging
         ->and($challenge->email_token_hash)->not->toBe('')
         ->and($challenge->phone_code_hash)->not->toBe($code)
         ->and($code)->toMatch('/^[0-9]{6}$/')
-        ->and($gateway->sent)->toHaveCount(1);
+        ->and($gateway->sent)->toHaveCount(1)
+        ->and($gateway->sent[0]['components'][1])->toBe([
+            'type' => 'button',
+            'sub_type' => 'url',
+            'index' => '0',
+            'parameters' => [['type' => 'text', 'text' => $code]],
+        ]);
 });
 
 test('public verification form starts the email and WhatsApp steps', function () {
