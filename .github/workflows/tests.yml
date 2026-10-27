@@ -64,6 +64,11 @@ jobs:
       - name: Build frontend assets for view tests
         run: npm run build
 
+      - name: Diagnose WhatsApp webhook formatting
+        run: |
+          vendor/bin/pint app/Services/Notifications/WhatsAppWebhookService.php
+          git diff -- app/Services/Notifications/WhatsAppWebhookService.php
+
       - name: Run CI checks
         run: composer ci:check
 
