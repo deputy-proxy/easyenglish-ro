@@ -143,7 +143,7 @@ class WhatsAppWebhookService
 
         $keyword = Str::upper(trim($body));
         $optOutKeywords = ['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT', 'PARAR', 'OPRIRE', 'DEZABONARE', 'NU MAI TRIMITE'];
-        if (!in_array($keyword, $optOutKeywords, true)) {
+        if (! in_array($keyword, $optOutKeywords, true)) {
             return;
         }
 
