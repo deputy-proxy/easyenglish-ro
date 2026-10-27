@@ -56,4 +56,3 @@ test('incoming non-text WhatsApp messages are retained in the inbox', function (
     expect(Message::query()->sole()->type)->toBe('image')
         ->and(Message::query()->sole()->body)->toBeNull();
 });
-
