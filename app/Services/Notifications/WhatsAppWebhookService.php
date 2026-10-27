@@ -57,7 +57,7 @@ class WhatsAppWebhookService
         }
         $timestamp = (string) ($status['timestamp'] ?? '');
         $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->first();
-        if (!$delivery) {
+        if (! $delivery) {
             return;
         }
         $eventKey = hash('sha256', implode('|', [$messageId, $providerStatus, $timestamp]));
