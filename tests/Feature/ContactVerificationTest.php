@@ -236,7 +236,7 @@ test('phone verification limits incorrect code attempts', function () {
 
 test('free introduction is created only when both contact channels are verified', function () {
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge(['email_verified_at' => now(), 'phone_verified_at' => now()]);
 
@@ -259,7 +259,7 @@ test('free introduction is created only when both contact channels are verified'
 test('email-only mode permits a free introduction after email verification without WhatsApp consent', function () {
     config(['services.contact_verification.mode' => 'email_only']);
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge([
         'customer_email' => 'email-only-booking@example.com',
@@ -317,7 +317,7 @@ test('verified contacts are persisted on bundle checkout and unlock the included
 
 test('verified challenge cannot be reused with a different email or phone', function () {
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge(['email_verified_at' => now(), 'phone_verified_at' => now()]);
 
