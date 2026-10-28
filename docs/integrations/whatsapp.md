@@ -29,7 +29,9 @@ WHATSAPP_ACCESS_TOKEN=your_long_lived_system_user_token
 WHATSAPP_APP_SECRET=your_meta_app_secret
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=your_random_webhook_verification_token
 WHATSAPP_TEMPLATE_LANGUAGE_RO=ro
-WHATSAPP_TEMPLATE_LANGUAGE_EN=en
+WHATSAPP_TEMPLATE_LANGUAGE_EN=en_US
+WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_RO=ro
+WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_EN=en
 ```
 
 Set each `WHATSAPP_TEMPLATE_*` variable to the exact approved template name in Meta. The contact-verification template is `easyenglish_activation`, with approved locale variants `ro` and `en`. Its authentication payload contains one `body` text parameter and a URL copy-code button parameter at index `0`; do not send it as a body-only template. The defaults for other transactional templates remain proposed names only, not templates that have been created or approved. Keep sending disabled while testing or while any required template is unavailable.
