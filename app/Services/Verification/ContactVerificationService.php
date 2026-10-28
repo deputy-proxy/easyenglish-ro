@@ -90,7 +90,7 @@ class ContactVerificationService
                 $message->to($email)->subject($subject);
             });
             if (! $emailOnly) {
-                $language = config('services.whatsapp.template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en_US' : 'ro');
+                $language = config('services.whatsapp.contact_verification_template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en' : 'ro');
                 $this->whatsapp->sendTemplate($phone, (string) $template, $language, [
                     [
                         'type' => 'body',

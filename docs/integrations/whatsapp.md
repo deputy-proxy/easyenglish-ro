@@ -30,9 +30,13 @@ WHATSAPP_APP_SECRET=your_meta_app_secret
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=your_random_webhook_verification_token
 WHATSAPP_TEMPLATE_LANGUAGE_RO=ro
 WHATSAPP_TEMPLATE_LANGUAGE_EN=en_US
+WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_RO=ro
+WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_EN=en
 ```
 
-Set each `WHATSAPP_TEMPLATE_*` variable to the exact approved template name in Meta. The defaults in `.env.example` are proposed names only, not templates that have been created or approved. Keep sending disabled while testing or while any required template is unavailable.
+Set each `WHATSAPP_TEMPLATE_*` variable to the exact approved template name in Meta. The contact-verification template is `easyenglish_activation`, with approved locale variants `ro` and `en`. Its authentication payload contains one `body` text parameter and a URL copy-code button parameter at index `0`; do not send it as a body-only template. The defaults for other transactional templates remain proposed names only, not templates that have been created or approved. Keep sending disabled while testing or while any required template is unavailable.
+
+**Current verification-template expiry mismatch:** both approved `easyenglish_activation` variants currently display a 10-minute expiry and their copy-code URL declares `code_expiration_minutes=10`, while the application challenge remains valid for 30 minutes. Before enabling WhatsApp, edit both Authentication variants in WhatsApp Manager so the body/footer and copy-code expiry consistently state 30 minutes, then wait for approval and re-fetch their definitions. The template MCP cannot edit Authentication templates directly. Do not shorten or extend the application challenge as a workaround; its 30-minute expiry is part of the verification contract.
 
 The Cloud API adapter sends only approved **template messages**. This deliberately avoids relying on the 24-hour customer-service window for transactional messages and avoids sending arbitrary free-form content. Requests use a bearer token, a bounded timeout, a template payload, and `biz_opaque_callback_data` containing only the internal delivery ID. Provider response IDs are stored for status correlation.
 
