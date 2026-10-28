@@ -83,6 +83,7 @@ test('verification start stores hashes and sends a WhatsApp code without logging
     expect($challenge->customer_email)->toBe('learner@example.com')
         ->and($challenge->customer_phone)->toBe('+40722123456')
         ->and($challenge->email_token_hash)->not->toBe('')
+        ->and($challenge->email_code_hash)->not->toBeNull()
         ->and($challenge->phone_code_hash)->not->toBe($code)
         ->and($code)->toMatch('/^[0-9]{6}$/')
         ->and($gateway->sent)->toHaveCount(1)
@@ -220,6 +221,29 @@ test('email verification token is single-use and phone code verifies only once',
     expect(fn () => $service->confirmEmail($challenge->id, 'email-token'))->toThrow(ValidationException::class);
     expect($service->confirmPhone($challenge->id, '123456')->phone_verified_at)->not->toBeNull();
     expect(fn () => $service->confirmPhone($challenge->id, '123456'))->toThrow(ValidationException::class);
+});
+
+test('email code verifies once and locks after five incorrect attempts', function () {
+    $challenge = makeVerificationChallenge([
+        'email_code_hash' => hash_hmac('sha256', '654321', (string) config('app.key')),
+        'email_attempts' => 0,
+    ]);
+    $service = app(ContactVerificationService::class);
+
+    for ($attempt = 0; $attempt < 5; $attempt++) {
+        expect(fn () => $service->confirmEmailCode($challenge->id, '000000'))->toThrow(ValidationException::class);
+    }
+
+    expect($challenge->fresh()->email_attempts)->toBe(5);
+    expect(fn () => $service->confirmEmailCode($challenge->id, '654321'))->toThrow(ValidationException::class);
+
+    $valid = makeVerificationChallenge([
+        'customer_email' => 'email-code-success@example.com',
+        'customer_phone' => '+40722123458',
+        'email_code_hash' => hash_hmac('sha256', '654321', (string) config('app.key')),
+    ]);
+    expect($service->confirmEmailCode($valid->id, '654321')->email_verified_at)->not->toBeNull();
+    expect(fn () => $service->confirmEmailCode($valid->id, '654321'))->toThrow(ValidationException::class);
 });
 
 test('phone verification limits incorrect code attempts', function () {

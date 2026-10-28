@@ -202,6 +202,29 @@ class PublicSiteController extends Controller
         return back()->withInput()->with('status', __('public.verification_phone_success'));
     }
 
+    public function confirmEmailCodeVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'verification_id' => ['required', 'uuid'],
+            'email_code' => ['required', 'digits:6'],
+        ]);
+        $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
+        abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
+        $verified = $verificationService->confirmEmailCode($challenge->id, $validated['email_code']);
+
+        if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
+            $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
+            if ($bundle) {
+                return redirect()->route('purchase', ['bundle' => $bundle, 'verification_id' => $verified->id])
+                    ->with('status', __('public.verification_email_success'));
+            }
+        }
+
+        return redirect()->route('booking.create', ['type' => 'intro', 'verification_id' => $verified->id])
+            ->with('status', __('public.verification_email_success'));
+    }
+
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
     {
         $this->applyLocale($request);
