@@ -27,9 +27,16 @@ class FakeStripeGateway implements StripeGateway
 
     public string $nextRefundStatus = 'succeeded';
 
+    public ?\Throwable $nextCheckoutException = null;
+
     public function createCheckoutSession(array $parameters, string $idempotencyKey): array
     {
         $this->checkoutRequests[] = ['parameters' => $parameters, 'idempotency_key' => $idempotencyKey];
+        if ($this->nextCheckoutException !== null) {
+            $exception = $this->nextCheckoutException;
+            $this->nextCheckoutException = null;
+            throw $exception;
+        }
         if (isset($this->sessionKeys[$idempotencyKey])) {
             return $this->sessions[$this->sessionKeys[$idempotencyKey]];
         }
