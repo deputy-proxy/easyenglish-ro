@@ -12,6 +12,7 @@ Route::get('/availability', [PublicSiteController::class, 'availability'])->midd
 Route::get('/book', [PublicSiteController::class, 'bookingForm'])->name('booking.create');
 Route::post('/book', [PublicSiteController::class, 'submitBooking'])->middleware('throttle:10,1')->name('booking.submit');
 Route::post('/verification/start', [PublicSiteController::class, 'startContactVerification'])->middleware('throttle:10,1')->name('verification.start');
+Route::post('/verification/email-code', [PublicSiteController::class, 'confirmEmailCodeVerification'])->middleware('throttle:10,1')->name('verification.email-code.confirm');
 Route::post('/verification/phone', [PublicSiteController::class, 'confirmPhoneVerification'])->middleware('throttle:10,1')->name('verification.phone.confirm');
 Route::get('/verification/email/{challenge}/{token}', [PublicSiteController::class, 'confirmEmailVerification'])->middleware('throttle:10,1')->name('verification.email.confirm');
 Route::get('/booking/{reference}/manage', [PublicSiteController::class, 'manageBooking'])->middleware(['signed', 'throttle:60,1'])->name('booking.manage');
