@@ -103,8 +103,10 @@ test('checkout creates a pending purchase using server-controlled tax-inclusive 
     $purchase = startStripePurchase($this);
     $fake = app(FakeStripeGateway::class);
     $priceData = $fake->checkoutRequests[0]['parameters']['line_items'][0]['price_data'];
+    $checkoutParameters = $fake->checkoutRequests[0]['parameters'];
 
-    expect($priceData['unit_amount'])->toBe(15600)
+    expect($checkoutParameters)->not->toHaveKey('payment_method_types')
+        ->and($priceData['unit_amount'])->toBe(15600)
         ->and($priceData['currency'])->toBe('ron')
         ->and($priceData['tax_behavior'])->toBe('inclusive')
         ->and($purchase['entitlement']->status)->toBe('pending_payment')
