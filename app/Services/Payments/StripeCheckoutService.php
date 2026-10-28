@@ -223,7 +223,6 @@ class StripeCheckoutService
         $parameters = [
             'mode' => 'payment',
             'expires_at' => $payment->checkout_expires_at->timestamp,
-            'payment_method_types' => ['card'],
             'customer_email' => $entitlement->customer_email,
             'client_reference_id' => (string) $payment->id,
             'success_url' => $successUrl,
