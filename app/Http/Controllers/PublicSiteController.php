@@ -102,7 +102,7 @@ class PublicSiteController extends Controller
 
         $entitlement = null;
         if ($type === 'bundle') {
-            abort_unless(URL::hasValidSignature($request, false, ['slot']) && $request->query('expires') !== null, 403);
+            abort_unless(URL::hasValidSignature($request, true, ['slot']) && $request->query('expires') !== null, 403);
             $entitlement = BundleEntitlement::query()->with('definition')->findOrFail((int) $request->query('entitlement'));
             if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo(now()) || ($entitlement->credits_remaining + $entitlement->free_credits_remaining) < 1) {
                 return redirect()->route('home')->withErrors(['bundle' => __('public.no_bundle_credits')]);
@@ -359,7 +359,7 @@ class PublicSiteController extends Controller
         $validated['email'] = (string) $request->user()->email;
 
         if ($validated['type'] === 'bundle') {
-            abort_unless($request->hasValidSignature(false) && $request->query('expires') !== null && $request->query('type') === 'bundle' && (int) $request->query('entitlement') === (int) $validated['entitlement'], 403);
+            abort_unless($request->hasValidSignature() && $request->query('expires') !== null && $request->query('type') === 'bundle' && (int) $request->query('entitlement') === (int) $validated['entitlement'], 403);
         }
 
         $startsAt = CarbonImmutable::parse($validated['starts_at'])->setTimezone(AvailabilityService::TIMEZONE);

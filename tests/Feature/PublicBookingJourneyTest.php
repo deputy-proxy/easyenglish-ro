@@ -119,11 +119,11 @@ test('authenticated bundle customer can book a slot and receives a signed confir
         'free_credits_granted' => 0, 'credits_remaining' => 4, 'free_credits_remaining' => 0,
         'activated_at' => now(), 'expires_at' => now()->addMonths(3),
     ]);
-    $signedFormUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30), false);
+    $signedFormUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
 
-    $this->withSession(['locale' => 'en'])->get($signedFormUrl)->assertOk()->assertSee('Schedule a session from your bundle');
+    $this->withSession(['locale' => 'en'])->get($signedFormUrl.'&slot='.urlencode('2026-10-27T09:30:00+02:00'))->assertOk()->assertSee('Schedule a session from your bundle');
 
-    $signedSubmitUrl = URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30), false);
+    $signedSubmitUrl = URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
     $this->post($signedSubmitUrl, [
         'type' => 'bundle', 'entitlement' => $entitlement->id, 'starts_at' => '2026-10-27T09:00:00+02:00',
         'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
@@ -160,7 +160,7 @@ test('bundle booking form refuses unsigned or expired entitlement links', functi
     ]);
 
     $this->get('/book?type=bundle&entitlement='.$entitlement->id)->assertForbidden();
-    $expired = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->subMinute(), false);
+    $expired = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->subMinute());
     $this->get($expired)->assertForbidden();
 });
 
