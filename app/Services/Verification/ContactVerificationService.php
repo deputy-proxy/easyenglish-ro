@@ -188,6 +188,7 @@ class ContactVerificationService
                 'email_code_hash' => hash_hmac('sha256', Str::random(32), (string) config('app.key')),
                 'email_token_hash' => hash('sha256', Str::random(64)),
             ]);
+
             return ['challenge' => $challenge->refresh()];
         });
 
@@ -195,6 +196,7 @@ class ContactVerificationService
             $key = $result['error'] === 'locked' ? 'verification_email_locked' : 'verification_email_invalid_code';
             throw ValidationException::withMessages(['email_code' => __($key)]);
         }
+
         return $result['challenge'];
     }
 
