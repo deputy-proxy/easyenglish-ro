@@ -110,6 +110,18 @@
             color: #ffffff80
         }
 
+        .footer-locale button {
+            color: var(--muted);
+        }
+
+        .footer-locale button.active {
+            color: var(--green);
+        }
+
+        .footer-locale span {
+            color: #a0aaa3;
+        }
+
         .button {
             display: inline-flex;
             align-items: center;
@@ -800,13 +812,8 @@
                 </g>
             </svg>
         </a>
-        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a href="#how">{{ __('public.nav_how') }}</a><a
-                href="#bundles">{{ __('public.nav_bundles') }}</a><a href="#faq">{{ __('public.nav_faq') }}</a><a
+        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a
                 class="button nav-cta" href="#availability">{{ __('public.nav_book') }}</a></nav>
-        <form class="locale" method="post" action="{{ route('locale.set') }}">@csrf<button name="locale" value="ro"
-                class="{{ app()->getLocale()==='ro'?'active':'' }}" aria-label="Română">RO</button><span>/</span><button
-                name="locale" value="en" class="{{ app()->getLocale()==='en'?'active':'' }}"
-                aria-label="English">EN</button></form>
     </header>
     <main>
         <section class="wrap hero">
@@ -955,7 +962,12 @@
                 }}</a>@if(config('easyenglish.contact_email'))<a
                 href="mailto:{{ config('easyenglish.contact_email') }}">{{ __('public.footer_contact')
                 }}</a>@else<span>{{ __('public.footer_contact') }} · {{ __('public.footer_contact_pending')
-                }}</span>@endif</div>
+                }}</span>@endif
+            <form class="locale footer-locale" method="post" action="{{ route('locale.set') }}">@csrf<button name="locale" value="ro"
+                    class="{{ app()->getLocale()==='ro'?'active':'' }}" aria-label="Română">RO</button><span>/</span><button
+                    name="locale" value="en" class="{{ app()->getLocale()==='en'?'active':'' }}"
+                    aria-label="English">EN</button></form>
+        </div>
     </footer>
     <script>
         (() => { const root = document.querySelector('[data-availability]'); if (!root) return; const grid = root.querySelector('[data-weekgrid]'); let week = root.dataset.week; const base = root.dataset.bookUrl; const previous = root.querySelector('[data-prev]'); const next = root.querySelector('[data-next]'); const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' }); const monday = d => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toLocaleDateString('en-CA') }; const add = (date, days) => { const x = new Date(date + 'T12:00:00'); x.setDate(x.getDate() + days); return x.toLocaleDateString('en-CA') }; const render = days => { grid.innerHTML = ''; days.forEach(day => { const col = document.createElement('div'); col.className = 'day'; const head = document.createElement('div'); head.className = 'day-head'; const label = document.createElement('span'); label.textContent = day.label; const number = document.createElement('span'); number.textContent = day.day; head.append(label, number); const slots = document.createElement('div'); slots.className = 'slots'; if (!day.slots.length) { const empty = document.createElement('span'); empty.className = 'slot-empty'; empty.textContent = @json(__('public.slot_none')); slots.append(empty) } else day.slots.forEach(slot => { const button = document.createElement('button'); button.type = 'button'; button.className = 'slot'; button.textContent = slot.time; button.setAttribute('aria-label', day.date + ' ' + slot.time); button.addEventListener('click', () => { location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking' }); slots.append(button) }); col.append(head, slots); grid.append(col) }); previous.disabled = week <= monday(today); previous.style.opacity = previous.disabled ? '.35' : '1' }; const load = () => { grid.innerHTML = '<p>' + @json(__('public.availability_loading')) + '</p>'; fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), { headers: { Accept: 'application/json' } }).then(r => r.json()).then(data => render(data.days)).catch(() => { grid.textContent = @json(__('public.availability_error')) }) }; previous.addEventListener('click', () => { if (!previous.disabled) { week = add(week, -7); load() } }); next.addEventListener('click', () => { week = add(week, 7); load() }); load(); })();
