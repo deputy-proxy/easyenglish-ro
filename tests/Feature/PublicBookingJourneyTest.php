@@ -4,6 +4,7 @@ use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\URL;
@@ -69,6 +70,7 @@ test('public privacy and terms pages are available in both locales', function ()
 });
 
 test('free introduction never creates a booking before contact verification is available', function () {
+    $this->actingAs(User::factory()->create(['email' => 'learner@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
 
@@ -81,7 +83,30 @@ test('free introduction never creates a booking before contact verification is a
     expect(Booking::query()->count())->toBe(0);
 });
 
-test('active bundle customer can book a slot without a learner account and receives a signed confirmation', function () {
+test('verified account can book its free introduction without repeating contact verification', function () {
+    $this->actingAs(User::factory()->create([
+        'email' => 'verified-learner@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+    ]));
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addPublicAvailability($day);
+
+    $this->post('/book', [
+        'type' => 'intro', 'starts_at' => '2026-10-27T09:00:00+02:00',
+        'name' => 'Verified Learner', 'email' => 'verified-learner@example.com', 'phone' => '+40722123456',
+        'whatsapp_service_consent' => '1', 'english_level' => 'B1', 'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+    ])->assertRedirect();
+
+    expect(Booking::query()->where('customer_email', 'verified-learner@example.com')->where('status', 'confirmed')->count())->toBe(1);
+});
+
+test('authenticated bundle customer can book a slot and receives a signed confirmation', function () {
+    $this->actingAs(User::factory()->create(['email' => 'learner@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
     $definition = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
@@ -112,6 +137,7 @@ test('active bundle customer can book a slot without a learner account and recei
 });
 
 test('public booking rejects a phone field without enough digits', function () {
+    $this->actingAs(User::factory()->create(['email' => 'different@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
 
@@ -139,6 +165,7 @@ test('bundle booking form refuses unsigned or expired entitlement links', functi
 });
 
 test('bundle purchase page discloses expiry and cancellation terms before checkout is available', function () {
+    $this->actingAs(User::factory()->create());
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
 
     $this->get(route('purchase', $bundle))
@@ -149,4 +176,24 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
         ->assertSee('Programările trebuie să înceapă înainte de expirarea pachetului')
         ->assertSee(route('terms'), false)
         ->assertSee('Plata online nu este încă activată');
+});
+
+test('selecting a free timeslot sends guests to login and preserves the selected slot', function () {
+    $url = '/book?type=intro&slot='.urlencode('2026-10-29T09:00:00+02:00');
+
+    $this->get($url)->assertRedirect(route('login'));
+    expect(session('url.intended'))->toContain('slot=');
+
+    $this->actingAs(User::factory()->create(['email' => 'dashboard-learner@example.com']))
+        ->get($url)->assertOk()->assertSee('2026-10-29T09:00:00+02:00');
+});
+
+test('selecting a bundle sends guests to login and returns them to the chosen bundle', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+
+    $this->get(route('purchase', $bundle))->assertRedirect(route('login'));
+    expect(session('url.intended'))->toContain('/purchase/'.$bundle->id);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('purchase', $bundle))->assertOk()->assertSee('156 RON');
 });

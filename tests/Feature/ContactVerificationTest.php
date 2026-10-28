@@ -6,6 +6,7 @@ use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\ContactVerificationChallenge;
+use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BundleEntitlementService;
@@ -104,8 +105,14 @@ test('verification start stores hashes and sends a WhatsApp code without logging
 test('public verification form starts the email and WhatsApp steps', function () {
     $this->from('/book?type=intro')->post(route('verification.start'), [
         'return_to' => 'booking',
+        'type' => 'intro',
+        'name' => 'New Learner',
         'email' => 'new-learner@example.com',
         'phone' => '+40722987654',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
         'whatsapp_service_consent' => '1',
     ])->assertRedirect('/book?type=intro')->assertSessionHas('status', __('public.verification_sent'));
 
@@ -179,6 +186,7 @@ test('expired verification challenges cannot verify either channel', function ()
 });
 
 test('email verification route validates the signed single-use link and returns to the booking form', function () {
+    $this->actingAs(User::factory()->create(['name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456']));
     $challenge = makeVerificationChallenge();
     $url = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(10), [
         'challenge' => $challenge->id,
@@ -203,6 +211,7 @@ test('email verification route validates the signed single-use link and returns 
 });
 
 test('email verification started from bundle checkout returns to that bundle', function () {
+    $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $challenge = makeVerificationChallenge(['return_to' => 'purchase', 'return_bundle_id' => $bundle->id]);
     $url = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(10), [
@@ -265,6 +274,7 @@ test('phone verification limits incorrect code attempts', function () {
 });
 
 test('free introduction is created only when both contact channels are verified', function () {
+    $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
@@ -287,6 +297,7 @@ test('free introduction is created only when both contact channels are verified'
 });
 
 test('email-only mode permits a free introduction after email verification without WhatsApp consent', function () {
+    $this->actingAs(User::factory()->create(['email' => 'email-only-booking@example.com', 'phone' => '+40722123459']));
     config(['services.contact_verification.mode' => 'email_only']);
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
@@ -346,6 +357,7 @@ test('verified contacts are persisted on bundle checkout and unlock the included
 });
 
 test('verified challenge cannot be reused with a different email or phone', function () {
+    $this->actingAs(User::factory()->create(['email' => 'attacker@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);

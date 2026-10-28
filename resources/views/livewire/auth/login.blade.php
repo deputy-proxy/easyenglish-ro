@@ -51,5 +51,11 @@
             </div>
         </form>
 
+        @if (Route::has('register'))
+            <p class="text-center text-sm text-zinc-600 dark:text-zinc-400">
+                {{ __('Need an account?') }}
+                <flux:link :href="route('register')" wire:navigate>{{ __('Create an account') }}</flux:link>
+            </p>
+        @endif
     </div>
 </x-layouts::auth>
