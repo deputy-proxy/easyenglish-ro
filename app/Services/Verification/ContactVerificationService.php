@@ -180,6 +180,7 @@ class ContactVerificationService
             $expected = hash_hmac('sha256', $code, (string) config('app.key'));
             if (! hash_equals((string) $challenge->email_code_hash, $expected)) {
                 $challenge->increment('email_attempts');
+
                 return ['error' => $challenge->email_attempts >= 5 ? 'locked' : 'invalid'];
             }
             $challenge->update([
@@ -189,6 +190,7 @@ class ContactVerificationService
             ]);
             return ['challenge' => $challenge->refresh()];
         });
+
         if (isset($result['error'])) {
             $key = $result['error'] === 'locked' ? 'verification_email_locked' : 'verification_email_invalid_code';
             throw ValidationException::withMessages(['email_code' => __($key)]);
