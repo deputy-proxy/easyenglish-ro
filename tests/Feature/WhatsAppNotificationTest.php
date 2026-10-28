@@ -4,6 +4,7 @@ use App\Contracts\Notifications\WhatsAppGateway;
 use App\Jobs\SendNotificationDelivery;
 use App\Models\Booking;
 use App\Models\NotificationDelivery;
+use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Notifications\MetaWhatsAppCloudApiGateway;
 use App\Services\Notifications\NotificationMessageFactory;
@@ -99,6 +100,7 @@ test('WhatsApp worker sends an approved template and persists provider message I
 });
 
 test('WhatsApp service consent is visible and required before a booking can be submitted', function () {
+    $this->actingAs(User::factory()->create(['email' => 'no-consent@example.com', 'phone' => '+40722123456']));
     $this->withSession(['locale' => 'en'])->get('/book?type=intro')->assertOk()
         ->assertSee('name="whatsapp_service_consent"', false)
         ->assertSee('No marketing messages will be sent.');

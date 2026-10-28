@@ -6,6 +6,8 @@ use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
+use App\Models\FreeSessionClaim;
+use App\Models\SessionFeedback;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
@@ -21,6 +23,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -93,9 +96,13 @@ class PublicSiteController extends Controller
         $type = $request->query('type', 'intro');
         abort_unless(in_array($type, ['intro', 'bundle'], true), 404);
 
+        if (is_string($request->query('slot')) && ! $request->user()) {
+            return redirect()->guest(route('login'));
+        }
+
         $entitlement = null;
         if ($type === 'bundle') {
-            abort_unless($request->hasValidSignature(false) && $request->query('expires') !== null, 403);
+            abort_unless(URL::hasValidSignature($request, false, ['slot']) && $request->query('expires') !== null, 403);
             $entitlement = BundleEntitlement::query()->with('definition')->findOrFail((int) $request->query('entitlement'));
             if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo(now()) || ($entitlement->credits_remaining + $entitlement->free_credits_remaining) < 1) {
                 return redirect()->route('home')->withErrors(['bundle' => __('public.no_bundle_credits')]);
@@ -127,8 +134,15 @@ class PublicSiteController extends Controller
             }
         }
 
+        $user = $request->user();
+        $contactsVerified = $user !== null
+            && $user->email_verified_at !== null
+            && $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($request->old('phone')) ? $request->old('phone') : (string) $user->phone);
+
         return view('public.booking', [
             'type' => $type,
+            'contactsVerified' => $contactsVerified,
             'verification' => $type === 'intro' ? $verification : null,
             'entitlement' => $entitlement,
             'weekStart' => $weekStart,
@@ -152,6 +166,17 @@ class PublicSiteController extends Controller
         $digits = preg_replace('/\D+/', '', $validated['phone']) ?? '';
         if (strlen($digits) < 7 || strlen($digits) > 15) {
             throw ValidationException::withMessages(['phone' => __('public.phone_invalid')]);
+        }
+        if ($validated['return_to'] === 'booking') {
+            $request->validate([
+                'type' => ['required', 'in:intro'],
+                'name' => ['required', 'string', 'max:160'],
+                'starts_at' => ['required', 'date'],
+                'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
+                'session_goal' => ['required', 'string', 'max:500'],
+                'notes' => ['nullable', 'string', 'max:5000'],
+                'accepted_policy' => ['accepted'],
+            ]);
         }
         $bundleId = null;
         if ($validated['return_to'] === 'purchase') {
@@ -188,6 +213,60 @@ class PublicSiteController extends Controller
         return back()->withInput()->with('status', __('public.verification_sent'));
     }
 
+    private function completeVerifiedFreeBooking(Request $request, ContactVerificationChallenge $challenge, AvailabilityService $availability, BookingService $bookings): ?RedirectResponse
+    {
+        if ($challenge->return_to !== 'booking' || ! $challenge->isComplete() || ! $request->user()) {
+            return null;
+        }
+
+        $form = $request->session()->get('contact_verification_form_data');
+        if (! is_array($form) || ! is_string($form['starts_at'] ?? null) || ! is_string($form['accepted_policy'] ?? null)) {
+            return null;
+        }
+
+        $validated = Validator::make($form, [
+            'name' => ['required', 'string', 'max:160'],
+            'email' => ['required', 'email', 'max:254'],
+            'phone' => ['required', 'string', 'max:32'],
+            'type' => ['required', 'in:intro'],
+            'starts_at' => ['required', 'date'],
+            'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
+            'session_goal' => ['required', 'string', 'max:500'],
+            'notes' => ['nullable', 'string', 'max:5000'],
+            'accepted_policy' => ['accepted'],
+        ])->validate();
+
+        if (mb_strtolower($request->user()->email) !== $challenge->customer_email
+            || PhoneNumber::normalize($validated['phone']) !== $challenge->customer_phone) {
+            throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
+        }
+
+        try {
+            $startsAt = CarbonImmutable::parse($validated['starts_at'], AvailabilityService::TIMEZONE);
+            $availability->assertBookable($startsAt);
+            $booking = $bookings->holdSlot([
+                'name' => $request->user()->name,
+                'email' => $request->user()->email,
+                'phone' => $challenge->customer_phone,
+                'english_level' => $validated['english_level'],
+                'session_goal' => $validated['session_goal'],
+                'notes' => $validated['notes'] ?? null,
+                'accepted_policy_version' => config('easyenglish.policy_version'),
+                'locale' => app()->getLocale(),
+            ], $startsAt, null, true, $challenge->email_verified_at !== null, $challenge->phone_verified_at !== null);
+            $bookings->confirm($booking->id);
+        } catch (ValidationException $exception) {
+            return redirect()->route('booking.create', ['type' => 'intro', 'slot' => $validated['starts_at']])
+                ->withErrors($exception->errors())
+                ->withInput($validated);
+        }
+
+        $challenge->update(['consumed_at' => now()]);
+        $request->session()->forget(['contact_verification_id', 'contact_verification_form_data']);
+
+        return redirect()->route('dashboard')->with('status', __('public.booking_confirmed_dashboard'));
+    }
+
     public function confirmPhoneVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
     {
         $this->applyLocale($request);
@@ -198,6 +277,16 @@ class PublicSiteController extends Controller
         $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
         abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
         $verificationService->confirmPhone($challenge->id, $validated['phone_code']);
+        $challenge->refresh();
+        $user = $request->user();
+        if ($user && mb_strtolower($user->email) === $challenge->customer_email) {
+            $user->forceFill(['phone' => $challenge->customer_phone, 'phone_verified_at' => now()])->save();
+        }
+
+        $completedBooking = $this->completeVerifiedFreeBooking($request, $challenge, app(AvailabilityService::class), app(BookingService::class));
+        if ($completedBooking !== null) {
+            return $completedBooking;
+        }
 
         return back()->withInput()->with('status', __('public.verification_phone_success'));
     }
@@ -212,6 +301,17 @@ class PublicSiteController extends Controller
         $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
         abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
         $verified = $verificationService->confirmEmailCode($challenge->id, $validated['email_code']);
+        $user = $request->user();
+        if ($user && mb_strtolower($user->email) === $verified->customer_email) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        if (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only') {
+            $completedBooking = $this->completeVerifiedFreeBooking($request, $verified, app(AvailabilityService::class), app(BookingService::class));
+            if ($completedBooking !== null) {
+                return $completedBooking;
+            }
+        }
 
         if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
             $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
@@ -221,7 +321,14 @@ class PublicSiteController extends Controller
             }
         }
 
-        return redirect()->route('booking.create', ['type' => 'intro', 'verification_id' => $verified->id])
+        $formData = $request->session()->get('contact_verification_form_data', []);
+        $bookingParameters = ['type' => 'intro', 'verification_id' => $verified->id];
+        if (is_array($formData) && is_string($formData['starts_at'] ?? null)) {
+            $bookingParameters['slot'] = $formData['starts_at'];
+        }
+
+        return redirect()->route('booking.create', $bookingParameters)
+            ->withInput(is_array($formData) ? $formData : [])
             ->with('status', __('public.verification_email_success'));
     }
 
@@ -248,6 +355,9 @@ class PublicSiteController extends Controller
             'verification_id' => ['nullable', 'uuid'],
         ]);
 
+        $validated['name'] = (string) $request->user()->name;
+        $validated['email'] = (string) $request->user()->email;
+
         if ($validated['type'] === 'bundle') {
             abort_unless($request->hasValidSignature(false) && $request->query('expires') !== null && $request->query('type') === 'bundle' && (int) $request->query('entitlement') === (int) $validated['entitlement'], 403);
         }
@@ -256,12 +366,17 @@ class PublicSiteController extends Controller
         $availability->assertBookable($startsAt);
 
         $verificationChallenge = null;
+        $accountContactsVerified = $request->user()->email_verified_at !== null
+            && $request->user()->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
         if ($validated['type'] === 'intro') {
             $challengeId = $validated['verification_id'] ?? $request->session()->get('contact_verification_id');
-            $verificationChallenge = is_string($challengeId) ? ContactVerificationChallenge::query()->find($challengeId) : null;
-            if (! $verificationChallenge || ! $verificationChallenge->isUsable() || ! $verificationChallenge->isComplete()
-                || $verificationChallenge->customer_email !== mb_strtolower(trim($validated['email']))
-                || $verificationChallenge->customer_phone !== PhoneNumber::normalize($validated['phone'])) {
+            $candidate = is_string($challengeId) ? ContactVerificationChallenge::query()->find($challengeId) : null;
+            if ($candidate && $candidate->isUsable() && $candidate->isComplete()
+                && $candidate->customer_email === mb_strtolower(trim($validated['email']))
+                && $candidate->customer_phone === PhoneNumber::normalize($validated['phone'])) {
+                $verificationChallenge = $candidate;
+            } elseif (! $accountContactsVerified) {
                 throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
             }
         }
@@ -286,7 +401,7 @@ class PublicSiteController extends Controller
             'notes' => $validated['notes'] ?? null,
             'accepted_policy_version' => config('easyenglish.policy_version'),
             'locale' => app()->getLocale(),
-        ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', $verificationChallenge?->email_verified_at !== null, $verificationChallenge?->phone_verified_at !== null);
+        ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', ($verificationChallenge?->email_verified_at !== null) || $accountContactsVerified, ($verificationChallenge?->phone_verified_at !== null) || $accountContactsVerified);
         $bookings->confirm($booking->id);
         if ($verificationChallenge) {
             $verificationChallenge->update(['consumed_at' => now()]);
@@ -307,6 +422,13 @@ class PublicSiteController extends Controller
         $request->session()->put('locale', $verified->locale);
         app()->setLocale($verified->locale);
         $request->session()->put('contact_verification_id', $verified->id);
+        if (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only') {
+            $completedBooking = $this->completeVerifiedFreeBooking($request, $verified, app(AvailabilityService::class), app(BookingService::class));
+            if ($completedBooking !== null) {
+                return $completedBooking;
+            }
+        }
+
         if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
             $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
             if ($bundle) {
@@ -403,9 +525,12 @@ class PublicSiteController extends Controller
             ->with('status', __('public.booking_rescheduled'));
     }
 
-    public function purchase(Request $request, BundleDefinition $bundle): View
+    public function purchase(Request $request, BundleDefinition $bundle): View|RedirectResponse
     {
         $this->applyLocale($request);
+        if (! $request->user()) {
+            return redirect()->guest(route('login'));
+        }
         abort_unless($bundle->is_active, 404);
         $checkoutReady = (bool) config('services.stripe.checkout_enabled')
             && is_string(config('services.stripe.secret')) && config('services.stripe.secret') !== ''
@@ -439,7 +564,12 @@ class PublicSiteController extends Controller
             }
         }
 
-        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification]);
+        $user = $request->user();
+        $contactsVerified = $user->email_verified_at !== null
+            && $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($request->old('phone')) ? $request->old('phone') : (string) $user->phone);
+
+        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified]);
     }
 
     public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout, BundleEntitlementService $entitlements): RedirectResponse
@@ -459,6 +589,9 @@ class PublicSiteController extends Controller
             'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'verification_id' => ['nullable', 'uuid'],
         ]);
+        $validated['name'] = (string) $request->user()->name;
+        $validated['email'] = (string) $request->user()->email;
+
         $expectedToken = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
         abort_unless(is_string($expectedToken) && hash_equals($expectedToken, $validated['purchase_token']), 403);
 
@@ -483,9 +616,12 @@ class PublicSiteController extends Controller
             if (($validated['whatsapp_service_consent'] ?? null) === '1') {
                 WhatsAppContact::recordConsent($validated['phone'], 'bundle_checkout');
             }
+            $accountContactsVerified = $request->user()->email_verified_at !== null
+                && $request->user()->phone_verified_at !== null
+                && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge);
+            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge, $accountContactsVerified);
             if ($verificationChallenge !== null && $payment->status === 'succeeded') {
                 $entitlements->grantIncludedFreeCreditIfEligible($payment->bundle_entitlement_id);
             }
@@ -521,7 +657,7 @@ class PublicSiteController extends Controller
         return redirect()->away((string) $payment->checkout_url);
     }
 
-    public function purchaseSuccess(Request $request, StripeCheckoutService $checkout): View
+    public function purchaseSuccess(Request $request, StripeCheckoutService $checkout): View|RedirectResponse
     {
         $this->applyLocale($request);
         $validated = $request->validate(['session_id' => ['required', 'string', 'max:255', 'regex:/^cs_[A-Za-z0-9_]+$/']]);
@@ -538,6 +674,9 @@ class PublicSiteController extends Controller
             && $entitlement->expires_at?->isFuture()
             && ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0) {
             $bookingUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addDays(7));
+            if ($request->user() && mb_strtolower($request->user()->email) === mb_strtolower($entitlement->customer_email)) {
+                return redirect()->route('dashboard')->with('status', __('public.bundle_payment_confirmed_dashboard'));
+            }
         }
 
         return view('public.purchase-result', [
@@ -568,6 +707,60 @@ class PublicSiteController extends Controller
         }
 
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
+    }
+
+    public function dashboard(Request $request): View
+    {
+        $this->applyLocale($request);
+        $email = mb_strtolower((string) $request->user()->email);
+        $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
+        $bookings = Booking::query()
+            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->whereIn('status', ['confirmed', 'pending'])
+            ->where('starts_at', '>=', $now)
+            ->orderBy('starts_at')
+            ->get();
+        $pastBookings = Booking::query()
+            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->whereIn('status', ['completed', 'confirmed'])
+            ->where('starts_at', '<', $now)
+            ->orderByDesc('starts_at')
+            ->limit(20)
+            ->get();
+        $entitlements = BundleEntitlement::query()
+            ->with('definition')
+            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->whereIn('status', ['active', 'pending_payment'])
+            ->orderByDesc('created_at')
+            ->get();
+        $activeEntitlements = $entitlements->where('status', 'active');
+        $remainingCredits = $activeEntitlements->sum(fn (BundleEntitlement $entitlement): int => $entitlement->credits_remaining + $entitlement->free_credits_remaining);
+        $hasUsedFreeOffer = FreeSessionClaim::query()->whereRaw('LOWER(customer_email) = ?', [$email])->exists();
+        $calendarEntitlement = $activeEntitlements->first(fn (BundleEntitlement $entitlement): bool => ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0);
+        $calendarBookingUrl = $calendarEntitlement
+            ? URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $calendarEntitlement->id], now()->addDays(7))
+            : (! $hasUsedFreeOffer ? route('booking.create', ['type' => 'intro']) : route('home').'#bundles');
+        $feedback = SessionFeedback::query()
+            ->with('booking')
+            ->whereHas('booking', fn ($query) => $query->whereRaw('LOWER(customer_email) = ?', [$email]))
+            ->orderByDesc('updated_at')
+            ->get();
+        $activeView = $request->query('view', 'overview');
+        if (! in_array($activeView, ['overview', 'calendar', 'progress'], true)) {
+            $activeView = 'overview';
+        }
+
+        return view('dashboard', [
+            'bookings' => $bookings,
+            'pastBookings' => $pastBookings,
+            'entitlements' => $entitlements,
+            'remainingCredits' => $remainingCredits,
+            'activeView' => $activeView,
+            'calendarBookingUrl' => $calendarBookingUrl,
+            'calendarWeekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
+            'feedback' => $feedback,
+            'hasActiveBundle' => $activeEntitlements->isNotEmpty(),
+        ]);
     }
 
     public function policy(Request $request, string $page): View

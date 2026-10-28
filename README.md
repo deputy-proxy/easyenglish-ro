@@ -20,17 +20,18 @@ composer run dev
 
 ## Product goal
 
-Make it easy for an adult learner to book and pay for a short, useful English-speaking session without having to create an account or navigate a complex course platform.
+Make it easy for an adult learner to create an account, book a free introductory session or buy a prepaid bundle, and track their English progress without navigating a complex course platform.
 
 ### MVP customer journey
 
 1. Visit a bilingual Romanian/English landing page and understand the offer.
 2. Choose an available 15-minute session in the Europe/Bucharest timezone, either as a free introduction or using a prepaid bundle.
-3. Provide name, email, phone/WhatsApp number, English level, session goal, and optional notes.
-4. For paid sessions, purchase a prepaid bundle in RON through Stripe Checkout. Prices include all applicable taxes.
+3. Log in or create an account. New learners provide their name, email, phone/WhatsApp number, English level, session goal, and optional notes; returning learners retain their profile details.
+4. Verify email and WhatsApp, then complete the selected free-session booking or continue to Stripe Checkout for a prepaid bundle in RON. Prices include all applicable taxes.
 5. Receive email and WhatsApp confirmation, including instructions for the session.
-6. Join the teacher for a session through WhatsApp. The call itself is handled in the WhatsApp application; the WhatsApp Business Platform/API is for messaging, not for placing voice/video calls.
-7. The teacher reviews upcoming bookings and the information needed to run each session in Filament.
+6. Use the account dashboard to manage the calendar, see remaining sessions, and review metric-based progress feedback.
+7. Join the teacher for a session through WhatsApp. The call itself is handled in the WhatsApp application; the WhatsApp Business Platform/API is for messaging, not for placing voice/video calls.
+8. The teacher reviews bookings and records session feedback in Filament.
 
 The database is authoritative for availability and booking state. A browser redirect to Stripe must never, by itself, be treated as proof of payment. Verified Stripe webhooks confirm payment and trigger the paid-booking workflow.
 
@@ -70,12 +71,12 @@ Cancellation deadlines are measured from the scheduled session start time. The b
 
 ## Product principles and constraints
 
-- **Low friction:** no learner account or dashboard is required for the first release.
+- **Low friction:** preserve the selected timeslot or bundle through login/registration and return the learner to the same action.
 - **Short, focused sessions:** all sessions last 15 minutes.
 - **Reliable booking:** prevent overlapping reservations, including the 15-minute buffer.
 - **Payment integrity:** verify webhook signatures, process events idempotently, and reconcile payment state on the server.
 - **Privacy:** collect only the learner information needed to arrange and deliver the session; protect it through authorization and a defined retention policy.
-- **Operational simplicity:** use Filament for internal management rather than building a separate teacher portal in the MVP.
+- **Operational simplicity:** use Filament for internal management and feedback entry rather than building a separate teacher portal in the MVP.
 - **Bundle validity:** bundles activate on successful payment and remain valid for three calendar months in Europe/Bucharest. An appointment must start before expiry.
 - **Progressive scope:** validate the booking and delivery workflow before adding subscriptions, a marketplace, AI features, or custom video infrastructure.
 

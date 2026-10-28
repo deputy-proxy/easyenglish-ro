@@ -28,6 +28,7 @@ use Stripe\WebhookSignature;
 use Tests\Support\FakeStripeGateway;
 
 beforeEach(function (): void {
+    $this->actingAs(User::factory()->create(['email' => 'stripe-customer@example.com']));
     config(['services.stripe.secret' => 'sk_test_fake', 'services.stripe.webhook_secret' => 'whsec_test', 'services.stripe.checkout_enabled' => true]);
     $fake = new FakeStripeGateway;
     app()->instance(StripeGateway::class, $fake);
@@ -183,7 +184,9 @@ test('return page reconciles with Stripe before activating a bundle', function (
     $fake->setSessionStatus('cs_test_1', 'complete', 'paid', 'pi_test_return');
 
     $this->get(route('purchase.success', ['session_id' => 'cs_test_1']))
-        ->assertOk()->assertSee('Plata a fost confirmată')->assertSee('Programează sesiunile');
+        ->assertRedirect(route('dashboard'));
+
+    $this->get(route('dashboard'))->assertOk()->assertSee('Plata a fost confirmată');
 
     expect($purchase['entitlement']->fresh()->status)->toBe('active')
         ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(4)
@@ -494,4 +497,38 @@ test('ambiguous refund keeps affected appointments blocked until provider reconc
 
     expect($booking->fresh()->status)->toBe('cancelled')
         ->and($refund->fresh()->status)->toBe('succeeded');
+});
+
+test('already verified customer accounts can purchase a bundle without repeating contact verification', function () {
+    $user = User::factory()->create([
+        'name' => 'Verified Stripe Customer',
+        'email' => 'verified-stripe@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+    $this->actingAs($user);
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $token = str_repeat('V', 48);
+
+    $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
+        ->post(route('purchase.checkout', $bundle), [
+            'purchase_token' => $token,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'whatsapp_service_consent' => '1',
+        ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
+
+    $entitlement = BundleEntitlement::query()->where('checkout_request_key', $token)->firstOrFail();
+    expect($entitlement->customer_email_verified_at)->not->toBeNull()
+        ->and($entitlement->customer_phone_verified_at)->not->toBeNull();
+
+    $fake = app(FakeStripeGateway::class);
+    $fake->setSessionStatus('cs_test_1', 'complete', 'paid', 'pi_test_verified_account');
+    postStripeTestEvent($this, stripeTestEvent('evt_verified_account_bundle', 'checkout.session.completed', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
+
+    expect($entitlement->fresh()->status)->toBe('active')
+        ->and($entitlement->fresh()->free_credits_granted)->toBe(1)
+        ->and($entitlement->fresh()->free_credits_remaining)->toBe(1);
 });

@@ -30,6 +30,41 @@
                 placeholder="email@example.com"
             />
 
+            <flux:input
+                name="phone"
+                :label="__('public.field_phone')"
+                :value="old('phone')"
+                type="tel"
+                required
+                autocomplete="tel"
+                placeholder="+40 722 123 456"
+            />
+
+            <flux:select name="english_level" :label="__('public.field_level')" required>
+                <option value="">{{ __('public.field_level_placeholder') }}</option>
+                @foreach (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as $level)
+                    <option value="{{ $level }}" @selected(old('english_level') === $level)>{{ __('public.level_'.strtolower($level)) }}</option>
+                @endforeach
+            </flux:select>
+
+            <flux:input
+                name="session_goal"
+                :label="__('public.field_goal')"
+                :value="old('session_goal')"
+                type="text"
+                required
+                maxlength="500"
+                :placeholder="__('public.field_goal_placeholder')"
+            />
+
+            <flux:textarea
+                name="session_notes"
+                :label="__('public.field_notes')"
+                :value="old('session_notes')"
+                maxlength="5000"
+                :placeholder="__('public.field_notes_placeholder')"
+            />
+
             <!-- Password -->
             <flux:input
                 name="password"

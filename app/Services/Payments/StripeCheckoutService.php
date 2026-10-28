@@ -24,7 +24,7 @@ class StripeCheckoutService
     ) {}
 
     /** @param array{name:string,email:string,phone:string} $customer */
-    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null): Payment
+    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false): Payment
     {
         if (! $bundle->is_active) {
             throw ValidationException::withMessages(['bundle' => 'This bundle is not available for purchase.']);
@@ -56,8 +56,8 @@ class StripeCheckoutService
                     'customer_name' => $customer['name'],
                     'customer_email' => $customer['email'],
                     'customer_phone' => $customer['phone'],
-                    'customer_email_verified_at' => $verification?->email_verified_at,
-                    'customer_phone_verified_at' => $verification?->phone_verified_at,
+                    'customer_email_verified_at' => $verification !== null ? $verification->email_verified_at : ($accountContactsVerified ? now() : null),
+                    'customer_phone_verified_at' => $verification !== null ? $verification->phone_verified_at : ($accountContactsVerified ? now() : null),
                     'status' => 'pending_payment',
                     'paid_amount_ron' => $bundle->price_ron,
                     'currency' => 'RON',
@@ -76,10 +76,16 @@ class StripeCheckoutService
             throw ValidationException::withMessages(['purchase_token' => 'This purchase form has already been used with different customer details. Refresh the page to start a separate purchase.']);
         }
 
-        if ($verification !== null) {
+        if ($verification !== null || $accountContactsVerified) {
+            $emailVerifiedAt = $verification?->email_verified_at;
+            $phoneVerifiedAt = $verification?->phone_verified_at;
+            if ($accountContactsVerified && $verification === null) {
+                $emailVerifiedAt = now();
+                $phoneVerifiedAt = now();
+            }
             $entitlement->forceFill([
-                'customer_email_verified_at' => $verification->email_verified_at,
-                'customer_phone_verified_at' => $verification->phone_verified_at,
+                'customer_email_verified_at' => $emailVerifiedAt,
+                'customer_phone_verified_at' => $phoneVerifiedAt,
             ])->save();
         }
 
