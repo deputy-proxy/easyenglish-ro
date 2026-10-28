@@ -20,9 +20,9 @@ return [
         'access_token' => env('WHATSAPP_ACCESS_TOKEN'),
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'verify_token' => env('WHATSAPP_WEBHOOK_VERIFY_TOKEN'),
-        'template_languages' => ['ro' => env('WHATSAPP_TEMPLATE_LANGUAGE_RO', 'ro'), 'en' => env('WHATSAPP_TEMPLATE_LANGUAGE_EN', 'en_US')],
+        'template_languages' => ['ro' => env('WHATSAPP_TEMPLATE_LANGUAGE_RO', 'ro'), 'en' => env('WHATSAPP_TEMPLATE_LANGUAGE_EN', 'en')],
         'templates' => [
-            'contact_verification' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION', 'easyenglish_contact_verification'),
+            'contact_verification' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION', 'easyenglish_activation'),
             'purchase_confirmation' => env('WHATSAPP_TEMPLATE_PURCHASE_CONFIRMATION', 'easyenglish_purchase_confirmation'),
             'intro_booking_confirmation' => env('WHATSAPP_TEMPLATE_INTRO_BOOKING_CONFIRMATION', 'easyenglish_intro_booking_confirmation'),
             'appointment_confirmation' => env('WHATSAPP_TEMPLATE_APPOINTMENT_CONFIRMATION', 'easyenglish_appointment_confirmation'),
