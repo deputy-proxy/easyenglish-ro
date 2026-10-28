@@ -135,6 +135,26 @@ test('all three server-configured bundle prices are sent to Stripe in RON minor 
     }
 });
 
+test('checkout retries reuse stable parameters and recover legacy idempotency conflicts', function () {
+    $fake = app(FakeStripeGateway::class);
+    $fake->nextCheckoutException = new RuntimeException('Keys for idempotent requests can only be used with the same parameters.');
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $token = str_repeat('R', 48);
+
+    $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
+        ->post(route('purchase.checkout', $bundle), [
+            'purchase_token' => $token,
+            'name' => 'Stripe Test Customer',
+            'email' => 'stripe-customer@example.com',
+            'phone' => '+40722123456',
+            'whatsapp_service_consent' => '1',
+        ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
+
+    expect($fake->checkoutRequests)->toHaveCount(2)
+        ->and($fake->checkoutRequests[0]['idempotency_key'])->not->toBe($fake->checkoutRequests[1]['idempotency_key'])
+        ->and($fake->checkoutRequests[1]['parameters']['expires_at'])->toBeGreaterThan(now()->timestamp);
+});
+
 test('duplicate checkout submissions reuse the same provider session and do not create another entitlement', function () {
     $purchase = startStripePurchase($this);
     $bundle = $purchase['bundle'];

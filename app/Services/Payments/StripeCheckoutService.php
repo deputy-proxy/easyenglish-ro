@@ -214,34 +214,61 @@ class StripeCheckoutService
             'bundle_definition_id' => (string) $bundle->id,
         ];
 
-        try {
-            $session = $this->stripe->createCheckoutSession([
-                'mode' => 'payment',
-                'expires_at' => now()->addMinutes(35)->timestamp,
-                'payment_method_types' => ['card'],
-                'customer_email' => $entitlement->customer_email,
-                'client_reference_id' => (string) $payment->id,
-                'success_url' => $successUrl,
-                'cancel_url' => $cancelUrl,
-                'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'auto',
-                'line_items' => [[
-                    'quantity' => 1,
-                    'price_data' => [
-                        'currency' => 'ron',
-                        'tax_behavior' => 'inclusive',
-                        'unit_amount' => $bundle->price_ron * 100,
-                        'product_data' => [
-                            'name' => $bundle->name,
-                            'description' => '15-minute English conversation sessions. All applicable taxes are included.',
-                        ],
+        // Persist the expiry before contacting Stripe so a retry sends identical
+        // parameters with the same idempotency key.
+        if ($payment->checkout_expires_at === null || $payment->checkout_expires_at->lessThanOrEqualTo(now())) {
+            $payment->forceFill(['checkout_expires_at' => now()->addMinutes(35)])->save();
+        }
+
+        $parameters = [
+            'mode' => 'payment',
+            'expires_at' => $payment->checkout_expires_at->timestamp,
+            'payment_method_types' => ['card'],
+            'customer_email' => $entitlement->customer_email,
+            'client_reference_id' => (string) $payment->id,
+            'success_url' => $successUrl,
+            'cancel_url' => $cancelUrl,
+            'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'auto',
+            'line_items' => [[
+                'quantity' => 1,
+                'price_data' => [
+                    'currency' => 'ron',
+                    'tax_behavior' => 'inclusive',
+                    'unit_amount' => $bundle->price_ron * 100,
+                    'product_data' => [
+                        'name' => $bundle->name,
+                        'description' => '15-minute English conversation sessions. All applicable taxes are included.',
                     ],
-                ]],
-                'metadata' => $metadata,
-                'payment_intent_data' => ['metadata' => $metadata],
-            ], (string) $payment->checkout_request_key);
+                ],
+            ]],
+            'metadata' => $metadata,
+            'payment_intent_data' => ['metadata' => $metadata],
+        ];
+
+        try {
+            $session = $this->stripe->createCheckoutSession($parameters, (string) $payment->checkout_request_key);
         } catch (\Throwable $exception) {
-            $payment->forceFill(['last_error' => Str::limit($exception->getMessage(), 2000)])->save();
-            throw new RuntimeException('Secure checkout could not be started. No payment has been confirmed; retry or contact support if the problem persists.', previous: $exception);
+            // Recover payments created by the previous implementation, which used a
+            // moving expires_at value with a stable key. Stripe rejects that key.
+            if ((str_contains(mb_strtolower($exception->getMessage()), 'idempotency')
+                    || str_contains(mb_strtolower($exception->getMessage()), 'idempotent'))
+                && str_contains(mb_strtolower($exception->getMessage()), 'same parameters')) {
+                $payment->forceFill([
+                    'checkout_request_key' => Str::random(64),
+                    'checkout_expires_at' => now()->addMinutes(35),
+                ])->save();
+                $parameters['expires_at'] = $payment->checkout_expires_at->timestamp;
+
+                try {
+                    $session = $this->stripe->createCheckoutSession($parameters, (string) $payment->checkout_request_key);
+                } catch (\Throwable $retryException) {
+                    $payment->forceFill(['last_error' => Str::limit($retryException->getMessage(), 2000)])->save();
+                    throw new RuntimeException('Secure checkout could not be started. No payment has been confirmed; retry or contact support if the problem persists.', previous: $retryException);
+                }
+            } else {
+                $payment->forceFill(['last_error' => Str::limit($exception->getMessage(), 2000)])->save();
+                throw new RuntimeException('Secure checkout could not be started. No payment has been confirmed; retry or contact support if the problem persists.', previous: $exception);
+            }
         }
 
         if (! isset($session['id'], $session['url']) || ! is_string($session['id']) || ! is_string($session['url'])) {
@@ -252,7 +279,7 @@ class StripeCheckoutService
         $payment->forceFill([
             'provider_checkout_id' => $session['id'],
             'checkout_url' => $session['url'],
-            'checkout_expires_at' => isset($session['expires_at']) ? now()->setTimestamp((int) $session['expires_at']) : null,
+            'checkout_expires_at' => isset($session['expires_at']) ? now()->setTimestamp((int) $session['expires_at']) : $payment->checkout_expires_at,
             'last_error' => null,
         ])->save();
 
