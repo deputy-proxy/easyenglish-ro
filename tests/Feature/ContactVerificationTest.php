@@ -25,7 +25,7 @@ beforeEach(function (): void {
         'services.whatsapp.enabled' => true,
         'services.whatsapp.access_token' => 'test-token',
         'services.whatsapp.phone_number_id' => 'test-phone-id',
-        'services.whatsapp.templates.contact_verification' => 'easyenglish_contact_verification',
+        'services.whatsapp.templates.contact_verification' => 'easyenglish_activation',
         'mail.default' => 'array',
     ]);
     $gateway = new FakeWhatsAppGateway;
@@ -87,6 +87,12 @@ test('verification start stores hashes and sends a WhatsApp code without logging
         ->and($challenge->phone_code_hash)->not->toBe($code)
         ->and($code)->toMatch('/^[0-9]{6}$/')
         ->and($gateway->sent)->toHaveCount(1)
+        ->and($gateway->sent[0]['template'])->toBe('easyenglish_activation')
+        ->and($gateway->sent[0]['language'])->toBe('en')
+        ->and($gateway->sent[0]['components'][0])->toBe([
+            'type' => 'body',
+            'parameters' => [['type' => 'text', 'text' => $code]],
+        ])
         ->and($gateway->sent[0]['components'][1])->toBe([
             'type' => 'button',
             'sub_type' => 'url',
