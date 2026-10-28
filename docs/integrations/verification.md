@@ -8,15 +8,15 @@ Verification messages are transactional only. The WhatsApp service-message conse
 
 ## Email flow
 
-1. The customer enters an email and phone number on the free booking form and chooses **Send verification link and code**.
-2. The application creates a 30-minute challenge and emails a single-use link.
-3. The link is signed, expires after 30 minutes, and contains an opaque random token. The database stores only the SHA-256 token hash.
-4. The email confirmation route checks the URL signature, challenge expiry, token hash, and single-use state before setting `email_verified_at`.
-5. The customer returns to the booking form to finish the phone step.
+1. The customer enters an email and phone number on the free booking form and requests verification.
+2. The application creates a 30-minute challenge and emails a six-digit code plus a single-use backup link.
+3. The email code is stored as an HMAC, expires with the challenge, and allows at most five incorrect attempts.
+4. The code confirmation endpoint checks the session-bound challenge, expiry, code hash, and single-use state before setting `email_verified_at`. The signed backup link remains available if needed.
+5. The customer returns to the form to finish the WhatsApp step.
 
 ## WhatsApp phone flow
 
-1. The application sends a six-digit OTP using the configured WhatsApp Cloud API template `contact_verification`.
+1. The application sends a six-digit OTP using the configured WhatsApp Cloud API template `contact_verification`. Email delivery independently sends a separate six-digit OTP.
 2. The challenge stores an HMAC of the OTP, not the code itself. The OTP expires with the 30-minute challenge.
 3. A maximum of five incorrect attempts is allowed. The code is single-use. The request endpoint has an IP throttle, a per-contact hourly limit, and a 60-second resend cooldown.
 4. Provider acceptance is not treated as verification; only a correct code submitted by the customer sets `phone_verified_at`.
@@ -35,7 +35,7 @@ The booking submission validates the challenge ID, expiry, completion state, ema
 
 ## Operations and privacy
 
-Verification challenges expire after 30 minutes. Do not log tokens, OTPs, email bodies, or full verification URLs. Application logs may record the exception class and the fact that delivery failed, without contact values or secrets. Rate-limit failures should be presented generically. A delivery failure must not create a booking. The customer can request a new challenge after the cooldown; old challenge links and codes must remain unusable after expiry or successful confirmation.
+Verification challenges expire after 30 minutes. Do not log tokens, OTPs, email bodies, or full verification URLs. Application logs may record the exception class and the fact that delivery failed, without contact values or secrets. Rate-limit failures should be presented generically. A delivery failure must not create a booking. The customer can request a new challenge after the cooldown; old challenge links and codes must remain unusable after expiry or successful confirmation. Email and phone codes each have a five-attempt limit.
 
 ## Launch checklist
 
