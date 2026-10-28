@@ -29,7 +29,10 @@ function addPublicAvailability(CarbonImmutable $day): void
 test('public landing page renders in Romanian by default with approved prices and session duration', function () {
     $this->get('/')
         ->assertOk()
-        ->assertSee('Mai multă încredere în engleză.')
+        ->assertSee('De data asta, ai ceva de spus.')
+        ->assertSee('În engleză.')
+        ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
+        ->assertSee('Profesorul pregătește. Tu exersezi.')
         ->assertSee('156')
         ->assertSee('390')
         ->assertSee('780')
@@ -41,7 +44,9 @@ test('public landing page renders in Romanian by default with approved prices an
 test('visitor can switch the public experience to English without an account', function () {
     $this->from('/')->post('/language', ['locale' => 'en'])->assertRedirect('/');
 
-    $this->get('/')->assertOk()->assertSee('More confidence in English.')->assertSee('MOST POPULAR');
+    $this->get('/')->assertOk()->assertSee('This time, you have something to say.')
+        ->assertSee('FOR THE MOMENTS THAT MATTER')
+        ->assertSee('Your teacher prepares. You practise.')->assertSee('MOST POPULAR');
 });
 
 test('availability endpoint returns all seven days and only server-bookable times', function () {

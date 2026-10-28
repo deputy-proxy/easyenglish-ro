@@ -204,44 +204,66 @@
         .hero-art {
             background: #e9f0e5;
             border-radius: 28px;
-            min-height: 380px;
-            padding: 28px;
+            min-height: 460px;
+            padding: 24px;
             position: relative;
             overflow: hidden;
             display: flex;
-            align-items: flex-end
+            align-items: flex-end;
+            isolation: isolate
         }
+
+        .hero-people {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            padding: 12px
+        }
+
+        .hero-person {
+            min-width: 0;
+            overflow: hidden;
+            border-radius: 20px;
+            background: #dce7dc
+        }
+
+        .hero-person:first-child { transform: translateY(18px) }
+        .hero-person:last-child { transform: translateY(-18px) }
+
+        .hero-person img {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+            object-fit: cover
+        }
+
+        .hero-person:first-child img { object-position: 52% center }
+        .hero-person:last-child img { object-position: 48% center }
 
         .hero-art:before {
             content: '';
             position: absolute;
-            width: 340px;
-            height: 340px;
-            border: 1px solid #b6c9b7;
-            border-radius: 50%;
-            top: -95px;
-            right: -65px
+            inset: 0;
+            background: linear-gradient(180deg, #14251f00 35%, #14251f99 100%);
+            z-index: 1;
+            pointer-events: none
         }
 
-        .hero-art:after {
-            content: '';
-            position: absolute;
-            width: 240px;
-            height: 240px;
-            border: 1px solid #b6c9b7;
-            border-radius: 50%;
-            top: -45px;
-            right: -15px
-        }
+        .hero-art:after { display: none }
 
         .art-card {
             position: relative;
-            z-index: 1;
-            background: #fff;
+            z-index: 2;
+            margin: 0 0 0 auto;
+            background: #ffffffed;
+            border: 1px solid #ffffffb3;
             border-radius: 20px;
-            padding: 25px;
-            width: min(100%, 330px);
-            box-shadow: 0 18px 45px #173e2710
+            padding: 20px;
+            width: min(100%, 310px);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 18px 45px #14251f26
         }
 
         .art-kicker {
@@ -324,10 +346,51 @@
             max-width: 620px
         }
 
+        .motivation {
+            display: grid;
+            grid-template-columns: .9fr 1.1fr;
+            gap: 70px;
+            align-items: center
+        }
+
+        .motivation-intro h2 {
+            font-size: clamp(34px, 4vw, 48px);
+            line-height: 1.08;
+            letter-spacing: -2px;
+            margin: 0 0 16px
+        }
+
+        .motivation-list {
+            border-top: 1px solid var(--line)
+        }
+
+        .motivation-list article {
+            display: grid;
+            grid-template-columns: 44px 1fr;
+            gap: 18px;
+            align-items: start;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .motivation-list span {
+            color: var(--green);
+            font-size: 12px;
+            font-weight: 800;
+            padding-top: 4px
+        }
+
+        .motivation-list p {
+            font-size: 18px;
+            line-height: 1.45;
+            margin: 0;
+            font-weight: 600
+        }
+
         .steps {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 18px
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px
         }
 
         .step,
@@ -630,7 +693,16 @@
             }
 
             .hero-art {
-                min-height: 300px
+                min-height: 380px;
+                padding: 16px
+            }
+
+            .hero-person img {
+                min-height: 340px
+            }
+
+            .art-card {
+                padding: 18px
             }
 
             .trust {
@@ -644,8 +716,13 @@
             }
 
             .steps,
-            .bundle-grid {
+            .bundle-grid,
+            .motivation {
                 grid-template-columns: 1fr
+            }
+
+            .motivation {
+                gap: 28px
             }
 
             .section {
@@ -741,7 +818,11 @@
                         class="button outline" href="#bundles">{{ __('public.hero_secondary') }}</a></div>
                 <p class="hero-note">{{ __('public.hero_note') }}</p>
             </div>
-            <div class="hero-art">
+            <div class="hero-art" aria-label="{{ __('public.hero_visual_alt') }}">
+                <div class="hero-people" aria-hidden="true">
+                    <div class="hero-person"><img src="{{ asset('images/hero-teacher.jpg') }}" alt="" fetchpriority="high"></div>
+                    <div class="hero-person"><img src="{{ asset('images/hero-learner.jpg') }}" alt="" fetchpriority="high"></div>
+                </div>
                 <div class="art-card"><span class="art-kicker">{{ __('public.hero_card_label') }}</span>
                     <h3>{{ __('public.hero_card_title') }}</h3>
                     <p>{{ __('public.hero_card_text') }}</p>
@@ -754,6 +835,18 @@
             <div><span class="trust-mark">✓</span>{{ __('public.trust_account') }}</div>
             <div><span class="trust-mark">✓</span>{{ __('public.trust_online') }}</div>
         </div>
+        <section class="section wrap motivation" id="why">
+            <div class="motivation-intro">
+                <p class="eyebrow">{{ __('public.motivation_eyebrow') }}</p>
+                <h2>{{ __('public.motivation_title') }}</h2>
+                <p class="section-copy">{{ __('public.motivation_text') }}</p>
+            </div>
+            <div class="motivation-list">
+                <article><span>01</span><p>{{ __('public.motivation_job') }}</p></article>
+                <article><span>02</span><p>{{ __('public.motivation_meeting') }}</p></article>
+                <article><span>03</span><p>{{ __('public.motivation_travel') }}</p></article>
+            </div>
+        </section>
         <section class="section wrap" id="how">
             <div class="section-head">
                 <p class="eyebrow">{{ __('public.how_eyebrow') }}</p>
@@ -773,6 +866,30 @@
                     <h3>{{ __('public.step_three_title') }}</h3>
                     <p>{{ __('public.step_three_text') }}</p>
                 </article>
+                <article class="step"><span class="step-no">04</span>
+                    <h3>{{ __('public.step_four_title') }}</h3>
+                    <p>{{ __('public.step_four_text') }}</p>
+                </article>
+            </div>
+        </section>
+        <section class="section wrap" id="availability">
+            <div class="section-head">
+                <p class="eyebrow">{{ __('public.availability_eyebrow') }}</p>
+                <h2>{{ __('public.availability_title') }}</h2>
+                <p class="section-copy">{{ __('public.availability_text') }}</p>
+            </div>
+            <div class="availability" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
+                data-book-url="{{ route('booking.create') }}">
+                <div class="weekbar">
+                    <h3>{{ __('public.booking_week_title') }}</h3>
+                    <div class="weeknav"><button type="button" data-prev
+                            aria-label="{{ __('public.previous_week') }}">‹</button><button type="button" data-next
+                            aria-label="{{ __('public.next_week') }}">›</button></div>
+                </div>
+                <div class="weekgrid" data-weekgrid aria-live="polite">
+                    <p>{{ __('public.availability_loading') }}</p>
+                </div>
+                <p class="timezone">{{ __('public.timezone_note') }}</p>
             </div>
         </section>
         <section class="section bundles" id="bundles">
@@ -797,26 +914,6 @@
                         <a class="button {{ $bundle->price_ron===390?'light':'' }}"
                             href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
                     </article>@endforeach</div>
-            </div>
-        </section>
-        <section class="section wrap" id="availability">
-            <div class="section-head">
-                <p class="eyebrow">{{ __('public.availability_eyebrow') }}</p>
-                <h2>{{ __('public.availability_title') }}</h2>
-                <p class="section-copy">{{ __('public.availability_text') }}</p>
-            </div>
-            <div class="availability" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
-                data-book-url="{{ route('booking.create') }}">
-                <div class="weekbar">
-                    <h3>{{ __('public.booking_week_title') }}</h3>
-                    <div class="weeknav"><button type="button" data-prev
-                            aria-label="{{ __('public.previous_week') }}">‹</button><button type="button" data-next
-                            aria-label="{{ __('public.next_week') }}">›</button></div>
-                </div>
-                <div class="weekgrid" data-weekgrid aria-live="polite">
-                    <p>{{ __('public.availability_loading') }}</p>
-                </div>
-                <p class="timezone">{{ __('public.timezone_note') }}</p>
             </div>
         </section>
         <section class="section wrap" id="faq">
