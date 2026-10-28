@@ -16,7 +16,7 @@ Verification messages are transactional only. The WhatsApp service-message conse
 
 ## WhatsApp phone flow
 
-1. The application sends a six-digit OTP using the configured WhatsApp Cloud API template `contact_verification`. Email delivery independently sends a separate six-digit OTP.
+1. The application sends a six-digit OTP using the configured WhatsApp Cloud API Authentication template `easyenglish_activation`. Email delivery independently sends a separate six-digit OTP.
 2. The challenge stores an HMAC of the OTP, not the code itself. The OTP expires with the 30-minute challenge.
 3. A maximum of five incorrect attempts is allowed. The code is single-use. The request endpoint has an IP throttle, a per-contact hourly limit, and a 60-second resend cooldown.
 4. Provider acceptance is not treated as verification; only a correct code submitted by the customer sets `phone_verified_at`.
@@ -29,7 +29,7 @@ The booking submission validates the challenge ID, expiry, completion state, ema
 
 - Configure a real transactional mailer. Do not use `MAIL_MAILER=log` or `MAIL_MAILER=array` for verification: log transports expose the full verification link in application logs, while array transports silently discard it. The guard also rejects a failover chain containing either non-delivering transport.
 - Configure `WHATSAPP_ENABLED=true`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, and the approved `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION` template name.
-- The WhatsApp template must be approved for the intended locale and accept one body text parameter containing the six-digit code. Configure `WHATSAPP_TEMPLATE_LANGUAGE_RO` and `WHATSAPP_TEMPLATE_LANGUAGE_EN` to match the actual approved template languages.
+- The approved Meta Authentication template is `easyenglish_activation`, with Romanian locale `ro` and English locale `en`. It requires a body text parameter containing the six-digit code and a URL copy-code button parameter (`sub_type=url`, `index=0`) containing the same code. Configure `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION=easyenglish_activation`, `WHATSAPP_TEMPLATE_LANGUAGE_RO=ro`, and `WHATSAPP_TEMPLATE_LANGUAGE_EN=en`.\n- **Outstanding Meta-side mismatch:** both approved variants currently state that the code expires in 10 minutes and their copy-code URLs specify `code_expiration_minutes=10`, but the application challenge expires after 30 minutes. Edit both Authentication templates in WhatsApp Manager to reflect 30 minutes and wait for approval before enabling WhatsApp. The MCP template editor does not support Authentication edits; do not change the application's 30-minute challenge lifetime to hide this mismatch.
 - Keep WhatsApp disabled until the Meta business assets, template approval, secrets, sender and live delivery tests are complete. Never put credentials in source control.
 - Automated tests should fake the WhatsApp gateway and mail transport. CI must not require live provider credentials.
 
