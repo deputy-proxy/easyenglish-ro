@@ -787,61 +787,81 @@
                 transition: none !important
             }
         }
+
+        /* Figma-inspired, full-bleed conversation hero */
+        body { background: #fff; color: #fff; }
+        .topbar.wrap { position: absolute; z-index: 10; top: 0; left: 0; right: 0; width: 100%; height: 88px; padding: 0 30px; background: transparent; }
+        .brand { width: auto; }
+        .brand-logo { display: block; width: 192px; height: auto; }
+        .nav .button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.9); border-radius: 5px; padding: 10px 13px; font-size: 14px; font-weight: 500; }
+        .nav .button:hover { background: rgba(255,255,255,.15); color: #fff; }
+        .hero.wrap { position: relative; isolation: isolate; width: 100%; max-width: none; min-height: min(950px, 100svh); margin: 0; padding: 132px 24px 125px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 0; overflow: hidden; border-radius: 0 0 20px 20px; background: #3348bd; text-align: center; }
+        .hero-backdrop { position: absolute; z-index: -2; inset: 0; overflow: hidden; background: #6d74bd; }
+        .hero-backdrop img { position: absolute; top: 0; height: 100%; width: 66%; object-fit: cover; }
+        .hero-backdrop img:first-child { left: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(90deg,#000 55%,transparent 100%); mask-image: linear-gradient(90deg,#000 55%,transparent 100%); }
+        .hero-backdrop img:last-child { right: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(270deg,#000 55%,transparent 100%); mask-image: linear-gradient(270deg,#000 55%,transparent 100%); }
+        .hero:before { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg,rgba(77,45,115,.58) 0%,rgba(52,70,175,.58) 52%,rgba(0,47,191,.94) 100%); }
+        .hero-content { width: min(100%, 1060px); display: flex; flex-direction: column; align-items: center; }
+        .hero .eyebrow { display: none; }
+        .hero h1 { max-width: 1120px; color: #fff; font-size: clamp(42px, 4.1vw, 66px); font-weight: 500; line-height: 1.14; letter-spacing: -1.8px; margin: 0; }
+        .hero h1 em { display: block; color: #fff; font-weight: 750; }
+        .hero-copy { max-width: 820px; margin: 82px 0 84px; color: #fff; font-size: clamp(19px, 2vw, 32px); line-height: 1.23; font-weight: 500; }
+        .hero-actions { justify-content: center; }
+        .hero .button { background: #fff; color: #001c4c; border-radius: 999px; padding: 17px 35px; font-size: 19px; font-weight: 600; }
+        .hero .button:hover { background: #f0f3ff; color: #001c4c; }
+        .hero .button.outline, .hero-secondary { display: none; }
+        .hero-note { display: none; }
+        .hero-art { display: none; }
+        .trust.wrap { position: absolute; z-index: 2; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(986px, calc(100% - 48px)); padding: 16px 24px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(10,30,110,.22); backdrop-filter: blur(18px); color: #fff; }
+        .trust div { gap: 10px; font-size: 14px; font-weight: 500; }
+        .trust-mark { width: 22px; height: 22px; background: transparent; color: #fff; }
+        .section, .bundles, .footer { color: var(--ink); }
+        @media(max-width:800px) {
+            .topbar.wrap { height: 76px; padding: 0 18px; }
+            .brand-logo { width: 160px; }
+            .hero.wrap { min-height: 850px; padding: 125px 22px 155px; border-radius: 0 0 16px 16px; }
+            .hero h1 { font-size: clamp(38px, 8vw, 56px); letter-spacing: -1.4px; }
+            .hero-copy { margin: 48px 0 46px; font-size: clamp(19px, 4.2vw, 25px); }
+            .hero-backdrop img { width: 100%; opacity: .72; }
+            .hero-backdrop img:first-child { -webkit-mask-image: linear-gradient(180deg,#000 30%,transparent 100%); mask-image: linear-gradient(180deg,#000 30%,transparent 100%); }
+            .hero-backdrop img:last-child { display: none; }
+            .trust.wrap { bottom: 18px; width: calc(100% - 32px); border-radius: 22px; padding: 14px 16px; display: grid; grid-template-columns: 1fr; gap: 10px; }
+            .trust div { justify-content: flex-start; text-align: left; flex-direction: row; font-size: 12px; }
+        }
+        @media(max-width:420px) {
+            .hero.wrap { min-height: 820px; padding-top: 115px; }
+            .hero h1 { font-size: 36px; }
+            .hero-copy { margin: 40px 0; }
+            .hero .button { padding: 15px 20px; font-size: 16px; }
+        }
+
     </style>
 </head>
 
 <body>
     <header class="wrap topbar">
         <a class="brand" href="{{ route('home') }}" aria-label="Easy English home">
-            <svg width="20%" height="20%" viewBox="0 0 560 512" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-                <g transform="matrix(1.152159,0,0,1.152159,-39.3185,-47.74451)">
-                    <g transform="matrix(1,0,0,1,0,33.343262)">
-                        <g transform="matrix(4.154657,0,0,4.154657,48.046046,-21.433887)">
-                            <path d="M80.898,18.398L45.3,18.398C40.3,18.398 36.198,22.5 36.198,27.5L36.198,49.398C36.198,54.398 40.3,58.499 45.3,58.499L64.402,58.499L78.504,71.198C78.703,71.397 79.004,71.499 79.402,71.499C79.602,71.499 79.801,71.397 80.004,71.3C80.504,70.999 80.805,70.499 80.703,69.901L78.805,58.401L81.004,58.401C86.004,58.401 90.106,54.3 90.106,49.3L90.102,27.499C90,22.499 85.899,18.397 80.899,18.397L80.898,18.398ZM87.398,49.398C87.398,53 84.5,55.898 80.898,55.898L76.898,55.898C76.796,55.898 76.796,56 76.699,56C76.597,56 76.597,56 76.5,56.101C76.398,56.101 76.3,56.203 76.3,56.203C76.199,56.304 76.199,56.304 76.101,56.402C76.101,56.503 76,56.503 76,56.601C75.898,56.703 75.898,56.8 75.898,56.902L75.898,57.101C75.898,57.203 75.796,57.203 75.796,57.3L75.796,57.601L77.398,67L65.8,56.199C65.698,56.097 65.601,56.097 65.499,55.999L65.398,55.898C65.198,55.796 65.097,55.796 64.898,55.796L45.3,55.8C41.698,55.8 38.8,52.902 38.8,49.3L38.8,27.499C38.8,23.897 41.698,20.999 45.3,20.999L80.902,20.999C84.503,20.999 87.402,23.897 87.402,27.499L87.398,49.398Z" style="fill:white;fill-rule:nonzero;"/>
-                        </g>
-                        <g transform="matrix(4.154657,0,0,4.154657,48.046046,-21.433887)">
-                            <path d="M18.199,68.602L19.199,68.602L17.301,80.102C17.199,80.602 17.5,81.204 18,81.5C18.199,81.602 18.398,81.7 18.601,81.7C18.902,81.7 19.203,81.598 19.5,81.399L33.602,68.7L49.801,68.7C54.102,68.7 57.602,65.399 58,61.2L45.301,61.2C38.801,61.2 33.602,55.899 33.602,49.501L33.602,32.802L18.2,32.802C13.7,32.802 10.001,36.501 10.001,41.001L10.001,60.399C10.001,64.899 13.7,68.602 18.2,68.602L18.199,68.602Z" style="fill:white;fill-rule:nonzero;"/>
-                        </g>
-                    </g>
-                    <g transform="matrix(1,0,0,1,-130.151379,25.187453)">
-                        <text x="167.237px" y="397.947px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:75px;fill:white;">Easy</text>
-                        <g transform="matrix(75,0,0,75,604.822033,397.946824)">
-                        </g>
-                        <text x="333.972px" y="397.947px" style="font-family:'Arial-BoldMT', 'Arial', sans-serif;font-weight:700;font-size:75px;fill:white;">English</text>
-                    </g>
-                </g>
-            </svg>
+            <img class="brand-logo" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
-        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a
-                class="button nav-cta" href="#availability">{{ __('public.nav_book') }}</a></nav>
+        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a class="button nav-cta" href="{{ route('login') }}">{{ app()->getLocale() === 'ro' ? 'Autentificare' : 'Log in' }}</a></nav>
     </header>
     <main>
-        <section class="wrap hero">
-            <div>
-                <p class="eyebrow">{{ __('public.hero_eyebrow') }}</p>
+        <section class="hero wrap">
+            <div class="hero-backdrop" aria-hidden="true">
+                <img src="{{ asset('images/hero-teacher.jpg') }}" alt="" fetchpriority="high">
+                <img src="{{ asset('images/hero-learner.jpg') }}" alt="" fetchpriority="high">
+            </div>
+            <div class="hero-content">
                 <h1>{{ __('public.hero_title_a') }} <em>{{ __('public.hero_title_em') }}</em></h1>
                 <p class="hero-copy">{{ __('public.hero_text') }}</p>
-                <div class="hero-actions"><a class="button" href="#availability">{{ __('public.hero_cta') }}</a><a
-                        class="button outline" href="#bundles">{{ __('public.hero_secondary') }}</a></div>
-                <p class="hero-note">{{ __('public.hero_note') }}</p>
+                <div class="hero-actions"><a class="button" href="#availability">{{ app()->getLocale() === 'ro' ? 'Programează prima ședință complet gratuit' : 'Book your first session completely free' }}</a></div>
             </div>
-            <div class="hero-art" aria-label="{{ __('public.hero_visual_alt') }}">
-                <div class="hero-people" aria-hidden="true">
-                    <div class="hero-person"><img src="{{ asset('images/hero-teacher.jpg') }}" alt="" fetchpriority="high"></div>
-                    <div class="hero-person"><img src="{{ asset('images/hero-learner.jpg') }}" alt="" fetchpriority="high"></div>
-                </div>
-                <div class="art-card"><span class="art-kicker">{{ __('public.hero_card_label') }}</span>
-                    <h3>{{ __('public.hero_card_title') }}</h3>
-                    <p>{{ __('public.hero_card_text') }}</p>
-                    <div class="art-time"><span>{{ __('public.art_duration') }}</span><strong>15 min</strong></div>
-                </div>
+            <div class="wrap trust">
+                <div><span class="trust-mark" aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
+                <div><span class="trust-mark" aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
+                <div><span class="trust-mark" aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
             </div>
         </section>
-        <div class="wrap trust">
-            <div><span class="trust-mark">✓</span>{{ __('public.trust_minutes') }}</div>
-            <div><span class="trust-mark">✓</span>{{ __('public.trust_account') }}</div>
-            <div><span class="trust-mark">✓</span>{{ __('public.trust_online') }}</div>
-        </div>
         <section class="section wrap motivation" id="why">
             <div class="motivation-intro">
                 <p class="eyebrow">{{ __('public.motivation_eyebrow') }}</p>
