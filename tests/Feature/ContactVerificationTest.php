@@ -327,7 +327,7 @@ test('email-only mode permits a free introduction after email verification witho
         ->and($challenge->fresh()->consumed_at)->not->toBeNull();
 });
 
-test('verified contacts are persisted on bundle checkout and unlock the included free credit only when eligible', function () {
+test('verified contacts are persisted on bundle checkout without adding a free session to the bundle', function () {
     config(['services.stripe.secret' => 'sk_test_fake', 'services.stripe.webhook_secret' => 'whsec_test', 'services.stripe.checkout_enabled' => true]);
     $stripe = new FakeStripeGateway;
     app()->instance(StripeGateway::class, $stripe);
@@ -352,8 +352,8 @@ test('verified contacts are persisted on bundle checkout and unlock the included
 
     $entitlement->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => now()->addMonths(3)])->save();
     $updated = app(BundleEntitlementService::class)->grantIncludedFreeCreditIfEligible($entitlement->id);
-    expect($updated->free_credits_granted)->toBe(1)
-        ->and($updated->free_credits_remaining)->toBe(1);
+    expect($updated->free_credits_granted)->toBe(0)
+        ->and($updated->free_credits_remaining)->toBe(0);
 });
 
 test('verified challenge cannot be reused with a different email or phone', function () {
