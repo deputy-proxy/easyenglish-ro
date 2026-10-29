@@ -35,7 +35,7 @@ class PublicSiteController extends Controller
         $this->applyLocale($request);
 
         return view('public.home', [
-            'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('price_ron')->get(),
+            'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
         ]);
     }

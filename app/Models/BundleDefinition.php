@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $price_ron
  * @property int $paid_credits
  * @property int $included_free_credits
+ * @property int $sort_order
  */
 class BundleDefinition extends Model
 {
-    protected $fillable = ['name', 'price_ron', 'paid_credits', 'included_free_credits', 'is_active'];
+    protected $fillable = ['name', 'price_ron', 'paid_credits', 'included_free_credits', 'sort_order', 'is_active'];
 
     protected function casts(): array
     {
