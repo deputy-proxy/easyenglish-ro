@@ -211,6 +211,7 @@ test('staff can open Filament booking administration while ordinary users are de
     $this->get('/admin/availability-rules')->assertOk();
     $this->get('/admin/availability-exceptions')->assertOk();
     $this->get('/admin/bundle-entitlements')->assertOk();
+    $this->get('/admin/bundle-definitions')->assertOk();
     $this->get('/admin/credit-transactions')->assertOk();
     $this->get('/admin/booking-audits')->assertOk();
 });

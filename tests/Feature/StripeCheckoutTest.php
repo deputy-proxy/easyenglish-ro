@@ -551,6 +551,6 @@ test('already verified customer accounts can purchase a bundle without repeating
     postStripeTestEvent($this, stripeTestEvent('evt_verified_account_bundle', 'checkout.session.completed', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
 
     expect($entitlement->fresh()->status)->toBe('active')
-        ->and($entitlement->fresh()->free_credits_granted)->toBe(1)
-        ->and($entitlement->fresh()->free_credits_remaining)->toBe(1);
+        ->and($entitlement->fresh()->free_credits_granted)->toBe(0)
+        ->and($entitlement->fresh()->free_credits_remaining)->toBe(0);
 });
