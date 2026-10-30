@@ -797,7 +797,7 @@
         .nav .button:hover { background: rgba(255,255,255,.15); color: #fff; }
         .hero.wrap { position: relative; isolation: isolate; width: 100%; max-width: none; min-height: min(950px, 100svh); margin: 0; padding: 132px 24px 125px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 0; overflow: hidden; border-radius: 0 0 20px 20px; background: #3348bd; text-align: center; }
         .hero-backdrop { position: absolute; z-index: -2; inset: 0; overflow: hidden; background: #6d74bd; }
-        .hero-backdrop img { position: absolute; top: 0; height: 100%; width: 66%; object-fit: cover; }
+        .hero-backdrop img { position: absolute; top: 10%; height: 100%; width: 66%; object-fit: cover; }
         .hero-backdrop img:first-child { left: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(90deg,#000 55%,transparent 100%); mask-image: linear-gradient(90deg,#000 55%,transparent 100%); }
         .hero-backdrop img:last-child { right: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(270deg,#000 55%,transparent 100%); mask-image: linear-gradient(270deg,#000 55%,transparent 100%); }
         .hero:before { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg,rgba(77,45,115,.58) 0%,rgba(52,70,175,.58) 52%,rgba(0,47,191,.94) 100%); }
