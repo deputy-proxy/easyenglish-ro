@@ -18,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class AvailabilityRuleResource extends Resource
 {
@@ -32,6 +33,11 @@ class AvailabilityRuleResource extends Resource
     protected static ?string $pluralModelLabel = 'weekly availability';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Scheduling';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->whereNull('user_id');
+    }
 
     public static function form(Schema $schema): Schema
     {

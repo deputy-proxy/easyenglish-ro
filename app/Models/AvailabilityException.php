@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
  * @property CarbonImmutable $starts_at
  * @property CarbonImmutable $ends_at
  * @property string|null $reason
+ * @property int|null $user_id
  * @property int|null $created_by
  */
 class AvailabilityException extends Model
@@ -22,6 +23,18 @@ class AvailabilityException extends Model
         static::saving(function (AvailabilityException $exception): void {
             if ($exception->starts_at >= $exception->ends_at) {
                 throw ValidationException::withMessages(['ends_at' => 'The exception must end after it starts.']);
+            }
+            if ($exception->user_id !== null && $exception->kind === 'availability_override') {
+                $overlaps = self::query()->where('user_id', $exception->user_id)
+                    ->where('kind', 'availability_override')
+                    ->where('starts_at', '<', $exception->ends_at)
+                    ->where('ends_at', '>', $exception->starts_at)
+                    ->when($exception->exists, fn ($query) => $query->where('id', '!=', $exception->getKey()))
+                    ->exists();
+
+                if ($overlaps) {
+                    throw ValidationException::withMessages(['starts_at' => 'Teacher availability overrides cannot overlap.']);
+                }
             }
             if (! in_array($exception->kind, ['availability_override', 'blocked'], true)) {
                 throw ValidationException::withMessages(['kind' => 'Choose an availability override or a blocked period.']);
@@ -43,11 +56,11 @@ class AvailabilityException extends Model
             'subject_id' => $exception->getKey(),
             'action' => $action,
             'reason' => $exception->reason,
-            'metadata' => $exception->only(['kind', 'starts_at', 'ends_at', 'reason']),
+            'metadata' => $exception->only(['user_id', 'kind', 'starts_at', 'ends_at', 'reason']),
         ]);
     }
 
-    protected $fillable = ['kind', 'starts_at', 'ends_at', 'reason', 'created_by'];
+    protected $fillable = ['user_id', 'kind', 'starts_at', 'ends_at', 'reason', 'created_by'];
 
     protected function casts(): array
     {

@@ -450,7 +450,7 @@ class PublicSiteController extends Controller
     public function confirmed(Request $request, string $reference): View
     {
         abort_unless($request->hasValidSignature(false), 403);
-        $booking = Booking::query()->where('public_reference', $reference)->where('status', 'confirmed')->firstOrFail();
+        $booking = Booking::query()->with('teacher')->where('public_reference', $reference)->where('status', 'confirmed')->firstOrFail();
         $this->applyLocale($request);
 
         return view('public.confirmed', ['booking' => $booking]);

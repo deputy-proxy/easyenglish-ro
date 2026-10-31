@@ -18,6 +18,19 @@ This guide covers routine booking and payment operations in Filament. Use a prov
 4. Confirm the public weekly grid reflects the intended date and Europe/Bucharest time.
 5. Remember that every session lasts 15 minutes and the system requires a 15-minute buffer between sessions. The server rechecks availability when a booking is submitted.
 
+## Teacher roster, schedules, and Google Calendar
+
+1. Open **Scheduling → Teachers** to create/edit teacher accounts and activate/deactivate assignment eligibility. Do not delete teacher accounts; deactivation preserves historical bookings and audit references.
+2. Use the teacher's **Weekly availability** and **Date-specific exceptions** repeaters to review or manage their schedule. Teachers can also edit only their own schedule at `/teacher/availability`.
+3. A teacher is eligible only when active and their Google Calendar connection has a successful sync less than ten minutes old. Check connection status, last sync, and error before activating the teacher.
+4. Ask teachers to connect their own Google Calendar from `/teacher/availability`. Never request their Google password or copy OAuth tokens. The integration stores only Busy interval boundaries and event IDs, not event titles or descriptions.
+5. The public calendar is the union of eligible teachers' bookable slots. Customers do not choose or see teachers before confirmation. The assigned teacher is shown to the customer only after the booking is confirmed.
+6. If calendar sync is stale/errored, the teacher is excluded from new availability until a successful sync. Use **Sync calendar now** after fixing the cause; do not assume cached free time is current.
+7. For event-write failures, open the booking and inspect its assigned teacher, event reference, last sync, and error. Resolve OAuth/API access first, then use **Retry calendar event**. A confirmed booking remains valid while calendar synchronization retries.
+8. A teacher cannot disconnect a calendar while future confirmed bookings or outstanding event removals depend on it. Reassign/cancel affected bookings and let queued event jobs complete first.
+
+The rollout flag defaults to off. Before enabling teacher availability, provision the teacher roster, configure Google OAuth, and run `php artisan teachers:backfill-availability` to copy the legacy global schedule to teachers without an existing teacher-specific schedule. The original global records are retained. Follow the [Google Calendar integration runbook](../integrations/google-calendar.md) for the complete rollout and recovery procedure.
+
 ## Find and prepare for a booking
 
 1. Open **Bookings** and search by public reference, customer contact, or appointment time.
@@ -80,6 +93,9 @@ Run only when authorized and from the deployed application root with the correct
 php artisan schedule:list
 php artisan notifications:dispatch
 php artisan stripe:reconcile
+php artisan teachers:sync-calendars
+php artisan bookings:reconcile-calendar-events
+php artisan teachers:backfill-availability
 php artisan queue:failed
 ```
 

@@ -13,7 +13,7 @@ Do not launch while required controller details are blank. Do not invent a DPO o
 
 ## 2. Information processed
 
-Depending on the interaction, Easy English processes the learner's name, email address, phone/WhatsApp number, English level, session goal, optional notes, selected appointment and its status, policy-version acceptance, contact-verification state, bundle and credit records, payment/refund references, service-message consent and opt-out state, and limited delivery/audit/technical records.
+Depending on the interaction, Easy English processes the learner's name, email address, phone/WhatsApp number, English level, session goal, optional notes, selected appointment and its status, assigned teacher contact details after confirmation, policy-version acceptance, contact-verification state, bundle and credit records, payment/refund references, service-message consent and opt-out state, and limited delivery/audit/technical records. When a teacher connects Google Calendar, the application reads event Busy/Free status and times to calculate availability. It stores normalized Busy interval boundaries and provider event IDs, not event titles, descriptions, attendees, or other private calendar content. For a confirmed session, the assigned teacher's calendar receives an event containing the learner's name, email, phone, English level, session goal, optional notes, appointment time, and booking reference.
 
 Do not submit sensitive personal information in session goals or notes. Session calls are handled in WhatsApp; the service does not intentionally record calls or store WhatsApp conversation contents as part of this booking application.
 
@@ -23,7 +23,7 @@ The service uses data to respond to booking requests, verify contact details, ma
 
 ## 4. Recipients and processors
 
-Depending on the configured service, data may be processed by hosting/database providers, Stripe for payment processing, email delivery providers, Meta/WhatsApp for service messages, and authorized staff who operate bookings and payments. Confirm the actual providers, contracts, subprocessors, and applicable international-transfer mechanisms before launch. Payment card details are handled by Stripe Checkout; the application should not collect or log full card details.
+Depending on the configured service, data may be processed by hosting/database providers, Stripe for payment processing, email delivery providers, Meta/WhatsApp for service messages, Google Calendar for teacher availability and confirmed-session events, and authorized staff who operate bookings and payments. Confirm the actual providers, contracts, subprocessors, and applicable international-transfer mechanisms before launch. Payment card details are handled by Stripe Checkout; the application should not collect or log full card details.
 
 ## 5. Retention
 
@@ -39,7 +39,7 @@ Individuals may lodge a complaint with the Romanian data protection supervisory 
 
 ## 7. Security and international transfers
 
-Access is restricted to authorized staff; payment webhooks are verified; application logs should omit secrets and unnecessary learner data. Confirm processor agreements, data locations, transfer mechanisms where applicable, incident-response responsibilities, and backup retention before launch. No session recording or storage of WhatsApp conversation contents is intended by default.
+Access is restricted to authorized staff; payment webhooks are verified; application logs should omit secrets and unnecessary learner data. Confirm processor agreements, data locations, transfer mechanisms where applicable (including Google and Meta), incident-response responsibilities, and backup retention before launch. Teacher OAuth access/refresh tokens are encrypted at rest; teachers authorize their own calendar and can disconnect after future sessions and outstanding event removals are resolved. No session recording or storage of WhatsApp conversation contents is intended by default.
 
 ## 8. Changes and approval
 

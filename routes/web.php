@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Http\Controllers\TeacherAvailabilityController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +31,16 @@ Route::get('/purchase/{bundle}', [PublicSiteController::class, 'purchase'])->nam
 Route::get('/policy/{page}', [PublicSiteController::class, 'policy'])->name('policy');
 Route::get('/privacy', [PublicSiteController::class, 'policy'])->defaults('page', 'privacy')->name('privacy');
 Route::get('/terms', [PublicSiteController::class, 'policy'])->defaults('page', 'terms')->name('terms');
+
+Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->group(function () {
+    Route::get('/availability', [TeacherAvailabilityController::class, 'index'])->name('availability');
+    Route::put('/availability', [TeacherAvailabilityController::class, 'updateAvailability'])->name('availability.update');
+    Route::post('/availability/exceptions', [TeacherAvailabilityController::class, 'storeException'])->name('availability.exceptions.store');
+    Route::delete('/availability/exceptions/{exception}', [TeacherAvailabilityController::class, 'destroyException'])->name('availability.exceptions.destroy');
+    Route::post('/google-calendar/connect', [TeacherAvailabilityController::class, 'connectGoogleCalendar'])->name('google.connect');
+    Route::get('/google-calendar/callback', [TeacherAvailabilityController::class, 'googleCalendarCallback'])->name('google.callback');
+    Route::delete('/google-calendar', [TeacherAvailabilityController::class, 'disconnectGoogleCalendar'])->name('google.disconnect');
+});
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [PublicSiteController::class, 'dashboard'])->name('dashboard');

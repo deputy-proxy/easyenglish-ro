@@ -6,7 +6,12 @@
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">{{ __('public.dashboard_welcome', ['name' => auth()->user()->name]) }}</h1>
                 <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_subtitle') }}</p>
             </div>
-            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_logout_note') }}</p>
+            <div class="flex flex-wrap items-center gap-4">
+                @if (auth()->user()->isTeacher())
+                    <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">Manage teacher availability →</a>
+                @endif
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_logout_note') }}</p>
+            </div>
         </header>
 
         @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif

@@ -9,6 +9,9 @@
 - [ ] Verify the standalone free introduction requires no purchase and is limited to one per person using verified email and phone; a no-show forfeits the offer. Test expired/reused email links, expired/reused OTPs, five incorrect OTP attempts, resend cooldown, and mismatched contact details.
 - [ ] Verify the three tax-inclusive bundles: 156 RON for 1 free + 4 paid; 390 RON for 1 free + 10 paid; 780 RON for 1 free + 20 paid.
 - [ ] Verify bundle activation only after confirmed payment and expiry three calendar months from activation in Europe/Bucharest.
+- [ ] Configure Google Calendar OAuth and the exact production callback URL; verify teachers can connect, complete an initial sync, and are excluded when sync becomes stale.
+- [ ] Backfill the legacy central availability to teacher schedules, activate the teacher roster, and enable `TEACHER_AVAILABILITY_ENABLED` only after the public union calendar and assignment checks pass.
+- [ ] Update and obtain Meta approval for the fourth teacher-contact placeholder in appointment confirmation, reminder, and reschedule templates.
 - [ ] Verify appointment start must precede bundle expiry, including a booking submitted before expiry for a post-expiry appointment.
 - [ ] Verify cancellation/rescheduling terms and policy-version recording: at least 24 hours restores credit; 12 to under 24 hours allows one reschedule; under 12 hours and no-shows forfeit credit, subject to mandatory law.
 - [ ] Verify refund disclosures and approved exception process; no statement should imply software rules override statutory rights.

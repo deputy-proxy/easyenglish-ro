@@ -14,6 +14,7 @@ return [
         'previous_appointment_date' => 'Previous appointment time',
         'duration' => 'Duration',
         'timezone' => 'Time zone',
+        'teacher' => 'Teacher',
         'credit_outcome' => 'Credit outcome',
         'refund_amount' => 'Refund amount',
         'refund_status' => 'Refund status',

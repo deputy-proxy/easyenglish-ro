@@ -1,6 +1,14 @@
 <?php
 
 return [
+    'google_calendar' => [
+        'client_id' => env('GOOGLE_CALENDAR_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CALENDAR_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_CALENDAR_REDIRECT_URI'),
+        'token_uri' => 'https://oauth2.googleapis.com/token',
+        'api_base' => 'https://www.googleapis.com/calendar/v3',
+    ],
+
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
