@@ -3,6 +3,7 @@
 namespace App\Services\Booking;
 
 use App\Enums\NotificationEvent;
+use App\Jobs\Calendar\SyncBookingCalendarEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
@@ -47,7 +48,15 @@ class BookingService
         return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
-            $this->availability->assertBookable($startsAt);
+            $assignedTeacher = null;
+            if ($this->availability->teacherAvailabilityEnabled()) {
+                $assignedTeacher = $this->availability->eligibleTeachersForSlot($startsAt)->first();
+                if ($assignedTeacher === null) {
+                    throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
+                }
+            } else {
+                $this->availability->assertBookable($startsAt);
+            }
 
             if ($freeIntroduction === ($entitlementId !== null)) {
                 throw ValidationException::withMessages(['booking_type' => 'Choose either a free introduction or a paid bundle credit.']);
@@ -96,6 +105,8 @@ class BookingService
             $booking = Booking::query()->create([
                 'public_reference' => (string) Str::uuid(),
                 'bundle_entitlement_id' => $entitlement?->id,
+                'teacher_id' => $assignedTeacher?->id,
+                'teacher_assigned_at' => $assignedTeacher ? now() : null,
                 'customer_name' => trim($customer['name']),
                 'customer_email' => mb_strtolower(trim($customer['email'])),
                 'customer_phone' => trim($customer['phone']),
@@ -156,7 +167,11 @@ class BookingService
                 'booking_id' => $booking->id,
                 'bundle_entitlement_id' => $entitlement?->id,
                 'action' => 'booking.held',
-                'metadata' => ['hold_expires_at' => $booking->hold_expires_at?->toIso8601String()],
+                'metadata' => [
+                    'hold_expires_at' => $booking->hold_expires_at?->toIso8601String(),
+                    'teacher_id' => $booking->teacher_id,
+                    'teacher_assigned_at' => $booking->teacher_assigned_at?->toIso8601String(),
+                ],
             ]);
 
             return $booking->refresh();
@@ -170,11 +185,25 @@ class BookingService
             $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
             if ($booking->status === 'confirmed') {
                 $this->notifications->enqueueBookingConfirmation($booking);
+                if ($booking->teacher_id !== null) {
+                    SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+                }
 
                 return $booking;
             }
             if ($booking->status !== 'pending' || $booking->hold_expires_at === null || $booking->hold_expires_at->lessThanOrEqualTo(now())) {
                 throw ValidationException::withMessages(['booking' => 'This booking hold has expired or is no longer confirmable.']);
+            }
+            $previousTeacherId = $booking->teacher_id;
+            if ($this->availability->teacherAvailabilityEnabled()) {
+                $eligibleTeachers = $this->availability->eligibleTeachersForSlot($booking->starts_at, $booking->id);
+                if ($eligibleTeachers->isEmpty()) {
+                    throw ValidationException::withMessages(['booking' => 'No teacher can fulfil this time any longer. Please choose another slot.']);
+                }
+                if (! $eligibleTeachers->contains('id', $booking->teacher_id)) {
+                    $teacher = $eligibleTeachers->first();
+                    $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
+                }
             }
             $booking->update(['status' => 'confirmed', 'confirmed_at' => now(), 'hold_expires_at' => null]);
             if ($booking->bundle_entitlement_id) {
@@ -192,8 +221,20 @@ class BookingService
             if ($booking->free_session_claim_id) {
                 FreeSessionClaim::query()->whereKey($booking->free_session_claim_id)->update(['status' => 'used', 'used_at' => now()]);
             }
-            BookingAudit::query()->create(['booking_id' => $booking->id, 'bundle_entitlement_id' => $booking->bundle_entitlement_id, 'action' => 'booking.confirmed']);
+            BookingAudit::query()->create([
+                'booking_id' => $booking->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'action' => 'booking.confirmed',
+                'metadata' => [
+                    'previous_teacher_id' => $previousTeacherId,
+                    'teacher_id' => $booking->teacher_id,
+                    'teacher_reassigned_at_confirmation' => $previousTeacherId !== $booking->teacher_id,
+                ],
+            ]);
             $this->notifications->enqueueBookingConfirmation($booking->refresh());
+            if ($booking->teacher_id !== null) {
+                SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+            }
 
             return $booking->refresh();
         }, attempts: 3);
@@ -271,6 +312,9 @@ class BookingService
                 'credit_refunded' => false,
                 'cancellation_reason' => $reason,
             ], 'customer-cancelled');
+            if ($booking->teacher_id !== null) {
+                SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+            }
 
             return $booking->refresh();
         }, attempts: 3);
@@ -313,7 +357,16 @@ class BookingService
                     throw ValidationException::withMessages(['booking' => 'A free customer reschedule is available once, between 12 and 24 hours before the appointment.']);
                 }
             }
-            $this->availability->assertBookable($newUtc, $booking->id);
+            $assignedTeacher = null;
+            if ($this->availability->teacherAvailabilityEnabled()) {
+                $eligibleTeachers = $this->availability->eligibleTeachersForSlot($newUtc, $booking->id);
+                $assignedTeacher = $eligibleTeachers->firstWhere('id', $booking->teacher_id) ?? $eligibleTeachers->first();
+                if ($assignedTeacher === null) {
+                    throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
+                }
+            } else {
+                $this->availability->assertBookable($newUtc, $booking->id);
+            }
             if ($booking->bundle_entitlement_id !== null) {
                 $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($booking->bundle_entitlement_id);
                 if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($newUtc)) {
@@ -322,9 +375,13 @@ class BookingService
             }
 
             $previousStart = $booking->starts_at;
+            $previousTeacherId = $booking->teacher_id;
+            $teacherChanged = $assignedTeacher !== null && $assignedTeacher->id !== $booking->teacher_id;
             $booking->update([
                 'starts_at' => $newUtc,
                 'ends_at' => $newUtc->addMinutes(AvailabilityService::SESSION_MINUTES),
+                'teacher_id' => $assignedTeacher !== null ? $assignedTeacher->id : $booking->teacher_id,
+                'teacher_assigned_at' => $teacherChanged ? now() : $booking->teacher_assigned_at,
                 'reschedule_count' => $booking->reschedule_count + 1,
                 'rescheduled_at' => $now,
             ]);
@@ -339,12 +396,18 @@ class BookingService
                     'new_starts_at' => $newUtc->toIso8601String(),
                     'reschedule_count' => $booking->reschedule_count,
                     'accepted_policy_version' => $booking->accepted_policy_version,
+                    'previous_teacher_id' => $previousTeacherId,
+                    'teacher_id' => $booking->teacher_id,
+                    'teacher_reassigned' => $teacherChanged,
                 ],
             ]);
             $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingRescheduled, [
                 'previous_starts_at' => $previousStart->toIso8601String(),
                 'reason' => $reason,
             ], $newUtc->toIso8601String());
+            if ($booking->teacher_id !== null) {
+                SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+            }
 
             return $booking->refresh();
         }, attempts: 3);
@@ -405,6 +468,9 @@ class BookingService
                 'credit_restored' => $creditRestored,
                 'validity_extended_to' => $validityExtendedTo,
             ], 'teacher-cancelled');
+            if ($booking->teacher_id !== null) {
+                SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+            }
 
             return $booking->refresh();
         }, attempts: 3);

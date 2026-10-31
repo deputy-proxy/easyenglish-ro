@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Bookings;
 
 use App\Filament\Resources\Bookings\Pages\ManageBookings;
+use App\Jobs\Calendar\SyncBookingCalendarEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Services\Booking\BookingService;
@@ -20,6 +21,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
 
@@ -32,6 +34,11 @@ class BookingResource extends Resource
     protected static ?string $navigationLabel = 'Bookings';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Scheduling';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['teacher', 'entitlement']);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -47,6 +54,8 @@ class BookingResource extends Resource
                 TextEntry::make('starts_at')->label('Starts (Bucharest)')->dateTime('d M Y H:i')->timezone('Europe/Bucharest'),
                 TextEntry::make('ends_at')->label('Ends (Bucharest)')->dateTime('d M Y H:i')->timezone('Europe/Bucharest'),
                 TextEntry::make('hold_expires_at')->dateTime('d M Y H:i:s'),
+                TextEntry::make('teacher.name')->label('Assigned teacher')->placeholder('Not assigned'),
+                TextEntry::make('teacher.email')->label('Teacher email')->placeholder('—'),
                 TextEntry::make('accepted_policy_version')->label('Accepted policy version'),
             ])->columns(2),
             Section::make('Learner')->schema([
@@ -57,6 +66,9 @@ class BookingResource extends Resource
                 TextEntry::make('entitlement.status')->label('Bundle status')->placeholder('Free introduction'),
                 TextEntry::make('entitlement.credits_remaining')->label('Remaining credits'),
                 TextEntry::make('entitlement.expires_at')->label('Bundle expiry')->dateTime('d M Y H:i'),
+                TextEntry::make('google_calendar_event_id')->label('Google Calendar event')->placeholder('Not synced'),
+                TextEntry::make('calendar_synced_at')->label('Calendar last synced')->dateTime('d M Y H:i')->timezone('Europe/Bucharest')->placeholder('Not synced'),
+                TextEntry::make('calendar_sync_error')->label('Calendar sync error')->placeholder('None'),
                 TextEntry::make('latest_audit_action')->label('Latest audit event')->state(fn (Booking $record): string => $record->audits()->latest()->value('action') ?? 'No audit events'),
             ])->columns(2),
         ]);
@@ -68,13 +80,20 @@ class BookingResource extends Resource
             TextColumn::make('public_reference')->label('Reference')->searchable(),
             TextColumn::make('customer_name')->searchable(),
             TextColumn::make('customer_email')->searchable(),
+            TextColumn::make('teacher.name')->label('Teacher')->placeholder('Unassigned')->toggleable(),
             TextColumn::make('starts_at')->dateTime('d M Y H:i')->timezone('Europe/Bucharest')->sortable(),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
                 'confirmed' => 'success', 'pending', 'refund_pending' => 'warning', 'expired', 'cancelled', 'no_show', 'failed' => 'danger', default => 'gray'
             }),
             TextColumn::make('entitlement.credits_remaining')->label('Credits left')->placeholder('Free intro'),
-        ])->filters([SelectFilter::make('status')->options(['pending' => 'Pending hold', 'confirmed' => 'Confirmed', 'refund_pending' => 'Refund pending', 'expired' => 'Expired', 'cancelled' => 'Cancelled', 'no_show' => 'No-show'])])->defaultSort('starts_at')->recordActions([
+            TextColumn::make('calendar_sync_error')->label('Calendar error')->limit(35)->placeholder('—')->toggleable(),
+            TextColumn::make('calendar_synced_at')->label('Calendar synced')->dateTime('d M H:i')->timezone('Europe/Bucharest')->placeholder('—')->toggleable(),
+        ])->filters([
+            SelectFilter::make('status')->options(['pending' => 'Pending hold', 'confirmed' => 'Confirmed', 'refund_pending' => 'Refund pending', 'expired' => 'Expired', 'cancelled' => 'Cancelled', 'no_show' => 'No-show']),
+            SelectFilter::make('teacher_id')->label('Teacher')->relationship('teacher', 'name')->searchable()->preload(),
+        ])->defaultSort('starts_at')->recordActions([
             ViewAction::make(),
+            Action::make('retryCalendarEvent')->label('Retry calendar event')->icon(Heroicon::OutlinedArrowPath)->visible(fn (Booking $record): bool => $record->teacher_id !== null && in_array($record->status, ['confirmed', 'refund_pending', 'no_show', 'cancelled'], true) && ($record->calendar_sync_error !== null || $record->calendar_synced_at === null))->action(fn (Booking $record) => SyncBookingCalendarEvent::dispatch($record->id)),
             Action::make('confirm')->label('Confirm hold')->icon(Heroicon::OutlinedCheckCircle)->color('success')->requiresConfirmation()->visible(fn (Booking $record): bool => $record->status === 'pending' && $record->hold_expires_at?->isFuture())->action(function (Booking $record): void {
                 app(BookingService::class)->confirm($record->id);
                 BookingAudit::query()->create(['booking_id' => $record->id, 'actor_id' => Auth::id(), 'action' => 'staff.booking_confirmed']);

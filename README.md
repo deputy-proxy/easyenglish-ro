@@ -2,7 +2,7 @@
 
 Easy English is an EdVenture product for adults who want to practise spoken English with an experienced teacher or conversation partner. The initial audience is working adults around A2–B2 who want practical speaking time, confidence, and focused practice.
 
-The application foundation, booking/availability domain, staff administration, bilingual public landing page, Stripe Checkout, transactional email/WhatsApp outbox, signed customer booking management, cancellation/rescheduling/no-show workflows, refund reconciliation, and weekly availability are implemented. Live payments still require production Stripe configuration; live email requires SMTP/domain authentication; The email-link and WhatsApp OTP contact-verification flows are implemented; live SMTP delivery, the approved WhatsApp verification template, and end-to-end production verification remain launch gates. The public site does not fake successful payment or unverified free-introduction bookings.
+The application foundation, booking/availability domain, staff administration, bilingual public landing page, Stripe Checkout, transactional email/WhatsApp outbox, signed customer booking management, cancellation/rescheduling/no-show workflows, refund reconciliation, and teacher-based availability/Google Calendar integration are implemented behind a rollout flag. The public booking calendar remains aggregated and does not expose teacher identities before confirmation. Live payments still require production Stripe configuration; live email requires SMTP/domain authentication; Meta template updates for teacher details, Google OAuth production setup, and end-to-end verification remain launch gates. The public site does not fake successful payment or unverified free-introduction bookings.
 
 ## Developer setup
 
@@ -16,7 +16,7 @@ composer setup
 composer run dev
 ```
 
-`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for timezone, slot-buffer, credit, hold-expiry, and staff workflow semantics. See [the public booking journey](docs/product/public-booking-journey.md) for the bilingual website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates. See the [Stripe Checkout, webhook, reconciliation, and refund runbook](docs/integrations/stripe.md) before enabling live payments. See the [transactional email and notification outbox runbook](docs/integrations/email.md) for SMTP setup, domain authentication, queue retries, and delivery recovery. See the [WhatsApp Business Platform runbook](docs/integrations/whatsapp.md) for Meta setup, templates, consent, opt-out, and webhook operations. See the [email and phone verification flow](docs/integrations/verification.md) for challenge lifecycle, security controls, and production activation gates. See the [cancellation, rescheduling, and refund policy](docs/product/cancellations-refunds-rescheduling.md) for boundaries, refund calculation, recovery, and the mandatory legal-review gate. Privacy and retention drafts are in [the privacy notice](docs/legal/privacy-notice.md) and [retention policy](docs/legal/retention-policy.md); the accountant-reviewed transaction process is in [tax and invoicing](docs/operations/tax-and-invoicing.md). The [launch checklist](docs/operations/launch-checklist.md) tracks production gates, and the [staff runbook](docs/operations/staff-runbook.md) covers routine booking/payment operations.
+`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for teacher assignment, aggregation, timezone, slot-buffer, credit, and rollout semantics. See the [Google Calendar integration runbook](docs/integrations/google-calendar.md) for OAuth setup, synchronization policy, teacher onboarding, and calendar-event recovery. See [the public booking journey](docs/product/public-booking-journey.md) for the bilingual website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates. See the [Stripe Checkout, webhook, reconciliation, and refund runbook](docs/integrations/stripe.md) before enabling live payments. See the [transactional email and notification outbox runbook](docs/integrations/email.md) for SMTP setup, domain authentication, queue retries, and delivery recovery. See the [WhatsApp Business Platform runbook](docs/integrations/whatsapp.md) for Meta setup, templates, consent, opt-out, and webhook operations. See the [email and phone verification flow](docs/integrations/verification.md) for challenge lifecycle, security controls, and production activation gates. See the [cancellation, rescheduling, and refund policy](docs/product/cancellations-refunds-rescheduling.md) for boundaries, refund calculation, recovery, and the mandatory legal-review gate. Privacy and retention drafts are in [the privacy notice](docs/legal/privacy-notice.md) and [retention policy](docs/legal/retention-policy.md); the accountant-reviewed transaction process is in [tax and invoicing](docs/operations/tax-and-invoicing.md). The [launch checklist](docs/operations/launch-checklist.md) tracks production gates, and the [staff runbook](docs/operations/staff-runbook.md) covers routine booking/payment operations.
 
 ## Product goal
 
@@ -39,8 +39,8 @@ The database is authoritative for availability and booking state. A browser redi
 
 | Area | Decision |
 | --- | --- |
-| Teacher model | One teacher at launch; no teacher marketplace or teacher selection |
-| Availability | Hybrid: recurring weekly availability plus manual adjustments and blocked dates |
+| Teacher model | Internal teacher accounts and fair assignment; no public teacher marketplace or customer teacher selection |
+| Availability | Union of active teachers' recurring schedules minus Busy Google Calendar events, date exceptions, and EasyEnglish bookings; legacy central schedule remains the disabled-feature fallback |
 | Session duration | 15 minutes only |
 | Buffer | 15 minutes between sessions |
 | Appointment-slot hold | 5-minute application-level hold for a pending slot reservation; separate from bundle validity |
@@ -64,7 +64,7 @@ The database is authoritative for availability and booking state. A browser redi
 | Payments | Stripe |
 | Email delivery | Existing SMTP account/provider; sender identity and DNS authentication to be configured |
 | Timezone | Europe/Bucharest as the scheduling timezone |
-| Admin access | Explicitly authorized staff accounts only |
+| Admin access | Explicitly authorized staff accounts only; teachers use a scoped self-service availability/calendar area |
 | Public website | Custom product landing page, visually aligned with EdVenture |
 
 Cancellation deadlines are measured from the scheduled session start time. The bundle cancellation policy must be shown before purchase/booking and the accepted policy version recorded. A booking cancellation does not automatically refund a prepaid bundle. Refund eligibility, including statutory consumer rights, must be handled under the published terms and applicable law. Refund and rescheduling actions must be auditable.
@@ -76,7 +76,7 @@ Cancellation deadlines are measured from the scheduled session start time. The b
 - **Reliable booking:** prevent overlapping reservations, including the 15-minute buffer.
 - **Payment integrity:** verify webhook signatures, process events idempotently, and reconcile payment state on the server.
 - **Privacy:** collect only the learner information needed to arrange and deliver the session; protect it through authorization and a defined retention policy.
-- **Operational simplicity:** use Filament for internal management and feedback entry rather than building a separate teacher portal in the MVP.
+- **Operational simplicity:** use Filament for internal management and a narrow teacher portal only for each teacher's own availability and calendar connection.
 - **Bundle validity:** bundles activate on successful payment and remain valid for three calendar months in Europe/Bucharest. An appointment must start before expiry.
 - **Progressive scope:** validate the booking and delivery workflow before adding subscriptions, a marketplace, AI features, or custom video infrastructure.
 
@@ -88,15 +88,18 @@ Confirm names, relationships, and exact fields during implementation, but keep t
 - **Bundle entitlement:** one customer's purchased bundle, payment state, activation/expiry, remaining credits, and audit history.
 - **Credit ledger:** auditable credit grants, reservations, consumption, restorations, forfeitures, expiry, and refund adjustments.
 - **Free-session eligibility:** verified contact details and the shared one-free-session-per-person allowance.
-- **Availability rule:** the single teacher's recurring weekly availability.
-- **Availability exception / blocked period:** one-off changes, time off, and manually blocked dates.
+- **Teacher:** an existing User with a teacher role/activation flag, a private calendar connection, and assigned bookings.
+- **Availability rule:** a teacher-scoped recurring weekly interval; `NULL` owner retains the legacy central schedule.
+- **Availability exception / blocked period:** one-off teacher-specific changes, time off, and manually blocked dates.
+- **Teacher calendar:** encrypted OAuth credentials, provider calendar reference, sync status, and last successful sync.
+- **Calendar busy interval:** normalized UTC boundaries and provider event ID only; private event content is not stored.
 - **Available slot:** a concrete bookable start/end time, duration, and capacity. Generate/display slots from the rules and exceptions; the persisted booking state remains authoritative.
-- **Booking:** selected 15-minute time, learner contact details, English level, session goal, optional notes, accepted policy version, status, and relevant timestamps; link a paid booking to the bundle credit it reserves.
+- **Booking:** selected 15-minute time, learner contact details, English level, session goal, optional notes, accepted policy version, status, assignment to one teacher, and Google Calendar event reference; link a paid booking to the bundle credit it reserves.
 - **Payment:** bundle purchase association, provider, Stripe Checkout Session/payment identifiers, amount/currency, tax-inclusive price, and payment status.
 - **Notification / delivery record:** records email and WhatsApp confirmation/reminder attempts and outcomes without making notification delivery the source of truth for a booking.
 - **Audit record:** important staff changes to bookings, refunds, rescheduling, and availability.
 
-Do not build multi-teacher assignment or discovery for the MVP. Avoid introducing a generic course/enrolment system unless implementation demonstrates a real need.
+Do not build public multi-teacher discovery, ranking, or customer teacher selection. Avoid introducing a generic course/enrolment system unless implementation demonstrates a real need.
 
 ## Implementation plan
 
@@ -191,13 +194,13 @@ The product model is agreed: one standalone free 15-minute introduction, plus pr
 These rules should be treated as invariants and enforced on the server:
 
 1. Availability displayed in the browser is informational; availability must be checked again when a booking is created.
-2. A teacher's calendar cannot contain overlapping confirmed/pending reservations, including the 15-minute buffer.
+2. An assigned teacher's calendar cannot contain overlapping confirmed/pending reservations, including the 15-minute buffer. Public availability is the union of active teachers with a fresh Google Calendar sync; stale/disconnected calendars fail closed.
 3. Sessions and deadlines use the Europe/Bucharest scheduling timezone, with timezone-aware timestamps stored consistently.
 4. A pending appointment-slot reservation has a 5-minute application-level hold. The hold is separate from bundle validity and must be released only after server-side checks establish that no confirmed appointment/payment state depends on it.
 5. The database records the current booking/payment state; Stripe is the payment provider's authority for payment events.
 6. A browser redirect is not proof of payment. A verified Stripe webhook (or a server-side reconciliation path) is required before marking a booking paid/confirmed.
 7. Webhook and scheduled-job processing must be idempotent and safe to retry.
-8. Amount, currency, booking reference, and Stripe identifiers must be validated server-side. Prices are configured server-side and include applicable taxes.
+8. Amount, currency, booking reference, and Stripe identifiers must be validated server-side. Teacher assignment is server-side, revalidated at confirmation, and never exposed before confirmation. Prices are configured server-side and include applicable taxes.
 9. Notifications are downstream effects. A notification failure must not silently reverse a valid payment or create a duplicate booking.
 10. Only authorized staff can manage availability or alter booking/payment state manually, and administrative changes should be auditable.
 11. The cancellation policy shown before payment must be associated with the booking. Refunds and rescheduling actions must be authorized and auditable.

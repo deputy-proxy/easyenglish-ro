@@ -13,7 +13,7 @@ class WhatsAppMessageFactory
     /** @return array{recipient:string,template:string,language:string,components:list<array{type:string,parameters:list<array{type:string,text:string}>}>} */
     public function make(NotificationDelivery $delivery): array
     {
-        $delivery->loadMissing(['booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition']);
+        $delivery->loadMissing(['booking.teacher', 'booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition']);
         $booking = $delivery->booking;
         $entitlement = $delivery->entitlement ?? $delivery->refund->payment->entitlement ?? $booking?->entitlement;
         $refund = $delivery->refund;
@@ -75,6 +75,16 @@ class WhatsAppMessageFactory
                 $this->date($entitlement?->expires_at),
             ],
         };
+
+        if (in_array($event, [
+            NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed,
+            NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour,
+            NotificationEvent::BookingRescheduled,
+        ], true)) {
+            $parameters[] = $booking?->teacher !== null
+                ? trim($booking->teacher->name.' · '.$booking->teacher->email.($booking->teacher->phone ? ' · '.$booking->teacher->phone : ''))
+                : 'EasyEnglish team';
+        }
 
         if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)) {
             if ($booking === null || $booking->status !== 'confirmed' || $booking->starts_at->lessThanOrEqualTo(now())) {

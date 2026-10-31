@@ -12,6 +12,8 @@ Artisan::command('inspire', function () {
 Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
 Schedule::command('stripe:reconcile')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('notifications:dispatch')->everyMinute()->withoutOverlapping();
+Schedule::command('teachers:sync-calendars')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('bookings:reconcile-calendar-events')->everyFiveMinutes()->withoutOverlapping();
 
 Artisan::command('verification:prune', function (): void {
     $deleted = ContactVerificationChallenge::query()->where('expires_at', '<', now()->subDay())->delete();

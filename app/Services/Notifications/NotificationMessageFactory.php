@@ -17,6 +17,7 @@ class NotificationMessageFactory
     {
         $delivery->loadMissing([
             'booking.entitlement.definition',
+            'booking.teacher',
             'entitlement.definition',
             'refund.payment.entitlement.definition',
         ]);
@@ -87,6 +88,13 @@ class NotificationMessageFactory
             $details[] = $this->detail($locale, 'appointment_date', $this->date($appointmentDate, $locale));
             $details[] = $this->detail($locale, 'duration', '15 '.$this->t($locale, 'labels.minutes'));
             $details[] = $this->detail($locale, 'timezone', 'Europe/Bucharest');
+            if ($booking->teacher !== null) {
+                $teacherContact = $booking->teacher->name.' · '.$booking->teacher->email;
+                if (is_string($booking->teacher->phone) && $booking->teacher->phone !== '') {
+                    $teacherContact .= ' · '.$booking->teacher->phone;
+                }
+                $details[] = $this->detail($locale, $locale === 'ro' ? 'profesor' : 'teacher', $teacherContact);
+            }
             if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::AppointmentReminder24Hours, NotificationEvent::AppointmentReminder1Hour], true)
                 && $booking->starts_at->isFuture()) {
                 $ctaUrl = URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $booking->starts_at->addDay());

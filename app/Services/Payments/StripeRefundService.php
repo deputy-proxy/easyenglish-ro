@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Contracts\Payments\StripeGateway;
 use App\Enums\NotificationEvent;
+use App\Jobs\Calendar\SyncBookingCalendarEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
@@ -304,6 +305,9 @@ class StripeRefundService
                         'cancelled_by' => 'refund',
                         'cancellation_reason' => 'Bundle refund confirmed by Stripe.',
                     ]);
+                    if ($affectedBooking->teacher_id !== null) {
+                        SyncBookingCalendarEvent::dispatch($affectedBooking->id)->afterCommit();
+                    }
                     $creditType = $affectedBooking->credit_type ?? 'paid';
                     $balanceAfter = $creditType === 'free' ? $entitlement->free_credits_remaining : $entitlement->credits_remaining;
                     CreditTransaction::query()->firstOrCreate(['idempotency_key' => 'refund-cancel-booking-credit:'.$lockedRefund->id.':'.$affectedBooking->id], [

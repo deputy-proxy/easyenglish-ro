@@ -94,7 +94,7 @@ Run the scheduler every minute if the plan permits:
 * * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
 
-The scheduler includes `notifications:dispatch` every minute to generate reminders and queue due transactional emails. Review [the email integration runbook](../integrations/email.md) for outbox states, retry policy, SMTP configuration, and delivery troubleshooting.
+The scheduler includes `notifications:dispatch` every minute to generate reminders and queue due transactional emails, plus `teachers:sync-calendars` every five minutes to queue a full Google Calendar reconciliation for each connected teacher, and `bookings:reconcile-calendar-events` every five minutes to recover missing or failed booking-event writes. The reconciliation jobs and confirmed-booking event writes require the database queue worker below; a stopped worker means calendars become stale and those teachers are safely removed from public availability after ten minutes. Review [the email integration runbook](../integrations/email.md) for outbox states, retry policy, SMTP configuration, and delivery troubleshooting.
 
 Run a bounded queue worker periodically, for example every five minutes:
 

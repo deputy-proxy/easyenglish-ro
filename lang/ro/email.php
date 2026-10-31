@@ -14,6 +14,7 @@ return [
         'previous_appointment_date' => 'Ora programării anterioare',
         'duration' => 'Durată',
         'timezone' => 'Fus orar',
+        'profesor' => 'Profesor',
         'credit_outcome' => 'Situația creditului',
         'refund_amount' => 'Valoarea rambursării',
         'refund_status' => 'Starea rambursării',

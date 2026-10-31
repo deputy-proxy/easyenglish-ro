@@ -7,6 +7,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * @property int $id
+ * @property int|null $user_id
  * @property int $weekday
  * @property string $starts_at
  * @property string $ends_at
@@ -17,7 +18,10 @@ class AvailabilityRule extends Model
     protected static function booted(): void
     {
         static::saving(function (AvailabilityRule $rule): void {
-            if ($rule->starts_at === $rule->ends_at) {
+            $startTime = substr((string) $rule->starts_at, 0, 5);
+            $endTime = substr((string) $rule->ends_at, 0, 5);
+
+            if ($startTime === $endTime) {
                 throw ValidationException::withMessages(['ends_at' => 'The availability window must have different start and end times.']);
             }
 
@@ -26,7 +30,7 @@ class AvailabilityRule extends Model
             }
 
             $candidate = self::segmentsFor((int) $rule->weekday, (string) $rule->starts_at, (string) $rule->ends_at);
-            $overlap = static::query()->where('is_active', true)->when($rule->exists, fn ($query) => $query->whereKeyNot($rule->getKey()))->get()
+            $overlap = static::query()->where('is_active', true)->where('user_id', $rule->user_id)->when($rule->exists, fn ($query) => $query->whereKeyNot($rule->getKey()))->get()
                 ->contains(function (AvailabilityRule $existing) use ($candidate): bool {
                     foreach (self::segmentsFor((int) $existing->weekday, (string) $existing->starts_at, (string) $existing->ends_at) as [$existingStart, $existingEnd]) {
                         foreach ($candidate as [$candidateStart, $candidateEnd]) {
@@ -72,11 +76,11 @@ class AvailabilityRule extends Model
             'subject_type' => 'availability_rule',
             'subject_id' => $rule->getKey(),
             'action' => $action,
-            'metadata' => $rule->only(['weekday', 'starts_at', 'ends_at', 'is_active']),
+            'metadata' => $rule->only(['user_id', 'weekday', 'starts_at', 'ends_at', 'is_active']),
         ]);
     }
 
-    protected $fillable = ['weekday', 'starts_at', 'ends_at', 'is_active'];
+    protected $fillable = ['user_id', 'weekday', 'starts_at', 'ends_at', 'is_active'];
 
     protected function casts(): array
     {
