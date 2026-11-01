@@ -11,6 +11,13 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
+    --color-ink: #14251f;
+    --color-muted: #64736c;
+    --color-green: #176b4d;
+    --color-lime: #d9f36a;
+    --color-paper: #f7f8f3;
+    --color-line: #e1e7df;
+
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
     --color-zinc-200: #e5e5e5;
