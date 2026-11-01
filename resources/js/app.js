@@ -1,8 +1,9 @@
 document.querySelectorAll('[data-testimonials-carousel]').forEach((carousel) => {
     const panels = Array.from(carousel.querySelectorAll('[data-testimonial-panel]'));
     const selectors = Array.from(carousel.querySelectorAll('[data-testimonial-selector]'));
-    const previous = carousel.parentElement.querySelector('[data-testimonial-previous]');
-    const next = carousel.parentElement.querySelector('[data-testimonial-next]');
+    const section = carousel.closest('#testimonials');
+    const previous = section?.querySelector('[data-testimonial-previous]');
+    const next = section?.querySelector('[data-testimonial-next]');
 
     if (panels.length < 2 || panels.length !== selectors.length) {
         return;
@@ -14,7 +15,16 @@ document.querySelectorAll('[data-testimonials-carousel]').forEach((carousel) => 
         activeIndex = (nextIndex + panels.length) % panels.length;
 
         panels.forEach((panel, index) => {
-            panel.hidden = index !== activeIndex;
+            const isActive = index === activeIndex;
+
+            panel.hidden = !isActive;
+
+            if (isActive) {
+                panel.classList.remove('is-entering');
+                // Restart the entrance animation when a previously hidden panel becomes visible.
+                void panel.offsetWidth;
+                panel.classList.add('is-entering');
+            }
         });
 
         selectors.forEach((selector, index) => {

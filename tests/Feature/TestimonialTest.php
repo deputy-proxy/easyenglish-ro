@@ -134,6 +134,7 @@ it('renders published learner stories as an accessible single-story carousel', f
         ->assertSee('data-testimonial-previous', false)
         ->assertSee('data-testimonial-next', false)
         ->assertSee('data-testimonial-selector', false)
+        ->assertSee('testimonial-panel is-entering', false)
         ->assertSee('aria-pressed="true"', false)
         ->assertSee('I can speak more confidently at work.')
         ->assertSee('I can follow meetings without translating every sentence.')

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="{{ __('public.hero_text') }}">
     <title>Easy English · {{ __('public.hero_title') }}</title>
-    @vite(['resources/css/app.css'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
 </head>
 
@@ -174,7 +174,7 @@
                     <div class="testimonial-feature" aria-live="polite" aria-atomic="true">
                         <span class="testimonial-quote-mark" aria-hidden="true">“</span>
                         @foreach ($testimonials as $testimonial)
-                            <figure class="testimonial-panel" data-testimonial-panel @if (! $loop->first) hidden @endif>
+                            <figure class="testimonial-panel{{ $loop->first ? ' is-entering' : '' }}" data-testimonial-panel @if (! $loop->first) hidden @endif>
                                 <blockquote class="testimonial-quote">{{ $testimonial->quote }}</blockquote>
                                 <figcaption class="testimonial-attribution">
                                     <span class="testimonial-avatar" aria-hidden="true">{{ $testimonial->author_name ? mb_strtoupper(mb_substr($testimonial->author_name, 0, 1)) : '—' }}</span>
