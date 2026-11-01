@@ -110,7 +110,7 @@ return [
     'progress_eyebrow' => 'VEZI CUM EVOLUEZI',
     'progress_title' => 'Progres pe care îl poți înțelege.',
     'progress_text' => 'După sesiuni, profesorul poate înregistra feedback și pregăti un raport cu nivelul tău actual, punctele forte, aspectele de îmbunătățit și recomandări practice.',
-    'progress_metric_confidence' => 'Încredere în exprimare',
+    'progress_metric_confidence' => 'Încredere',
     'progress_metric_confidence_text' => 'Feedback despre cât de confortabil îți exprimi ideile.',
     'progress_metric_fluency' => 'Fluență',
     'progress_metric_fluency_text' => 'Feedback despre cât de firesc și cursiv susții o conversație.',
