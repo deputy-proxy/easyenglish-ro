@@ -261,7 +261,7 @@
                     <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.progress_title') }}</h2>
                     <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.progress_text') }}</p>
                 </div>
-                <article class="rounded-[22px] border border-line bg-white p-4 shadow-[0_16px_48px_rgba(20,35,75,0.06)] sm:p-6" aria-labelledby="public-progress-chart-title">
+                <article class="rounded-[22px] bg-white p-4 shadow-[0_16px_48px_rgba(20,35,75,0.06)] sm:p-6" aria-labelledby="public-progress-chart-title">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 id="public-progress-chart-title" class="m-0 text-lg font-bold text-ink">{{ __('public.progress_chart_title') }}</h3>
