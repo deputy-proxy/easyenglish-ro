@@ -229,6 +229,27 @@
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
             @endif
         </section>
+        @if ($faqs->isNotEmpty())
+            <section class="bg-surface-subtle py-14 md:py-[82px]" id="faqs">
+                <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[900px]">
+                    <div class="mb-8 max-w-[650px]">
+                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ app()->getLocale() === 'ro' ? 'ÎNTREBĂRI FRECVENTE' : 'FREQUENTLY ASKED QUESTIONS' }}</p>
+                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ app()->getLocale() === 'ro' ? 'Tot ce vrei să știi înainte să începi' : 'Everything you need to know before you start' }}</h2>
+                    </div>
+                    <div class="divide-y divide-line border-y border-line" data-faq-list>
+                        @foreach ($faqs as $faq)
+                            <details class="group py-5" data-faq-item>
+                                <summary class="flex cursor-pointer list-none items-center justify-between gap-5 text-left text-base font-semibold text-ink marker:hidden focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus sm:text-lg">
+                                    <span>{{ $faq->question }}</span>
+                                    <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xl font-normal text-primary transition-transform group-open:rotate-45" aria-hidden="true">+</span>
+                                </summary>
+                                <div class="max-w-[760px] pt-4 pr-10 text-sm leading-[1.75] whitespace-pre-line text-muted sm:text-base">{{ $faq->answer }}</div>
+                            </details>
+                        @endforeach
+                    </div>
+                </div>
+            </section>
+        @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.availability_eyebrow') }}</p>
