@@ -99,6 +99,52 @@ select:focus[data-flux-control] {
     width: min(220px, 17vw);
 }
 
+@media (max-width: 1279px) {
+    .hero-conversation__side {
+        bottom: clamp(230px, 29%, 280px);
+        width: min(210px, 39vw);
+    }
+
+    .hero-conversation__side--teacher {
+        left: 3vw;
+    }
+
+    .hero-conversation__side--learner {
+        right: 3vw;
+    }
+
+    .hero-conversation__bubble {
+        padding: 11px 13px;
+        font-size: clamp(10px, 1.45vw, 13px);
+    }
+}
+
+@media (max-width: 639px) {
+    .hero-conversation__side {
+        bottom: 270px;
+        width: calc(50% - 22px);
+    }
+
+    .hero-conversation__side--teacher {
+        left: 14px;
+    }
+
+    .hero-conversation__side--learner {
+        right: 14px;
+    }
+
+    .hero-conversation__bubble {
+        padding: 9px 10px;
+        border-radius: 12px 12px 12px 4px;
+        font-size: 10px;
+        line-height: 1.3;
+    }
+
+    .hero-conversation__side--learner .hero-conversation__bubble {
+        border-radius: 12px 12px 4px 12px;
+    }
+}
+
 .hero-conversation__side--teacher {
     left: clamp(176px, 14vw, 230px);
 }

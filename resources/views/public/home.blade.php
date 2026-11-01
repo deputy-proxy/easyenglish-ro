@@ -28,7 +28,7 @@
                 <img class="absolute bottom-0 right-0 top-auto w-auto max-h-full max-w-[75%] object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
 
-            <div class="hero-conversation pointer-events-none absolute inset-0 z-10 hidden xl:block" aria-hidden="true">
+            <div class="hero-conversation pointer-events-none absolute inset-0 z-10 block" aria-hidden="true">
                 <div class="hero-conversation__side hero-conversation__side--teacher">
                     <p class="hero-conversation__bubble" style="--conversation-delay: 0s">What can I help you with today?</p>
                     <p class="hero-conversation__bubble" style="--conversation-delay: 4s">What's your presentation about?</p>
