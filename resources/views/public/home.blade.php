@@ -142,7 +142,7 @@
                         @foreach ($teachers as $teacher)
                             <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1">
                                 @if ($teacher->teacher_photo_path)
-                                    <img class="absolute inset-0 size-full object-cover" src="{{ Illuminate\Support\Facades\Storage::disk('public')->url($teacher->teacher_photo_path) }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
+                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
                                 @else
                                     <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
                                 @endif
