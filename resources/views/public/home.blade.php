@@ -30,15 +30,22 @@
 
             <div class="hero-conversation pointer-events-none absolute inset-0 z-10 hidden xl:block" aria-hidden="true">
                 <div class="hero-conversation__side hero-conversation__side--teacher">
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 0s">Hi! How was your weekend?</p>
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 8s">Nice! Where did you go?</p>
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 16s">Sounds lovely. Tell me more!</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 0s">What can I help you with today?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 4s">What's your presentation about?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 8s">Who will be listening?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 12s">Let's give it a clear structure.</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 16s">That's a strong opening!</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 20s">Try speaking a little slower.</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 24s">You're going to do well!</p>
                 </div>
                 <div class="hero-conversation__side hero-conversation__side--learner">
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 4s">It was great. I went hiking!</p>
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 12s">To the mountains. It was beautiful!</p>
-                    <div class="hero-conversation__bubble hero-conversation__typing" style="--conversation-delay: 18s"><span></span><span></span><span></span></div>
-                    <p class="hero-conversation__bubble" style="--conversation-delay: 20s">I'd love to!</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 2s">I have a presentation next week.</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 6s">It's about renewable energy.</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 10s">My classmates. I have five minutes.</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 14s">An introduction, three points, and a conclusion?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 18s">"Good morning. Today I'll talk about..."</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 22s">Can we practise questions, too?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 26s">Thank you! I feel more confident now.</p>
                 </div>
             </div>
 

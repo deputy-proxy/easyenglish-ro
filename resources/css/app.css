@@ -122,7 +122,7 @@ select:focus[data-flux-control] {
     font-weight: 600;
     line-height: 1.4;
     opacity: 0;
-    animation: hero-conversation-bubble 24s ease-in-out infinite both;
+    animation: hero-conversation-bubble 28s ease-in-out infinite both;
     animation-delay: var(--conversation-delay);
 }
 
