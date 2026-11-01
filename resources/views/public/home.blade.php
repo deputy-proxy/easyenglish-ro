@@ -62,7 +62,12 @@
                 </div>
             </div>
 
-            <div class="hero-conversation-mobile md:hidden" data-mobile-conversation aria-hidden="true">
+            <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
+                <div class="grid h-[260px] grid-cols-2 gap-0">
+                    <img class="h-[260px] w-full object-cover object-left" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
+                    <img class="h-[260px] w-full object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+                </div>
+                <div class="hero-conversation-mobile absolute inset-x-2 bottom-2 z-20" data-mobile-conversation aria-hidden="true">
                 <div class="hero-conversation-mobile__track" data-conversation-track>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
@@ -79,11 +84,7 @@
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">You're going to do well!</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Thank you! I feel more confident now.</p>
                 </div>
-            </div>
-
-            <div class="relative z-10 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
-                <img class="h-[250px] w-full rounded-2xl object-cover object-left" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
-                <img class="h-[250px] w-full rounded-2xl object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+                </div>
             </div>
 
             <div class="relative z-10 mt-5 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#14234b] md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
@@ -250,8 +251,8 @@
                 messages[visibleCount].classList.add('is-visible');
                 visibleCount += 1;
 
-                if (visibleCount > 4) {
-                    const previousMessage = messages[visibleCount - 5];
+                if (visibleCount > 3) {
+                    const previousMessage = messages[visibleCount - 4];
                     const gap = Number.parseFloat(getComputedStyle(track).rowGap) || 0;
                     scrollOffset += previousMessage.getBoundingClientRect().height + gap;
                     track.style.transform = `translateY(-${scrollOffset}px)`;
@@ -261,7 +262,7 @@
             };
 
             if (reducedMotion) {
-                messages.slice(0, 4).forEach(message => message.classList.add('is-visible'));
+                messages.slice(0, 3).forEach(message => message.classList.add('is-visible'));
                 return;
             }
 
