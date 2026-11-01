@@ -130,6 +130,34 @@
                 </article>
             </div>
         </section>
+        <section class="bg-surface-subtle py-14 md:py-[82px]" id="teachers">
+            <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
+                <div class="mb-8 max-w-[650px]">
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.teachers_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.teachers_title') }}</h2>
+                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.teachers_text') }}</p>
+                </div>
+                @if ($teachers->isNotEmpty())
+                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($teachers as $teacher)
+                            <article class="flex items-center gap-4 rounded-[20px] border border-line bg-white p-5">
+                                <span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</span>
+                                <div class="min-w-0"><h3 class="m-0 text-lg font-bold text-ink">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3><p class="mt-1 mb-0 text-sm leading-relaxed text-muted">{{ __('public.teacher_role') }}</p></div>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="rounded-[20px] border border-line bg-white p-6 leading-[1.7] text-muted">{{ __('public.teachers_empty') }}</p>
+                @endif
+            </div>
+        </section>
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials">
+            <div class="mb-8 max-w-[650px]">
+                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.testimonials_eyebrow') }}</p>
+                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.testimonials_title') }}</h2>
+                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
+            </div>
+        </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.availability_eyebrow') }}</p>
@@ -174,6 +202,24 @@
                         <a class="mt-auto inline-flex w-full items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:-translate-y-px hover:bg-primary-hover "
                             href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
                     </article>@endforeach</div>
+            </div>
+        </section>
+        <section class="bg-surface-subtle py-14 md:py-[82px]" id="progress-reports">
+            <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[0.85fr_1.15fr] md:items-center md:gap-14">
+                <div>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.progress_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.progress_title') }}</h2>
+                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.progress_text') }}</p>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    @foreach (['confidence', 'fluency', 'vocabulary', 'pronunciation', 'grammar'] as $metric)
+                        <article class="rounded-[16px] border border-line bg-white p-5 {{ $loop->last ? 'sm:col-span-2' : '' }}">
+                            <h3 class="m-0 text-base font-bold text-ink">{{ __('public.progress_metric_'.$metric) }}</h3>
+                            <p class="mt-2 mb-0 text-sm leading-[1.65] text-muted">{{ __('public.progress_metric_'.$metric.'_text') }}</p>
+                        </article>
+                    @endforeach
+                </div>
+                <p class="md:col-span-2 -mt-3 text-xs leading-relaxed text-muted">{{ __('public.progress_note') }}</p>
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="faq">
