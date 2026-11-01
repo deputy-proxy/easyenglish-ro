@@ -98,6 +98,8 @@ return [
     'teachers_title' => 'Cunoaște-ți profesorii.',
     'teachers_text' => 'Fiecare conversație este ghidată de un profesor EasyEnglish activ și adaptată obiectivelor tale.',
     'teacher_role' => 'Profesor de conversație în limba engleză',
+    'teacher_bio_fallback' => 'Te ajută să capeți încredere prin conversații practice, adaptate ție.',
+    'teacher_cta' => 'Programează o sesiune',
     'teachers_empty' => 'Profilurile profesorilor vor apărea aici când informațiile echipei vor fi pregătite pentru publicare.',
     'testimonials_eyebrow' => 'EXPERIENȚELE CURSANȚILOR',
     'testimonials_title' => 'Conversațiile bune merită împărtășite.',

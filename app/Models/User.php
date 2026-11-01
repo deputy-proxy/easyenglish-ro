@@ -32,6 +32,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property bool $is_staff
  * @property bool $is_teacher
  * @property bool $teacher_active
+ * @property string|null $teacher_photo_path
+ * @property string|null $teacher_bio
  * @property TeacherCalendar|null $teacherCalendar
  * @property Carbon|null $email_verified_at
  * @property string $password
@@ -42,7 +44,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'english_level', 'session_goal', 'session_notes', 'is_staff', 'is_teacher', 'teacher_active'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'english_level', 'session_goal', 'session_notes', 'is_staff', 'is_teacher', 'teacher_active', 'teacher_photo_path', 'teacher_bio'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, PasskeyUser
 {

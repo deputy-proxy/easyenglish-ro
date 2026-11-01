@@ -345,3 +345,21 @@ test('selecting a bundle sends guests to login and returns them to the chosen bu
     $this->actingAs(User::factory()->create())
         ->get(route('purchase', $bundle))->assertOk()->assertSee('156 RON');
 });
+
+test('public teacher cards display profile biographies without exposing private contact details', function () {
+    User::factory()->create([
+        'name' => 'Morgan Lee',
+        'email' => 'morgan.private@example.com',
+        'teacher_bio' => 'I help adults speak with confidence at work and while travelling.',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+
+    $this->withSession(['locale' => 'en'])->get('/')
+        ->assertOk()
+        ->assertSee('teacher-card', false)
+        ->assertSee('Morgan')
+        ->assertSee('I help adults speak with confidence at work and while travelling.')
+        ->assertSee('Book a session')
+        ->assertDontSee('morgan.private@example.com');
+});
