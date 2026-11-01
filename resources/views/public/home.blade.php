@@ -301,13 +301,9 @@
                 </article>
             </div>
         </section>
-        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="faq">
-            <div class="grid gap-5 md:grid-cols-[0.7fr_1.3fr] md:gap-[55px]">
-                <div>
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.faq_eyebrow') }}</p>
-                    <h2 class="text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.faq_title') }}</h2>
-                </div>
-                <div>
+        <section class="py-14 md:py-[82px]" id="faq">
+            <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
+                <article class="rounded-[22px] border border-line bg-white p-4 shadow-[0_16px_48px_rgba(20,35,75,0.06)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
                     <details class="border-b border-line py-[18px]">
                         <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q1') }}</summary>
                         <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a1') }}</p>
@@ -320,10 +316,14 @@
                         <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q3') }}</summary>
                         <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a3') }}</p>
                     </details>
-                    <details class="border-b border-line py-[18px]">
+                    <details class="py-[18px]">
                         <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q4') }}</summary>
                         <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a4') }}</p>
                     </details>
+                </article>
+                <div>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.faq_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.faq_title') }}</h2>
                 </div>
             </div>
         </section>
