@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
+use App\Models\Faq;
 use App\Models\FreeSessionClaim;
 use App\Models\ProgressReport;
 use App\Models\SessionFeedback;
@@ -41,6 +42,7 @@ class PublicSiteController extends Controller
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
             'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name', 'teacher_photo_path', 'teacher_bio']),
+            'faqs' => Faq::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderBy('id')->get(['id', 'question', 'answer', 'category']),
             'testimonials' => Testimonial::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderByDesc('updated_at')->get(['id', 'quote', 'author_name', 'author_context']),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
         ]);
