@@ -102,6 +102,7 @@ return [
     'testimonials_eyebrow' => 'EXPERIENȚELE CURSANȚILOR',
     'testimonials_title' => 'Conversațiile bune merită împărtășite.',
     'testimonials_empty' => 'Adunăm feedback și acordul cursanților pentru publicare. Vom afișa aici mesajele lor după ce vor fi aprobate.',
+    'testimonials_anonymous' => 'Cursant anonim',
     'progress_eyebrow' => 'VEZI CUM EVOLUEZI',
     'progress_title' => 'Progres pe care îl poți înțelege.',
     'progress_text' => 'După sesiuni, profesorul poate înregistra feedback și pregăti un raport cu nivelul tău actual, punctele forte, aspectele de îmbunătățit și recomandări practice.',

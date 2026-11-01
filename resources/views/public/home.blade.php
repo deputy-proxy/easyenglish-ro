@@ -155,7 +155,23 @@
             <div class="mb-8 max-w-[650px]">
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.testimonials_eyebrow') }}</p>
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.testimonials_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
+                @if ($testimonials->isNotEmpty())
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($testimonials as $testimonial)
+                            <figure class="m-0 flex h-full flex-col rounded-[20px] border border-line bg-white p-6">
+                                <blockquote class="flex-1 text-base leading-[1.8] text-ink">{{ $testimonial->quote }}</blockquote>
+                                <figcaption class="mt-6 border-t border-line pt-4">
+                                    <span class="block font-bold text-ink">{{ $testimonial->author_name ?: __('public.testimonials_anonymous') }}</span>
+                                    @if ($testimonial->author_context)
+                                        <span class="mt-1 block text-sm text-muted">{{ $testimonial->author_context }}</span>
+                                    @endif
+                                </figcaption>
+                            </figure>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
+                @endif
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
