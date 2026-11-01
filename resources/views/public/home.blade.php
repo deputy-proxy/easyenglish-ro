@@ -81,7 +81,7 @@
                 </div>
             </div>
 
-            <div class="relative z-10 mt-3 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
+            <div class="relative z-10 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
                 <img class="h-[280px] w-full rounded-2xl object-cover object-left" src="{{ asset('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
                 <img class="h-[280px] w-full rounded-2xl object-cover object-right" src="{{ asset('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
             </div>
