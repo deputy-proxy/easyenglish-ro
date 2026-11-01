@@ -41,7 +41,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('I feel more confident now.')
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
-        ->assertSee('rounded-[6px] border border-[#14234b]', false)
+        ->assertSee('h-[20.87px] items-center justify-center rounded-[6px] border border-[#14234b]', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
         ->assertSee('Profesorul pregătește. Tu exersezi.')
         ->assertSee('156')
