@@ -34,6 +34,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('În engleză.')
         ->assertSee('data-mobile-conversation')
         ->assertSee('hero-visual-mobile relative z-10', false)
+        ->assertSee('role="group"', false)
         ->assertSee('hero-conversation-mobile absolute inset-x-2 bottom-2 z-20', false)
         ->assertSee('grid h-[260px] grid-cols-2 gap-0', false)
         ->assertSee('data-conversation-track')
@@ -48,7 +49,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('h-[260px] w-full object-cover object-right', false)
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
-        ->assertSee('h-[20.87px] items-center justify-center rounded-[6px] border border-[#14234b]', false)
+        ->assertSee('h-[20.87px] items-center justify-center rounded-[6px] border border-ink', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
         ->assertSee('Profesorul pregătește. Tu exersezi.')
         ->assertSee('156')
@@ -108,7 +109,28 @@ test('visitor can switch the public experience to English without an account', f
         ->assertSee('All 7 days are visible at once. Choose a time directly.')
         ->assertSee('Next time you have something to say, say it in English.')
         ->assertSee('Book your first free conversation.')
+        ->assertSee('bg-primary', false)
+        ->assertSee('bg-surface-subtle', false)
+        ->assertSee('text-success', false)
+        ->assertDontSee('bg-green', false)
+        ->assertDontSee('text-green', false)
+        ->assertDontSee('border-green', false)
+        ->assertDontSee('bg-lime', false)
         ->assertSee('MOST POPULAR');
+});
+
+test('brand palette exposes semantic primary, surface, text, and success tokens', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('--color-primary: #1450df')
+        ->toContain('--color-ink: #14234b')
+        ->toContain('--color-muted: #53617b')
+        ->toContain('--color-surface-subtle: #f5f7fc')
+        ->toContain('--color-line: #e1e7f0')
+        ->toContain('--color-success: #176b4d')
+        ->toContain('--color-focus: #1450df')
+        ->toContain(':where(a, button, summary):focus-visible');
 });
 
 test('weekly availability empty and low-availability messages are localized', function () {

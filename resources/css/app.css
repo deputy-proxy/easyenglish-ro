@@ -11,12 +11,19 @@
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-    --color-ink: #14251f;
-    --color-muted: #64736c;
-    --color-green: #176b4d;
-    --color-lime: #d9f36a;
-    --color-paper: #f7f8f3;
-    --color-line: #e1e7df;
+    --color-ink: #14234b;
+    --color-muted: #53617b;
+    --color-paper: #f7f8fc;
+    --color-line: #e1e7f0;
+    --color-primary: #1450df;
+    --color-primary-hover: #0d3db7;
+    --color-primary-soft: #edf2ff;
+    --color-primary-border: #dce5ff;
+    --color-primary-strong: #173c99;
+    --color-success: #176b4d;
+    --color-focus: #1450df;
+    --color-surface: #ffffff;
+    --color-surface-subtle: #f5f7fc;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -44,6 +51,11 @@
 }
 
 @layer base {
+
+    :where(a, button, summary):focus-visible {
+        outline: 2px solid var(--color-focus);
+        outline-offset: 3px;
+    }
 
     *,
     ::after,
@@ -133,11 +145,11 @@ select:focus[data-flux-control] {
     inset: 0 auto auto 0;
     width: 100%;
     margin: 0;
-    border: 1px solid #dce6ff;
+    border: 1px solid var(--color-primary-border);
     border-radius: 17px 17px 17px 5px;
     background: rgb(255 255 255 / 96%);
     padding: 13px 16px;
-    color: #14234b;
+    color: var(--color-ink);
     box-shadow: 0 8px 28px rgb(20 35 75 / 10%);
     font-size: clamp(12px, 0.95vw, 14px);
     font-weight: 600;
@@ -148,9 +160,9 @@ select:focus[data-flux-control] {
 }
 
 .hero-conversation__side--learner .hero-conversation__bubble {
-    border-color: #dce9e2;
+    border-color: var(--color-primary-border);
     border-radius: 17px 17px 5px 17px;
-    background: #f3f8f5;
+    background: var(--color-primary-soft);
 }
 
 @media (max-width: 767px) {
@@ -187,10 +199,10 @@ select:focus[data-flux-control] {
         max-width: 90%;
         margin: 0;
         padding: 7px 10px;
-        border: 1px solid #dce6ff;
+        border: 1px solid var(--color-primary-border);
         border-radius: 12px 12px 12px 4px;
         background: rgb(255 255 255 / 98%);
-        color: #14234b;
+        color: var(--color-ink);
         box-shadow: 0 5px 18px rgb(20 35 75 / 8%);
         font-size: 11px;
         font-weight: 600;
@@ -207,9 +219,9 @@ select:focus[data-flux-control] {
 
     .hero-conversation-mobile__message--learner {
         align-self: flex-end;
-        border-color: #dce9e2;
+        border-color: var(--color-primary-border);
         border-radius: 12px 12px 4px 12px;
-        background: #f3f8f5;
+        background: var(--color-primary-soft);
         text-align: right;
     }
 }
@@ -240,7 +252,7 @@ select:focus[data-flux-control] {
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: #53617b;
+    background: var(--color-muted);
     animation: hero-conversation-typing 1s ease-in-out infinite;
 }
 
