@@ -261,15 +261,44 @@
                     <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.progress_title') }}</h2>
                     <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.progress_text') }}</p>
                 </div>
-                <div class="grid gap-3 sm:grid-cols-2">
-                    @foreach (['confidence', 'fluency', 'vocabulary', 'pronunciation', 'grammar'] as $metric)
-                        <article class="rounded-[16px] border border-line bg-white p-5 {{ $loop->last ? 'sm:col-span-2' : '' }}">
-                            <h3 class="m-0 text-base font-bold text-ink">{{ __('public.progress_metric_'.$metric) }}</h3>
-                            <p class="mt-2 mb-0 text-sm leading-[1.65] text-muted">{{ __('public.progress_metric_'.$metric.'_text') }}</p>
-                        </article>
-                    @endforeach
-                </div>
-                <p class="md:col-span-2 -mt-3 text-xs leading-relaxed text-muted">{{ __('public.progress_note') }}</p>
+                <article class="rounded-[22px] border border-line bg-white p-4 shadow-[0_16px_48px_rgba(20,35,75,0.06)] sm:p-6" aria-labelledby="public-progress-chart-title">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 id="public-progress-chart-title" class="m-0 text-lg font-bold text-ink">{{ __('public.progress_chart_title') }}</h3>
+                            <p class="mt-1 mb-0 text-sm text-muted">{{ __('public.progress_chart_subtitle') }}</p>
+                        </div>
+                        <span class="rounded-full bg-primary-soft px-3 py-1.5 text-[10px] font-extrabold tracking-[0.08em] text-primary uppercase">{{ __('public.progress_chart_sample') }}</span>
+                    </div>
+                    <svg viewBox="0 0 440 340" role="img" aria-label="{{ __('public.progress_chart_aria') }}" class="mx-auto mt-4 block w-full max-w-[520px] overflow-visible text-ink">
+                        <g fill="none" stroke="currentColor" stroke-opacity=".12" stroke-width="1">
+                            <polygon points="220,159.2 243.6,176.8 234.5,198.1 205.5,198.1 196.4,176.8" />
+                            <polygon points="220,134.4 267.1,169.6 249,212.2 191,212.2 172.9,169.6" />
+                            <polygon points="220,109.6 290.7,162.4 263.5,226.2 176.5,226.2 149.3,162.4" />
+                            <polygon points="220,84.8 314.2,155.2 278,240.3 162,240.3 125.8,155.2" />
+                            <polygon points="220,60 337.9,145.7 292.6,284.5 147.4,284.5 102.1,145.7" />
+                            <path d="M220 184 220 60 M220 184 337.9 145.7 M220 184 292.6 284.5 M220 184 147.4 284.5 M220 184 102.1 145.7" />
+                        </g>
+                        <polygon points="220,140.6 255.4,172.5 249.2,224.1 187.2,229.1 178.7,170.6" fill="#94a3b8" fill-opacity=".08" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 5" stroke-linejoin="round" />
+                        <polygon points="220,119.5 276.6,165.6 262.3,242.2 174.8,246.2 156.3,163.3" fill="#60a5fa" fill-opacity=".10" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round" />
+                        <polygon points="220,89.8 302.6,157.2 279.8,266.3 158.8,268.3 128,154.1" fill="#1747bd" fill-opacity=".14" stroke="#1747bd" stroke-width="3" stroke-linejoin="round" />
+                        <g fill="#1747bd">
+                            <circle cx="220" cy="89.8" r="4"/><circle cx="302.6" cy="157.2" r="4"/><circle cx="279.8" cy="266.3" r="4"/><circle cx="158.8" cy="268.3" r="4"/><circle cx="128" cy="154.1" r="4"/>
+                        </g>
+                        <g fill="currentColor" font-size="12" font-weight="600">
+                            <text x="220" y="25" text-anchor="middle">{{ __('public.progress_metric_vocabulary') }}</text>
+                            <text x="369" y="137" text-anchor="start">{{ __('public.progress_metric_pronunciation') }}</text>
+                            <text x="310" y="315" text-anchor="middle">{{ __('public.progress_metric_fluency') }}</text>
+                            <text x="130" y="315" text-anchor="middle">{{ __('public.progress_metric_grammar') }}</text>
+                            <text x="70" y="137" text-anchor="end">{{ __('public.progress_metric_confidence') }}</text>
+                        </g>
+                    </svg>
+                    <div class="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold text-muted">
+                        <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 border-t-2 border-dashed border-slate-400"></span>{{ __('public.progress_chart_baseline') }}</span>
+                        <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 bg-blue-400"></span>{{ __('public.progress_chart_after_five') }}</span>
+                        <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 bg-primary"></span>{{ __('public.progress_chart_after_ten') }}</span>
+                    </div>
+                    <p class="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-muted">{{ __('public.progress_note') }}</p>
+                </article>
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="faq">
