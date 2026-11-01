@@ -99,6 +99,8 @@ return [
     'teachers_title' => 'Meet your teachers.',
     'teachers_text' => 'Every conversation is guided by an active EasyEnglish teacher and shaped around your goals.',
     'teacher_role' => 'English conversation teacher',
+    'teacher_bio_fallback' => 'Helping you build confidence through practical, personal conversations.',
+    'teacher_cta' => 'Book a session',
     'teachers_empty' => 'Our teacher profiles will appear here as soon as the team information is ready to share.',
     'testimonials_eyebrow' => 'LEARNER EXPERIENCES',
     'testimonials_title' => 'Good conversations deserve to be heard.',

@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -49,6 +50,8 @@ class TeacherResource extends Resource
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('email')->email()->required()->maxLength(254)->unique(ignoreRecord: true),
                 TextInput::make('phone')->tel()->label('Contact phone')->maxLength(32),
+                FileUpload::make('teacher_photo_path')->label('Public profile photo')->image()->disk('public')->directory('teachers')->visibility('public')->imageEditor()->maxSize(5120),
+                Textarea::make('teacher_bio')->label('Public biography')->rows(4)->maxLength(500)->columnSpanFull(),
                 TextInput::make('password')->password()->revealable()->required(fn (string $operation): bool => $operation === 'create')->dehydrated(fn (?string $state): bool => filled($state)),
                 Toggle::make('teacher_active')->label('Active for new assignments')->default(false)->required(),
             ])->columns(2),

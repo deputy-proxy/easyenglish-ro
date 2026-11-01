@@ -40,7 +40,7 @@ class PublicSiteController extends Controller
 
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
-            'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name']),
+            'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name', 'teacher_photo_path', 'teacher_bio']),
             'testimonials' => Testimonial::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderByDesc('updated_at')->get(['id', 'quote', 'author_name', 'author_context']),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
         ]);

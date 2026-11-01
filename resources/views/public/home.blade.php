@@ -138,11 +138,30 @@
                     <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
-                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         @foreach ($teachers as $teacher)
-                            <article class="flex items-center gap-4 rounded-[20px] border border-line bg-white p-5">
-                                <span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary-soft text-lg font-bold text-primary" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</span>
-                                <div class="min-w-0"><h3 class="m-0 text-lg font-bold text-ink">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3><p class="mt-1 mb-0 text-sm leading-relaxed text-muted">{{ __('public.teacher_role') }}</p></div>
+                            <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1">
+                                @if ($teacher->teacher_photo_path)
+                                    <img class="absolute inset-0 size-full object-cover" src="{{ Illuminate\Support\Facades\Storage::disk('public')->url($teacher->teacher_photo_path) }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
+                                @else
+                                    <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
+                                @endif
+                                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#173c99]/35 to-[#101b45] opacity-90 transition-opacity duration-300 group-hover:opacity-0 group-focus-within:opacity-0"></div>
+                                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/65 to-[#101b45] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100"></div>
+                                <div class="absolute inset-x-0 bottom-0 flex flex-col p-6 text-white sm:p-7">
+                                    <h3 class="m-0 text-2xl font-semibold tracking-tight">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
+                                    <p class="mt-1 mb-0 text-sm text-white/75">{{ __('public.teacher_role') }}</p>
+                                    <div class="grid grid-rows-[1fr] transition-all duration-300 lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] lg:group-focus-within:grid-rows-[1fr]">
+                                        <div class="overflow-hidden">
+                                            @if (filled($teacher->teacher_bio))
+                                                <p class="pt-3 text-sm leading-relaxed text-white/90">{{ $teacher->teacher_bio }}</p>
+                                            @else
+                                                <p class="pt-3 text-sm leading-relaxed text-white/90">{{ __('public.teacher_bio_fallback') }}</p>
+                                            @endif
+                                            <a class="mt-5 inline-flex w-max items-center rounded-full border border-white/90 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-ink focus-visible:bg-white focus-visible:text-ink" href="#availability">{{ __('public.teacher_cta') }}</a>
+                                        </div>
+                                    </div>
+                                </div>
                             </article>
                         @endforeach
                     </div>
