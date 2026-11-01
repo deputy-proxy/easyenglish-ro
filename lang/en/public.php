@@ -52,7 +52,7 @@ return [
     'nav_faq' => 'FAQ',
     'nav_book' => 'Start free',
     'hero_eyebrow' => '15-MINUTE CONVERSATIONS ON WHATSAPP',
-    'hero_text' => 'You have your own reasons to speak English with more confidence. Practise for 15 minutes on WhatsApp, with a teacher and topics prepared around your goals.',
+    'hero_text' => 'You have ideas to share, things to say and opportunities to pursue. Practise for 15 minutes on WhatsApp with a teacher who prepares each conversation for you.',
     'hero_cta' => 'Book a free introduction',
     'hero_secondary' => 'Explore bundles',
     'hero_note' => '15 minutes · online via WhatsApp · no purchase required',

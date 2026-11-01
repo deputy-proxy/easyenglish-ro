@@ -51,7 +51,7 @@ return [
     'nav_faq' => 'Întrebări',
     'nav_book' => 'Încearcă gratuit',
     'hero_eyebrow' => 'CONVERSAȚII DE 15 MINUTE PE WHATSAPP',
-    'hero_text' => 'Ai motivele tale să vorbești engleza cu mai multă încredere. Exersezi 15 minute pe WhatsApp, cu un profesor și subiecte pregătite pentru obiectivele tale.',
+    'hero_text' => 'Ai lucruri de spus, idei de împărtășit și oportunități de valorificat. Exersezi 15 minute pe WhatsApp, cu un profesor care pregătește fiecare conversație pentru tine.',
     'hero_cta' => 'Programează o sesiune gratuită',
     'hero_secondary' => 'Vezi pachetele',
     'hero_note' => '15 minute · online prin WhatsApp · nu este necesară cumpărarea unui pachet',
