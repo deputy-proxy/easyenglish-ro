@@ -214,7 +214,7 @@
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.availability_title') }}</h2>
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.availability_text') }}</p>
             </div>
-            <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
+            <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}">
                 <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
                     <div class="min-w-0">
@@ -241,7 +241,7 @@
                 </div>
                 <p class="mb-6 leading-[1.7] text-muted">{{ __('public.shared_free_notice') }}</p>
                 <div class="grid gap-[18px] md:grid-cols-3">@foreach($bundles as $bundle)<article
-                        class="relative flex flex-col items-start rounded-[20px] bg-white p-[25px] shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)]">@if($bundle->price_ron===390)<span
+                        class="relative flex flex-col items-start rounded-[20px] bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]">@if($bundle->price_ron===390)<span
                             class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ __('public.package_popular') }}</span>@endif<span class="text-[13px] font-bold text-muted">{{
                             __('public.bundle_label') }} {{ $loop->iteration }}</span>
                         <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px]">{{ number_format($bundle->price_ron, 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
@@ -261,7 +261,7 @@
                     <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.progress_title') }}</h2>
                     <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.progress_text') }}</p>
                 </div>
-                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)] sm:p-6" aria-labelledby="public-progress-chart-title">
+                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-labelledby="public-progress-chart-title">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 id="public-progress-chart-title" class="m-0 text-lg font-bold text-ink">{{ __('public.progress_chart_title') }}</h3>
@@ -303,7 +303,7 @@
         </section>
         <section class="py-14 md:py-[82px]" id="faq">
             <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
-                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
+                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
                     <details class="border-b border-line py-[18px]">
                         <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q1') }}</summary>
                         <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a1') }}</p>
