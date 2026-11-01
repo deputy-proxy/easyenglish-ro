@@ -62,9 +62,29 @@
                 </div>
             </div>
 
+            <div class="hero-conversation-mobile md:hidden" data-mobile-conversation aria-hidden="true">
+                <div class="hero-conversation-mobile__track" data-conversation-track>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What's your presentation about?</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">It's about renewable energy.</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Who will be listening?</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">My classmates. I have five minutes.</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Let's give it a clear structure.</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">An introduction, three points, and a conclusion?</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">That's a strong opening!</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">“Good morning. Today I'll talk about...”</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Try speaking a little slower.</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Can we practise questions, too?</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">You're going to do well!</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Thank you! I feel more confident now.</p>
+                </div>
+            </div>
+
             <div class="relative z-10 mt-3 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
                 <img class="h-[280px] w-full rounded-2xl object-cover object-left" src="{{ asset('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
                 <img class="h-[280px] w-full rounded-2xl object-cover object-right" src="{{ asset('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+            </div>
             </div>
 
             <div class="relative z-10 mt-6 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#14234b] md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
@@ -198,6 +218,53 @@
                     aria-label="English">EN</button></form>
         </div>
     </footer>
+    <script>
+        (() => {
+            const conversation = document.querySelector('[data-mobile-conversation]');
+            const track = conversation?.querySelector('[data-conversation-track]');
+            if (!conversation || !track) return;
+
+            const messages = Array.from(track.children);
+            const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            let visibleCount = 0;
+            let scrollOffset = 0;
+
+            const revealNext = () => {
+                if (visibleCount >= messages.length) {
+                    window.setTimeout(() => {
+                        track.style.transition = 'none';
+                        track.style.transform = 'translateY(0)';
+                        messages.forEach(message => message.classList.remove('is-visible'));
+                        visibleCount = 0;
+                        scrollOffset = 0;
+                        void track.offsetHeight;
+                        track.style.transition = '';
+                        revealNext();
+                    }, 1800);
+                    return;
+                }
+
+                messages[visibleCount].classList.add('is-visible');
+                visibleCount += 1;
+
+                if (visibleCount > 4) {
+                    const previousMessage = messages[visibleCount - 5];
+                    const gap = Number.parseFloat(getComputedStyle(track).rowGap) || 0;
+                    scrollOffset += previousMessage.getBoundingClientRect().height + gap;
+                    track.style.transform = `translateY(-${scrollOffset}px)`;
+                }
+
+                window.setTimeout(revealNext, 2000);
+            };
+
+            if (reducedMotion) {
+                messages.slice(0, 4).forEach(message => message.classList.add('is-visible'));
+                return;
+            }
+
+            revealNext();
+        })();
+    </script>
     <script>
         (() => { const root = document.querySelector('[data-availability]'); if (!root) return; const grid = root.querySelector('[data-weekgrid]'); let week = root.dataset.week; const base = root.dataset.bookUrl; const previous = root.querySelector('[data-prev]'); const next = root.querySelector('[data-next]'); const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' }); const monday = d => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toLocaleDateString('en-CA') }; const add = (date, days) => { const x = new Date(date + 'T12:00:00'); x.setDate(x.getDate() + days); return x.toLocaleDateString('en-CA') }; const render = days => { grid.innerHTML = ''; days.forEach(day => { const col = document.createElement('div'); col.className = 'min-w-0 rounded-[13px] border border-line p-3'; const head = document.createElement('div'); head.className = 'mb-3 flex justify-between gap-1 text-xs font-bold'; const label = document.createElement('span'); label.textContent = day.label; const number = document.createElement('span'); number.textContent = day.day; head.append(label, number); const slots = document.createElement('div'); slots.className = 'grid gap-1.5'; if (!day.slots.length) { const empty = document.createElement('span'); empty.className = 'py-[7px] text-[11px] text-[#9aa49d]'; empty.textContent = @json(__('public.slot_none')); slots.append(empty) } else day.slots.forEach(slot => { const button = document.createElement('button'); button.type = 'button'; button.className = 'rounded-[7px] border-0 bg-[#edf4e9] px-0.5 py-2 text-xs text-green cursor-pointer hover:bg-lime hover:text-ink'; button.textContent = slot.time; button.setAttribute('aria-label', day.date + ' ' + slot.time); button.addEventListener('click', () => { location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking' }); slots.append(button) }); col.append(head, slots); grid.append(col) }); previous.disabled = week <= monday(today);
             }; const load = () => { grid.innerHTML = '<p class="col-span-7">' + @json(__('public.availability_loading')) + '</p>'; fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), { headers: { Accept: 'application/json' } }).then(r => r.json()).then(data => render(data.days)).catch(() => { grid.textContent = @json(__('public.availability_error')) }) }; previous.addEventListener('click', () => { if (!previous.disabled) { week = add(week, -7); load() } }); next.addEventListener('click', () => { week = add(week, 7); load() }); load(); })();

@@ -32,6 +32,8 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertOk()
         ->assertSee('De data asta, ai ceva de spus.')
         ->assertSee('În engleză.')
+        ->assertSee('data-mobile-conversation')
+        ->assertSee('data-conversation-track')
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
         ->assertSee('renewable energy')
