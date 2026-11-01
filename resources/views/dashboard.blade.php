@@ -116,31 +116,231 @@
                 @endforelse
             </section>
         @else
-            <section>
-                <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_title') }}</h2>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_help') }}</p>
-                @if ($feedback->isEmpty())
-                    <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        @foreach (['vocabulary', 'pronunciation', 'fluency'] as $metric)
-                            <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900"><p class="text-xs font-bold uppercase tracking-widest text-emerald-700">{{ ucfirst($metric) }}</p><h3 class="mt-3 text-lg font-semibold text-zinc-900 dark:text-white">{{ $hasActiveBundle ? __('public.dashboard_current') : __('public.dashboard_potential') }}</h3><p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $hasActiveBundle ? __('public.dashboard_feedback_empty_bundle') : __('public.dashboard_feedback_empty') }}</p></article>
-                        @endforeach
-                    </div>
+            <section class="space-y-5">
+                <div>
+                    <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_title') }}</h2>
+                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_help') }}</p>
+                </div>
+
+                @if (count($progressChart['series']) > 0)
+                    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" data-progress-chart>
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_chart_title') }}</h3>
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_chart_help') }}</p>
+                            </div>
+                            <p class="text-xs text-zinc-500">{{ trans_choice('public.dashboard_progress_assessment_count', $progressChart['assessment_count'], ['count' => $progressChart['assessment_count']]) }}</p>
+                        </div>
+
+                        <div class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.8fr)] lg:items-center">
+                            <div class="min-w-0">
+                                <svg viewBox="0 0 440 390" role="img" aria-label="{{ __('public.dashboard_progress_chart_aria') }}" class="mx-auto block w-full max-w-xl overflow-visible" data-radar-svg>
+                                    <g data-radar-grid></g>
+                                    <g data-radar-axes></g>
+                                    <g data-radar-series></g>
+                                    <g data-radar-labels></g>
+                                </svg>
+                                <div class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-2" data-radar-legend>
+                                    @foreach ($progressChart['series'] as $series)
+                                        <button type="button" data-series-id="{{ $series['id'] }}" aria-pressed="{{ $loop->last ? 'true' : 'false' }}" class="inline-flex items-center gap-2 text-xs font-medium text-zinc-600 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white">
+                                            <span class="h-2.5 w-2.5 rounded-full {{ $series['type'] === 'baseline' ? 'border border-dashed border-zinc-500 bg-transparent' : ($loop->last ? 'bg-emerald-700' : 'bg-teal-300') }}"></span>
+                                            {{ $series['label'] }}@if ($series['date']) <span class="text-zinc-400">· {{ $series['date'] }}</span>@endif
+                                        </button>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/70" aria-live="polite" data-radar-details>
+                                <p class="text-xs font-bold uppercase tracking-wider text-emerald-700" data-detail-label></p>
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400" data-detail-date></p>
+                                <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3" data-detail-scores></dl>
+                                <div class="mt-4 space-y-3" data-detail-feedback></div>
+                            </div>
+                        </div>
+
+                        <details class="mt-4 rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                            <summary class="cursor-pointer text-sm font-semibold text-zinc-700 dark:text-zinc-200">{{ __('public.dashboard_progress_data_table') }}</summary>
+                            <div class="mt-3 overflow-x-auto">
+                                <table class="w-full min-w-[34rem] text-left text-xs">
+                                    <thead><tr class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700"><th class="py-2 pr-3">{{ __('public.dashboard_progress_series') }}</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<th class="px-2 py-2">{{ __('public.progress_metric_' . $metric) }}</th>@endforeach</tr></thead>
+                                    <tbody>
+                                        @foreach ($progressChart['series'] as $series)
+                                            <tr class="border-b border-zinc-100 last:border-0 dark:border-zinc-800"><th class="py-2 pr-3 font-medium text-zinc-700 dark:text-zinc-200">{{ $series['label'] }} @if ($series['date']) · {{ $series['date'] }}@endif</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<td class="px-2 py-2 tabular-nums text-zinc-600 dark:text-zinc-300">{{ $series['scores'][$metric] }}</td>@endforeach</tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+
+                        @if ($progressChart['strongest_improvement'])
+                            <div class="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50 px-4 py-3 dark:bg-emerald-950/50">
+                                <span class="text-xs font-semibold text-emerald-900 dark:text-emerald-100">{{ __('public.dashboard_progress_strongest') }}</span>
+                                <strong class="text-sm text-emerald-950 dark:text-emerald-50">{{ __('public.progress_metric_' . $progressChart['strongest_improvement']['metric']) }}</strong>
+                                <span class="text-sm font-bold text-emerald-800 dark:text-emerald-200">+{{ $progressChart['strongest_improvement']['points'] }} {{ __('public.dashboard_progress_points') }}</span>
+                            </div>
+                        @endif
+                        @if ($progressChart['partial_count'] > 0)
+                            <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
+                        @endif
+                        <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_note') }}</p>
+                    </article>
                 @else
-                    <div class="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        @foreach ($feedback as $item)
-                            <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                                <p class="text-xs font-bold uppercase tracking-widest text-emerald-700">{{ ucfirst($item->metric_key) }}</p>
-                                @if ($hasActiveBundle)
-                                    <div class="mt-4 grid grid-cols-2 gap-3"><div><p class="text-xs text-zinc-500">{{ __('public.dashboard_baseline') }}</p><p class="mt-1 text-2xl font-semibold">{{ $item->baseline_score ?? '—' }}<span class="text-sm font-normal text-zinc-400">/100</span></p></div><div><p class="text-xs text-zinc-500">{{ __('public.dashboard_current') }}</p><p class="mt-1 text-2xl font-semibold">{{ $item->current_score ?? '—' }}<span class="text-sm font-normal text-zinc-400">/100</span></p></div></div>
+                    <div class="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
+                        <h3 class="font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_waiting_title') }}</h3>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_waiting_text') }}</p>
+                    </div>
+                @endif
+
+                @if ($latestProgressReport)
+                    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ $latestProgressReport->title }}</h3>
+                            <span class="text-xs text-zinc-500">{{ __('public.dashboard_progress_report_date') }} · {{ $latestProgressReport->shared_at->timezone('Europe/Bucharest')->format('d.m.Y') }}</span>
+                        </div>
+                        <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $latestProgressReport->summary }}</p>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+                            @foreach ([['strengths', $latestProgressReport->strengths], ['areas_to_improve', $latestProgressReport->areas_to_improve], ['recommendations', $latestProgressReport->recommendations]] as [$key, $value])
+                                @if ($value)
+                                    <div>
+                                        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-700">{{ __('public.dashboard_progress_' . $key) }}</h4>
+                                        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $value }}</p>
+                                    </div>
                                 @endif
-                                <div class="mt-4 rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950"><p class="text-xs font-semibold text-emerald-900 dark:text-emerald-100">{{ __('public.dashboard_potential') }}</p><p class="mt-1 text-2xl font-semibold text-emerald-900 dark:text-emerald-100">{{ $item->potential_score ?? '—' }}<span class="text-sm font-normal">/100</span></p></div>
-                                @if ($item->feedback)<p class="mt-4 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $item->feedback }}</p>@endif
+                            @endforeach
+                        </div>
+                    </article>
+                @endif
+
+                @if ($feedback->isNotEmpty())
+                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        @foreach ($feedback as $item)
+                            <article class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                                <p class="text-xs font-bold uppercase tracking-widest text-emerald-700">{{ __('public.progress_metric_' . $item->metric_key) }}</p>
+                                @if ($item->current_score !== null)
+                                    <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-white">{{ $item->current_score }}<span class="text-sm font-normal text-zinc-400">/100</span></p>
+                                @endif
+                                @if ($item->potential_score !== null)
+                                    <div class="mt-3 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800">
+                                        <p class="text-xs font-semibold text-zinc-500">{{ __('public.dashboard_potential') }}</p>
+                                        <p class="mt-1 text-lg font-semibold text-zinc-700 dark:text-zinc-200">{{ $item->potential_score }}<span class="text-sm font-normal text-zinc-400">/100</span></p>
+                                    </div>
+                                @endif
+                                @if ($item->feedback)
+                                    <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $item->feedback }}</p>
+                                @endif
                                 <p class="mt-3 text-xs text-zinc-500">{{ $item->booking->starts_at->timezone('Europe/Bucharest')->format('d.m.Y') }}</p>
                             </article>
                         @endforeach
                     </div>
                 @endif
             </section>
+
+            @if (count($progressChart['series']) > 0)
+                <script>
+                    (() => {
+                        const root = document.querySelector('[data-progress-chart]');
+                        if (!root || root.dataset.initialized) return;
+                        root.dataset.initialized = 'true';
+
+                        const series = @js($progressChart['series']);
+                        const metrics = [
+                            { key: 'vocabulary', label: @js(__('public.progress_metric_vocabulary')) },
+                            { key: 'pronunciation', label: @js(__('public.progress_metric_pronunciation')) },
+                            { key: 'fluency', label: @js(__('public.progress_metric_fluency')) },
+                            { key: 'grammar', label: @js(__('public.progress_metric_grammar')) },
+                            { key: 'confidence', label: @js(__('public.progress_metric_confidence')) },
+                        ];
+                        const svg = root.querySelector('[data-radar-svg]');
+                        const grid = root.querySelector('[data-radar-grid]');
+                        const axes = root.querySelector('[data-radar-axes]');
+                        const shapes = root.querySelector('[data-radar-series]');
+                        const labels = root.querySelector('[data-radar-labels]');
+                        const cx = 220, cy = 184, radius = 124;
+                        const point = (index, value) => {
+                            const angle = (-Math.PI / 2) + (index * Math.PI * 2 / metrics.length);
+                            const distance = radius * value / 100;
+                            return [cx + Math.cos(angle) * distance, cy + Math.sin(angle) * distance];
+                        };
+                        const make = (name, attrs = {}) => {
+                            const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+                            Object.entries(attrs).forEach(([key, value]) => node.setAttribute(key, String(value)));
+                            return node;
+                        };
+                        const polygonPoints = scores => scores.map((score, index) => point(index, score).join(',')).join(' ');
+
+                        [20, 40, 60, 80, 100].forEach(level => {
+                            const points = metrics.map((_, index) => point(index, level).join(',')).join(' ');
+                            grid.append(make('polygon', { points, fill: 'none', stroke: 'currentColor', 'stroke-opacity': level === 100 ? '.22' : '.12', 'stroke-width': 1 }));
+                        });
+                        metrics.forEach((metric, index) => {
+                            const [x, y] = point(index, 100);
+                            axes.append(make('line', { x1: cx, y1: cy, x2: x, y2: y, stroke: 'currentColor', 'stroke-opacity': '.18', 'stroke-width': 1 }));
+                            const labelPoint = point(index, 122);
+                            const text = make('text', { x: labelPoint[0], y: labelPoint[1], fill: 'currentColor', 'font-size': 11, 'text-anchor': labelPoint[0] < cx - 8 ? 'end' : (labelPoint[0] > cx + 8 ? 'start' : 'middle'), 'dominant-baseline': labelPoint[1] < cy - 8 ? 'auto' : (labelPoint[1] > cy + 8 ? 'hanging' : 'middle') });
+                            text.textContent = metric.label;
+                            labels.append(text);
+                        });
+
+                        let historicalIndex = 0;
+                        const historicalColors = ['#99f6e4', '#5eead4', '#0f766e'];
+                        const colors = series.map(item => item.type === 'baseline' ? '#71717a' : (item.id === series[series.length - 1].id ? '#047857' : historicalColors[Math.min(historicalIndex++, historicalColors.length - 1)]));
+                        series.forEach((item, index) => {
+                            const group = make('g', { 'data-series-shape': item.id });
+                            const polygon = make('polygon', {
+                                points: polygonPoints(metrics.map(metric => item.scores[metric.key])),
+                                fill: colors[index], 'fill-opacity': item.type === 'baseline' ? 0 : (item.id === series[series.length - 1].id ? '.16' : '.07'),
+                                stroke: colors[index], 'stroke-width': item.type === 'baseline' ? 2 : (item.id === series[series.length - 1].id ? 3 : 1.7),
+                                'stroke-dasharray': item.type === 'baseline' ? '5 5' : 'none', 'stroke-linejoin': 'round'
+                            });
+                            group.append(polygon);
+                            metrics.forEach((metric, metricIndex) => {
+                                const [x, y] = point(metricIndex, item.scores[metric.key]);
+                                group.append(make('circle', { cx: x, cy: y, r: item.id === series[series.length - 1].id ? 3.5 : 2.5, fill: colors[index] }));
+                            });
+                            shapes.append(group);
+                        });
+
+                        const detailLabel = root.querySelector('[data-detail-label]');
+                        const detailDate = root.querySelector('[data-detail-date]');
+                        const detailScores = root.querySelector('[data-detail-scores]');
+                        const detailFeedback = root.querySelector('[data-detail-feedback]');
+                        const legendButtons = [...root.querySelectorAll('[data-series-id]')];
+                        const renderDetails = item => {
+                            detailLabel.textContent = item.label;
+                            detailDate.textContent = item.date || @js(__('public.dashboard_progress_baseline_date'));
+                            detailScores.replaceChildren();
+                            metrics.forEach(metric => {
+                                const wrapper = document.createElement('div');
+                                const term = document.createElement('dt'); term.className = 'text-xs text-zinc-500'; term.textContent = metric.label;
+                                const value = document.createElement('dd'); value.className = 'mt-1 text-lg font-semibold text-zinc-900 dark:text-white'; value.textContent = `${item.scores[metric.key]}/100`;
+                                wrapper.append(term, value); detailScores.append(wrapper);
+                            });
+                            detailFeedback.replaceChildren();
+                            Object.entries(item.feedback || {}).forEach(([key, value]) => {
+                                const metric = metrics.find(entry => entry.key === key);
+                                if (!metric || !value) return;
+                                const note = document.createElement('p'); note.className = 'text-sm leading-5 text-zinc-600 dark:text-zinc-300';
+                                const strong = document.createElement('strong'); strong.className = 'block text-xs text-zinc-500'; strong.textContent = metric.label;
+                                note.append(strong, document.createTextNode(value)); detailFeedback.append(note);
+                            });
+                        };
+                        const select = id => {
+                            const item = series.find(entry => entry.id === id);
+                            if (!item) return;
+                            legendButtons.forEach(button => {
+                                const active = button.dataset.seriesId === id;
+                                button.setAttribute('aria-pressed', active ? 'true' : 'false');
+                                button.classList.toggle('font-bold', active);
+                                const shape = shapes.querySelector(`[data-series-shape="${button.dataset.seriesId}"]`);
+                                if (shape) shape.style.opacity = active ? '1' : '.68';
+                            });
+                            renderDetails(item);
+                        };
+                        legendButtons.forEach(button => button.addEventListener('click', () => select(button.dataset.seriesId)));
+                        select(series[series.length - 1].id);
+                    })();
+                </script>
+            @endif
         @endif
     </div>
 </x-layouts::app>
