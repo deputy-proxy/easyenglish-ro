@@ -789,49 +789,49 @@
         }
 
         /* Figma-inspired, full-bleed conversation hero */
-        body { background: #fff; color: #fff; }
-        .topbar.wrap { position: absolute; z-index: 10; top: 0; left: 0; right: 0; width: 100%; height: 88px; padding: 0 30px; background: transparent; }
+        body { background: #fff; color: #14234b; }
+        .topbar.wrap { position: absolute; z-index: 10; top: 0; left: 0; right: 0; width: 100%; height: 88px; padding: 0 clamp(22px, 5.5vw, 96px); background: transparent; }
         .brand { width: auto; }
-        .brand-logo { display: block; width: 192px; height: auto; }
-        .nav .button { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.9); border-radius: 5px; padding: 10px 13px; font-size: 14px; font-weight: 500; }
-        .nav .button:hover { background: rgba(255,255,255,.15); color: #fff; }
-        .hero.wrap { position: relative; isolation: isolate; width: 100%; max-width: none; min-height: min(950px, 100svh); margin: 0; padding: 132px 24px 125px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 0; overflow: hidden; border-radius: 0 0 20px 20px; background: #3348bd; text-align: center; }
-        .hero-backdrop { position: absolute; z-index: -2; inset: 0; overflow: hidden; background: #6d74bd; }
-        .hero-backdrop img { position: absolute; top: 0; height: 100%; width: 66%; object-fit: cover; }
-        .hero-backdrop img:first-child { left: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(90deg,#000 55%,transparent 100%); mask-image: linear-gradient(90deg,#000 55%,transparent 100%); }
-        .hero-backdrop img:last-child { right: 0; object-position: 50% center; -webkit-mask-image: linear-gradient(270deg,#000 55%,transparent 100%); mask-image: linear-gradient(270deg,#000 55%,transparent 100%); }
-        .hero:before { content: ''; position: absolute; z-index: -1; inset: 0; background: linear-gradient(180deg,rgba(77,45,115,.58) 0%,rgba(52,70,175,.58) 52%,rgba(0,47,191,.94) 100%); }
-        .hero-content { width: min(100%, 1060px); display: flex; flex-direction: column; align-items: center; }
+        .brand-logo { display: block; width: 218px; height: auto; filter: brightness(0) saturate(100%) invert(12%) sepia(28%) saturate(2554%) hue-rotate(195deg) brightness(91%) contrast(96%); }
+        .nav .button { background: #1450df; color: #fff; border: 0; border-radius: 999px; padding: 15px 27px; font-size: 15px; font-weight: 700; }
+        .nav .button:hover { background: #0d3db7; color: #fff; }
+        .hero.wrap { position: relative; isolation: isolate; width: 100%; max-width: none; min-height: min(900px, 100svh); margin: 0; padding: 176px 24px 150px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 0; overflow: hidden; border-radius: 0; background: #fff; text-align: center; }
+        .hero-backdrop { position: absolute; z-index: 0; inset: 0; overflow: hidden; background: #fff; pointer-events: none; }
+        .hero-backdrop img { position: absolute; bottom: 0; top: auto; height: auto; width: min(35vw, 570px); max-height: 78%; object-fit: contain; object-position: bottom; }
+        .hero-backdrop img:first-child { left: 0; object-position: left bottom; }
+        .hero-backdrop img:last-child { right: 0; object-position: right bottom; }
+        .hero:before { content: none; }
+        .hero-content { position: relative; z-index: 2; width: min(100%, 900px); display: flex; flex-direction: column; align-items: center; }
         .hero .eyebrow { display: none; }
-        .hero h1 { max-width: 1120px; color: #fff; font-size: clamp(42px, 4.1vw, 66px); font-weight: 500; line-height: 1.14; letter-spacing: -1.8px; margin: 0; }
-        .hero h1 em { display: block; color: #fff; font-weight: 750; }
-        .hero-copy { max-width: 820px; margin: 82px 0 84px; color: #fff; font-size: clamp(19px, 2vw, 32px); line-height: 1.23; font-weight: 500; }
+        .hero h1 { max-width: 900px; color: #14234b; font-size: clamp(44px, 5.2vw, 76px); font-weight: 800; line-height: 1.08; letter-spacing: -2.8px; margin: 0; }
+        .hero h1 em { display: block; color: #14234b; font-weight: 800; }
+        .hero-copy { max-width: 720px; margin: 34px 0 42px; color: #53617b; font-size: clamp(19px, 1.8vw, 26px); line-height: 1.45; font-weight: 500; }
         .hero-actions { justify-content: center; }
-        .hero .button { background: #fff; color: #001c4c; border-radius: 999px; padding: 17px 35px; font-size: 19px; font-weight: 600; }
-        .hero .button:hover { background: #f0f3ff; color: #001c4c; }
+        .hero .button { background: #1450df; color: #fff; border-radius: 999px; padding: 18px 34px; font-size: 19px; font-weight: 700; }
+        .hero .button:hover { background: #0d3db7; color: #fff; }
         .hero .button.outline, .hero-secondary { display: none; }
         .hero-note { display: none; }
         .hero-art { display: none; }
-        .trust.wrap { position: absolute; z-index: 2; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(986px, calc(100% - 48px)); padding: 16px 24px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(10,30,110,.22); backdrop-filter: blur(18px); color: #fff; }
-        .trust div { gap: 10px; font-size: 14px; font-weight: 500; }
-        .trust-mark { width: 22px; height: 22px; background: transparent; color: #fff; }
+        .trust.wrap { position: absolute; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(850px, calc(100% - 48px)); padding: 16px 24px; border: 0; border-radius: 0; background: transparent; color: #14234b; }
+        .trust div { gap: 10px; font-size: 14px; font-weight: 600; }
+        .trust-mark { width: 22px; height: 22px; background: transparent; color: #14234b; }
         .section, .bundles, .footer { color: var(--ink); }
         @media(max-width:800px) {
             .topbar.wrap { height: 76px; padding: 0 18px; }
             .brand-logo { width: 160px; }
-            .hero.wrap { min-height: 850px; padding: 125px 22px 155px; border-radius: 0 0 16px 16px; }
+            .hero.wrap { min-height: 850px; padding: 145px 22px 190px; border-radius: 0; }
             .hero h1 { font-size: clamp(38px, 8vw, 56px); letter-spacing: -1.4px; }
-            .hero-copy { margin: 48px 0 46px; font-size: clamp(19px, 4.2vw, 25px); }
-            .hero-backdrop img { width: 100%; opacity: .72; }
-            .hero-backdrop img:first-child { -webkit-mask-image: linear-gradient(180deg,#000 30%,transparent 100%); mask-image: linear-gradient(180deg,#000 30%,transparent 100%); }
-            .hero-backdrop img:last-child { display: none; }
+            .hero-copy { margin: 30px 0 34px; font-size: clamp(18px, 4vw, 23px); }
+            .hero-backdrop img { width: 48%; max-height: 42%; opacity: 1; }
+            .hero-backdrop img:first-child { left: -4%; }
+            .hero-backdrop img:last-child { display: block; right: -4%; }
             .trust.wrap { bottom: 18px; width: calc(100% - 32px); border-radius: 22px; padding: 14px 16px; display: grid; grid-template-columns: 1fr; gap: 10px; }
             .trust div { justify-content: flex-start; text-align: left; flex-direction: row; font-size: 12px; }
         }
         @media(max-width:420px) {
-            .hero.wrap { min-height: 820px; padding-top: 115px; }
-            .hero h1 { font-size: 36px; }
-            .hero-copy { margin: 40px 0; }
+            .hero.wrap { min-height: 800px; padding-top: 130px; }
+            .hero h1 { font-size: 36px; letter-spacing: -1.2px; }
+            .hero-copy { margin: 28px 0 32px; }
             .hero .button { padding: 15px 20px; font-size: 16px; }
         }
 
@@ -843,7 +843,7 @@
         <a class="brand" href="{{ route('home') }}" aria-label="Easy English home">
             <img class="brand-logo" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
-        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a class="button nav-cta" href="{{ route('login') }}">{{ app()->getLocale() === 'ro' ? 'Autentificare' : 'Log in' }}</a></nav>
+        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a class="button nav-cta" href="#availability">{{ app()->getLocale() === 'ro' ? 'Programează o sesiune gratuită' : 'Book a free session' }}</a></nav>
     </header>
     <main>
         <section class="hero wrap">
