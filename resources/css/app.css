@@ -119,31 +119,6 @@ select:focus[data-flux-control] {
     }
 }
 
-@media (max-width: 639px) {
-    .hero-conversation__side {
-        bottom: 270px;
-        width: calc(50% - 22px);
-    }
-
-    .hero-conversation__side--teacher {
-        left: 14px;
-    }
-
-    .hero-conversation__side--learner {
-        right: 14px;
-    }
-
-    .hero-conversation__bubble {
-        padding: 9px 10px;
-        border-radius: 12px 12px 12px 4px;
-        font-size: 10px;
-        line-height: 1.3;
-    }
-
-    .hero-conversation__side--learner .hero-conversation__bubble {
-        border-radius: 12px 12px 4px 12px;
-    }
-}
 
 .hero-conversation__side--teacher {
     left: clamp(176px, 14vw, 230px);
@@ -176,6 +151,41 @@ select:focus[data-flux-control] {
     border-color: #dce9e2;
     border-radius: 17px 17px 5px 17px;
     background: #f3f8f5;
+}
+
+@media (max-width: 639px) {
+    .hero-conversation {
+        position: relative;
+        inset: auto;
+        height: 76px;
+        width: 100%;
+        margin-top: 20px;
+    }
+
+    .hero-conversation__side {
+        top: 0;
+        bottom: auto;
+        width: 78%;
+    }
+
+    .hero-conversation__side--teacher {
+        left: 0;
+    }
+
+    .hero-conversation__side--learner {
+        right: 0;
+    }
+
+    .hero-conversation__bubble {
+        padding: 9px 12px;
+        border-radius: 12px 12px 12px 4px;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+
+    .hero-conversation__side--learner .hero-conversation__bubble {
+        border-radius: 12px 12px 4px 12px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

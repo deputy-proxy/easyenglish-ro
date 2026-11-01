@@ -28,6 +28,19 @@
                 <img class="absolute bottom-0 right-0 top-auto w-auto max-h-full max-w-[75%] object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
 
+            <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
+                <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
+                    <span class="block md:whitespace-nowrap md:text-[clamp(34px,3.7vw,56px)]">{{ __('public.hero_title_a') }}</span>
+                    <span class="block font-extrabold">{{ __('public.hero_title_em') }}</span>
+                </h1>
+                <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
+                    {{ __('public.hero_text') }}
+                </p>
+                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
+                    {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
+                </a>
+            </div>
+
             <div class="hero-conversation pointer-events-none absolute inset-0 z-10 block" aria-hidden="true">
                 <div class="hero-conversation__side hero-conversation__side--teacher">
                     <p class="hero-conversation__bubble" style="--conversation-delay: 0s">What can I help you with today?</p>
@@ -47,19 +60,6 @@
                     <p class="hero-conversation__bubble" style="--conversation-delay: 22s">Can we practise questions, too?</p>
                     <p class="hero-conversation__bubble" style="--conversation-delay: 26s">Thank you! I feel more confident now.</p>
                 </div>
-            </div>
-
-            <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
-                <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
-                    <span class="block md:whitespace-nowrap md:text-[clamp(34px,3.7vw,56px)]">{{ __('public.hero_title_a') }}</span>
-                    <span class="block font-extrabold">{{ __('public.hero_title_em') }}</span>
-                </h1>
-                <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
-                    {{ __('public.hero_text') }}
-                </p>
-                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
-                    {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
-                </a>
             </div>
 
             <div class="relative z-10 mt-7 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
