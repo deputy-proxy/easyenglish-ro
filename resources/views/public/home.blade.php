@@ -64,7 +64,7 @@
 
             <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] md:hidden" role="group" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
                 <div class="grid h-[320px] grid-cols-2 gap-0">
-                    <img class="h-[320px] w-full object-cover object-left" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
+                    <img class="h-[320px] w-full object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
                     <img class="h-[320px] w-full object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
                 </div>
                 <div class="hero-conversation-mobile absolute inset-x-2 bottom-2 z-20" data-mobile-conversation aria-hidden="true">
