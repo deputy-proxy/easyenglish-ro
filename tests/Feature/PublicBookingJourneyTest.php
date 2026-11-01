@@ -49,7 +49,15 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('780')
         ->assertSee('15 minute pe sesiune')
         ->assertSee('Europe/Bucharest')
-        ->assertSee('O singură sesiune introductivă gratuită per persoană');
+        ->assertSee('Pachete simple. Engleză în ritmul tău.')
+        ->assertSee('Alegi pachetul potrivit și îți programezi conversațiile atunci când ai timp.')
+        ->assertSee('O singură sesiune introductivă gratuită per persoană.')
+        ->assertSee('1 sesiune gratuită + 4 sesiuni plătite')
+        ->assertSee('5 sesiuni în total')
+        ->assertSee('1 sesiune gratuită + 10 sesiuni plătite')
+        ->assertSee('11 sesiuni în total')
+        ->assertSee('1 sesiune gratuită + 20 sesiuni plătite')
+        ->assertSee('21 sesiuni în total');
 });
 
 test('public landing page versions logo and hero images using their file contents', function () {
@@ -74,7 +82,17 @@ test('visitor can switch the public experience to English without an account', f
 
     $this->get('/')->assertOk()->assertSee('This time, you have something to say.')
         ->assertSee('FOR THE MOMENTS THAT MATTER')
-        ->assertSee('Your teacher prepares. You practise.')->assertSee('MOST POPULAR');
+        ->assertSee('Your teacher prepares. You practise.')
+        ->assertSee('Simple bundles. English at your pace.')
+        ->assertSee('Choose the bundle that suits you and schedule your conversations whenever you have time.')
+        ->assertSee('One free introductory session per person.')
+        ->assertSee('1 free session + 4 paid sessions')
+        ->assertSee('5 sessions in total')
+        ->assertSee('1 free session + 10 paid sessions')
+        ->assertSee('11 sessions in total')
+        ->assertSee('1 free session + 20 paid sessions')
+        ->assertSee('21 sessions in total')
+        ->assertSee('MOST POPULAR');
 });
 
 test('availability endpoint returns all seven days and only server-bookable times', function () {
