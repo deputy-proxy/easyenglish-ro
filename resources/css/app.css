@@ -95,16 +95,16 @@ select:focus[data-flux-control] {
 
 .hero-conversation__side {
     position: absolute;
-    bottom: clamp(340px, 45%, 410px);
+    bottom: clamp(220px, 30%, 290px);
     width: min(220px, 17vw);
 }
 
 .hero-conversation__side--teacher {
-    left: clamp(24px, 2.5vw, 42px);
+    left: clamp(176px, 14vw, 230px);
 }
 
 .hero-conversation__side--learner {
-    right: clamp(24px, 2.5vw, 42px);
+    right: clamp(176px, 14vw, 230px);
 }
 
 .hero-conversation__bubble {
