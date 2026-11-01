@@ -7,6 +7,7 @@ use App\Models\BundleEntitlement;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
 beforeEach(function (): void {
@@ -100,6 +101,25 @@ test('landing page shows only active teachers by first name and never exposes th
         ->assertDontSee('alexandra.private@example.com')
         ->assertDontSee('Inactive Teacher')
         ->assertDontSee('Regular Staff');
+});
+
+test('teacher photos use relative storage URLs independent of the configured application host', function () {
+    config(['app.url' => 'https://easyenglish.ro']);
+    config(['filesystems.disks.public.url' => 'https://easyenglish.ro/storage']);
+    Storage::fake('public');
+    Storage::disk('public')->put('teachers/alexandra.jpg', 'photo-content');
+
+    User::factory()->create([
+        'name' => 'Alexandra Popescu',
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'teacher_photo_path' => 'teachers/alexandra.jpg',
+    ]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('src="/storage/teachers/alexandra.jpg"', false)
+        ->assertDontSee('src="https://easyenglish.ro/storage/teachers/alexandra.jpg"', false);
 });
 
 test('landing page explains real progress reporting and handles missing testimonials honestly', function () {
