@@ -848,8 +848,8 @@
     <main>
         <section class="hero wrap">
             <div class="hero-backdrop" aria-hidden="true">
-                <img src="{{ asset('images/hero-teacher.jpg') }}" alt="" fetchpriority="high">
-                <img src="{{ asset('images/hero-learner.jpg') }}" alt="" fetchpriority="high">
+                <img src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
+                <img src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
             <div class="hero-content">
                 <h1>{{ __('public.hero_title_a') }} <em>{{ __('public.hero_title_em') }}</em></h1>
