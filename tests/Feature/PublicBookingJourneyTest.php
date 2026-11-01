@@ -53,6 +53,10 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('780')
         ->assertSee('15 minute pe sesiune')
         ->assertSee('Europe/Bucharest')
+        ->assertSee('data-week-status', false)
+        ->assertSee('Toate cele 7 zile sunt vizibile simultan. Alege direct un interval.')
+        ->assertSee('grid min-w-0 grid-cols-7 gap-1 sm:gap-2', false)
+        ->assertSee('min-h-10 rounded-[7px]', false)
         ->assertSee('Pachete simple. Engleză în ritmul tău.')
         ->assertSee('Alegi pachetul potrivit și îți programezi conversațiile atunci când ai timp.')
         ->assertSee('O singură sesiune introductivă gratuită per persoană.')
@@ -96,7 +100,20 @@ test('visitor can switch the public experience to English without an account', f
         ->assertSee('11 sessions in total')
         ->assertSee('1 free session + 20 paid sessions')
         ->assertSee('21 sessions in total')
+        ->assertSee('All 7 days are visible at once. Choose a time directly.')
         ->assertSee('MOST POPULAR');
+});
+
+test('weekly availability empty and low-availability messages are localized', function () {
+    app()->setLocale('ro');
+
+    expect(__('public.availability_empty'))->toContain('Nu există intervale disponibile')
+        ->and(__('public.availability_low'))->toContain('Sunt puține intervale disponibile');
+
+    app()->setLocale('en');
+
+    expect(__('public.availability_empty'))->toContain('No times are available')
+        ->and(__('public.availability_low'))->toContain('Only a few times are available');
 });
 
 test('availability endpoint returns all seven days and only server-bookable times', function () {

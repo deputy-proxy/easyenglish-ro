@@ -135,18 +135,22 @@
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.availability_title') }}</h2>
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.availability_text') }}</p>
             </div>
-            <div class="overflow-hidden rounded-[22px] border border-line bg-white p-4 sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
+            <div class="overflow-hidden rounded-[22px] border border-[#dce5ff] bg-white p-3 shadow-[0_16px_48px_rgba(20,35,75,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}">
-                <div class="mb-5 flex items-center justify-between gap-3">
-                    <h3 class="m-0 text-[19px]">{{ __('public.booking_week_title') }}</h3>
-                    <div class="flex gap-2"><button class="size-[38px] rounded-full border border-line bg-white text-xl hover:bg-paper disabled:opacity-35" type="button" data-prev
-                            aria-label="{{ __('public.previous_week') }}">‹</button><button class="size-[38px] rounded-full border border-line bg-white text-xl hover:bg-paper" type="button" data-next
+                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
+                    <div class="min-w-0">
+                        <h3 class="m-0 text-base font-bold text-[#14234b] sm:text-[19px]">{{ __('public.booking_week_title') }}</h3>
+                        <p class="mt-1 mb-0 text-[11px] text-muted sm:text-xs">{{ __('public.availability_week_hint') }}</p>
+                    </div>
+                    <div class="flex shrink-0 gap-2"><button class="size-[36px] rounded-full border border-[#dce5ff] bg-white text-xl text-[#14234b] transition hover:bg-[#edf2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1450df] disabled:opacity-35 sm:size-[38px]" type="button" data-prev
+                            aria-label="{{ __('public.previous_week') }}">‹</button><button class="size-[36px] rounded-full border border-[#dce5ff] bg-white text-xl text-[#14234b] transition hover:bg-[#edf2ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1450df] sm:size-[38px]" type="button" data-next
                             aria-label="{{ __('public.next_week') }}">›</button></div>
                 </div>
-                <div class="overflow-x-auto"><div class="grid min-w-[735px] grid-cols-7 gap-2" data-weekgrid aria-live="polite">
-                    <p>{{ __('public.availability_loading') }}</p>
-                </div></div>
-                <p class="mt-3.5 text-xs text-muted">{{ __('public.timezone_note') }}</p>
+                <p class="mb-3 min-h-5 text-xs font-semibold text-[#3152a0]" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
+                <div class="grid min-w-0 grid-cols-7 gap-1 sm:gap-2" data-weekgrid aria-live="polite">
+                    <p class="col-span-7">{{ __('public.availability_loading') }}</p>
+                </div>
+                <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
             </div>
         </section>
         <section class="bg-[#eef2e9] py-14 md:py-[82px]" id="bundles">
@@ -265,8 +269,113 @@
         })();
     </script>
     <script>
-        (() => { const root = document.querySelector('[data-availability]'); if (!root) return; const grid = root.querySelector('[data-weekgrid]'); let week = root.dataset.week; const base = root.dataset.bookUrl; const previous = root.querySelector('[data-prev]'); const next = root.querySelector('[data-next]'); const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' }); const monday = d => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toLocaleDateString('en-CA') }; const add = (date, days) => { const x = new Date(date + 'T12:00:00'); x.setDate(x.getDate() + days); return x.toLocaleDateString('en-CA') }; const render = days => { grid.innerHTML = ''; days.forEach(day => { const col = document.createElement('div'); col.className = 'min-w-0 rounded-[13px] border border-line p-3'; const head = document.createElement('div'); head.className = 'mb-3 flex justify-between gap-1 text-xs font-bold'; const label = document.createElement('span'); label.textContent = day.label; const number = document.createElement('span'); number.textContent = day.day; head.append(label, number); const slots = document.createElement('div'); slots.className = 'grid gap-1.5'; if (!day.slots.length) { const empty = document.createElement('span'); empty.className = 'py-[7px] text-[11px] text-[#9aa49d]'; empty.textContent = @json(__('public.slot_none')); slots.append(empty) } else day.slots.forEach(slot => { const button = document.createElement('button'); button.type = 'button'; button.className = 'rounded-[7px] border-0 bg-[#edf4e9] px-0.5 py-2 text-xs text-green cursor-pointer hover:bg-lime hover:text-ink'; button.textContent = slot.time; button.setAttribute('aria-label', day.date + ' ' + slot.time); button.addEventListener('click', () => { location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking' }); slots.append(button) }); col.append(head, slots); grid.append(col) }); previous.disabled = week <= monday(today);
-            }; const load = () => { grid.innerHTML = '<p class="col-span-7">' + @json(__('public.availability_loading')) + '</p>'; fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), { headers: { Accept: 'application/json' } }).then(r => r.json()).then(data => render(data.days)).catch(() => { grid.textContent = @json(__('public.availability_error')) }) }; previous.addEventListener('click', () => { if (!previous.disabled) { week = add(week, -7); load() } }); next.addEventListener('click', () => { week = add(week, 7); load() }); load(); })();
+        (() => {
+            const root = document.querySelector('[data-availability]');
+            if (!root) return;
+
+            const grid = root.querySelector('[data-weekgrid]');
+            const status = root.querySelector('[data-week-status]');
+            let week = root.dataset.week;
+            const base = root.dataset.bookUrl;
+            const previous = root.querySelector('[data-prev]');
+            const next = root.querySelector('[data-next]');
+            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
+            const emptyMessage = @json(__('public.availability_empty'));
+            const lowMessage = @json(__('public.availability_low'));
+            const countMessage = @json(__('public.availability_week_count'));
+            const noTimesLabel = @json(__('public.slot_none'));
+            const loadError = @json(__('public.availability_error'));
+            const monday = date => {
+                const value = new Date(date + 'T12:00:00');
+                value.setDate(value.getDate() - ((value.getDay() + 6) % 7));
+                return value.toLocaleDateString('en-CA');
+            };
+            const add = (date, days) => {
+                const value = new Date(date + 'T12:00:00');
+                value.setDate(value.getDate() + days);
+                return value.toLocaleDateString('en-CA');
+            };
+            const render = days => {
+                grid.innerHTML = '';
+                const slotCount = days.reduce((total, day) => total + day.slots.length, 0);
+
+                days.forEach(day => {
+                    const column = document.createElement('div');
+                    column.className = 'min-w-0 rounded-[10px] border border-[#e3e9f8] bg-[#fbfcff] p-1.5 sm:rounded-[13px] sm:p-3';
+
+                    const heading = document.createElement('div');
+                    heading.className = 'mb-2 flex min-h-9 flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-[#14234b] sm:mb-3 sm:min-h-0 sm:flex-row sm:justify-between sm:gap-1 sm:text-xs';
+
+                    const label = document.createElement('span');
+                    label.textContent = day.label;
+                    const number = document.createElement('span');
+                    number.textContent = day.day;
+                    number.className = 'text-muted';
+                    heading.append(label, number);
+
+                    const slots = document.createElement('div');
+                    slots.className = 'grid gap-1 sm:gap-1.5';
+
+                    if (!day.slots.length) {
+                        const empty = document.createElement('span');
+                        empty.className = 'flex min-h-10 items-center justify-center text-[11px] text-[#929bad]';
+                        empty.textContent = '—';
+                        empty.setAttribute('aria-label', noTimesLabel);
+                        slots.append(empty);
+                    } else {
+                        day.slots.forEach(slot => {
+                            const button = document.createElement('button');
+                            button.type = 'button';
+                            button.className = 'min-h-10 rounded-[7px] border-0 bg-[#eaf0ff] px-0 py-2 text-[10px] leading-none font-semibold text-[#173c99] transition hover:bg-[#1450df] hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#1450df] sm:text-xs';
+                            button.textContent = slot.time;
+                            button.setAttribute('aria-label', day.date + ' ' + slot.time);
+                            button.addEventListener('click', () => {
+                                location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking';
+                            });
+                            slots.append(button);
+                        });
+                    }
+
+                    column.append(heading, slots);
+                    grid.append(column);
+                });
+
+                status.textContent = slotCount === 0
+                    ? emptyMessage
+                    : slotCount <= 3
+                        ? lowMessage
+                        : countMessage.replace(':count', String(slotCount));
+                previous.disabled = week <= monday(today);
+            };
+            const load = () => {
+                status.textContent = @json(__('public.availability_loading'));
+                grid.innerHTML = '<p class="col-span-7 text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
+                fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), {
+                    headers: { Accept: 'application/json' },
+                })
+                    .then(response => {
+                        if (!response.ok) throw new Error('Availability request failed');
+                        return response.json();
+                    })
+                    .then(data => render(data.days))
+                    .catch(() => {
+                        status.textContent = loadError;
+                        grid.innerHTML = '';
+                    });
+            };
+
+            previous.addEventListener('click', () => {
+                if (!previous.disabled) {
+                    week = add(week, -7);
+                    load();
+                }
+            });
+            next.addEventListener('click', () => {
+                week = add(week, 7);
+                load();
+            });
+            load();
+        })();
     </script>
 </body>
 
