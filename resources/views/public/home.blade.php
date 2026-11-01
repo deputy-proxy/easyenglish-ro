@@ -24,8 +24,12 @@
     <main>
         <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-8 pt-[112px] text-center text-[#14234b] sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
-                <img class="absolute bottom-0 left-0 h-auto w-[min(80vw,1280px)] max-w-[calc(100vw-24px)] max-h-full object-contain object-left-bottom" src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
-                <img class="absolute right-0 bottom-0 h-auto w-[min(80vw,1280px)] max-h-full object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
+                <div class="absolute inset-y-0 left-0 w-[min(80vw,1280px)] max-w-[calc(100vw-24px)]">
+                    <img class="h-full w-full object-contain object-left-bottom" src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
+                </div>
+                <div class="absolute inset-y-0 right-0 w-[min(80vw,1280px)]">
+                    <img class="h-full w-full object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
+                </div>
             </div>
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
