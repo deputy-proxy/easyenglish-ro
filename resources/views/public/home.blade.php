@@ -111,17 +111,19 @@
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.how_title') }}</h2>
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.how_text') }}</p>
             </div>
-            <div class="grid gap-5 md:grid-cols-2">
+            <div class="grid auto-rows-fr gap-5 md:grid-cols-2">
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6">
-                        <img
-                            class="mx-auto block h-auto max-h-[230px] w-full object-contain"
-                            src="{{ asset('images/step-'.($index + 1).'.png') }}"
-                            alt="{{ __('public.step_'.$step.'_title') }}"
-                            loading="lazy"
-                            decoding="async"
-                        >
-                        <div class="mt-4">
+                    <article class="flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6">
+                        <div class="flex h-[230px] shrink-0 items-center justify-center">
+                            <img
+                                class="block h-full w-full object-contain"
+                                src="{{ asset('images/step-'.($index + 1).'.png') }}"
+                                alt="{{ __('public.step_'.$step.'_title') }}"
+                                loading="lazy"
+                                decoding="async"
+                            >
+                        </div>
+                        <div class="mt-4 flex-1">
                             <span class="inline-flex rounded-[9px] bg-primary-soft px-3 py-2 text-xs font-extrabold text-primary">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</span>
                             <h3 class="mt-3 mb-2 text-xl">{{ __('public.step_'.$step.'_title') }}</h3>
                             <p class="m-0 text-sm leading-[1.65] text-muted">{{ __('public.step_'.$step.'_text') }}</p>
