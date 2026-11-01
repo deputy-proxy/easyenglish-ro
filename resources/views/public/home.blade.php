@@ -788,78 +788,49 @@
             }
         }
 
-        /* Figma-inspired, full-bleed conversation hero */
-        body { background: #fff; color: #14234b; }
-        .topbar.wrap { position: absolute; z-index: 10; top: 0; left: 0; right: 0; width: 100%; height: 88px; padding: 0 clamp(22px, 5.5vw, 96px); background: transparent; }
-        .brand { width: auto; }
-        .brand-logo { display: block; width: 218px; height: auto; filter: brightness(0) saturate(100%) invert(12%) sepia(28%) saturate(2554%) hue-rotate(195deg) brightness(91%) contrast(96%); }
-        .nav .button { background: #1450df; color: #fff; border: 0; border-radius: 999px; padding: 15px 27px; font-size: 15px; font-weight: 700; }
-        .nav .button:hover { background: #0d3db7; color: #fff; }
-        .hero.wrap { position: relative; isolation: isolate; width: 100%; max-width: none; min-height: min(900px, 100svh); margin: 0; padding: 176px 24px 150px; display: flex; flex-direction: column; justify-content: flex-start; align-items: center; gap: 0; overflow: hidden; border-radius: 0; background: #fff; text-align: center; }
-        .hero-backdrop { position: absolute; z-index: 0; inset: 0; overflow: hidden; background: #fff; pointer-events: none; }
-        .hero-backdrop img { position: absolute; bottom: 0; top: auto; height: auto; width: min(35vw, 570px); max-height: 78%; object-fit: contain; object-position: bottom; }
-        .hero-backdrop img:first-child { left: 0; object-position: left bottom; }
-        .hero-backdrop img:last-child { right: 0; object-position: right bottom; }
-        .hero:before { content: none; }
-        .hero-content { position: relative; z-index: 2; width: min(100%, 900px); display: flex; flex-direction: column; align-items: center; }
-        .hero .eyebrow { display: none; }
-        .hero h1 { max-width: 900px; color: #14234b; font-size: clamp(44px, 5.2vw, 76px); font-weight: 800; line-height: 1.08; letter-spacing: -2.8px; margin: 0; }
-        .hero h1 em { display: block; color: #14234b; font-weight: 800; }
-        .hero-copy { max-width: 720px; margin: 34px 0 42px; color: #53617b; font-size: clamp(19px, 1.8vw, 26px); line-height: 1.45; font-weight: 500; }
-        .hero-actions { justify-content: center; }
-        .hero .button { background: #1450df; color: #fff; border-radius: 999px; padding: 18px 34px; font-size: 19px; font-weight: 700; }
-        .hero .button:hover { background: #0d3db7; color: #fff; }
-        .hero .button.outline, .hero-secondary { display: none; }
-        .hero-note { display: none; }
-        .hero-art { display: none; }
-        .trust.wrap { position: absolute; z-index: 3; left: 50%; bottom: 26px; transform: translateX(-50%); width: min(850px, calc(100% - 48px)); padding: 16px 24px; border: 0; border-radius: 0; background: transparent; color: #14234b; }
-        .trust div { gap: 10px; font-size: 14px; font-weight: 600; }
-        .trust-mark { width: 22px; height: 22px; background: transparent; color: #14234b; }
-        .section, .bundles, .footer { color: var(--ink); }
-        @media(max-width:800px) {
-            .topbar.wrap { height: 76px; padding: 0 18px; }
-            .brand-logo { width: 160px; }
-            .hero.wrap { min-height: 850px; padding: 145px 22px 190px; border-radius: 0; }
-            .hero h1 { font-size: clamp(38px, 8vw, 56px); letter-spacing: -1.4px; }
-            .hero-copy { margin: 30px 0 34px; font-size: clamp(18px, 4vw, 23px); }
-            .hero-backdrop img { width: 48%; max-height: 42%; opacity: 1; }
-            .hero-backdrop img:first-child { left: -4%; }
-            .hero-backdrop img:last-child { display: block; right: -4%; }
-            .trust.wrap { bottom: 18px; width: calc(100% - 32px); border-radius: 22px; padding: 14px 16px; display: grid; grid-template-columns: 1fr; gap: 10px; }
-            .trust div { justify-content: flex-start; text-align: left; flex-direction: row; font-size: 12px; }
-        }
-        @media(max-width:420px) {
-            .hero.wrap { min-height: 800px; padding-top: 130px; }
-            .hero h1 { font-size: 36px; letter-spacing: -1.2px; }
-            .hero-copy { margin: 28px 0 32px; }
-            .hero .button { padding: 15px 20px; font-size: 16px; }
-        }
-
     </style>
 </head>
 
 <body>
-    <header class="wrap topbar">
-        <a class="brand" href="{{ route('home') }}" aria-label="Easy English home">
-            <img class="brand-logo" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
+    <header class="absolute inset-x-0 top-0 z-20 flex h-[76px] items-center justify-between gap-3 px-4 sm:px-6 md:h-[88px] md:px-[clamp(22px,5.5vw,96px)]">
+        <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
+            <img class="block w-[138px] sm:w-[165px] md:w-[218px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
-        <nav class="nav" aria-label="{{ __('public.nav_label') }}"><a class="button nav-cta" href="#availability">{{ app()->getLocale() === 'ro' ? 'Programează o sesiune gratuită' : 'Book a free session' }}</a></nav>
+        <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
+            <a class="inline-flex min-h-10 max-w-[142px] items-center justify-center rounded-full bg-[#1450df] px-4 py-2.5 text-center text-xs leading-tight font-bold text-white transition-colors hover:bg-[#0d3db7] sm:max-w-none sm:text-sm md:px-7 md:py-[15px] md:text-[15px]" href="#availability">
+                {{ app()->getLocale() === 'ro' ? 'Sesiune gratuită' : 'Free session' }}
+            </a>
+        </nav>
     </header>
     <main>
-        <section class="hero wrap">
-            <div class="hero-backdrop" aria-hidden="true">
-                <img src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
-                <img src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-8 pt-[112px] text-center text-[#14234b] sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
+            <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
+                <img class="absolute bottom-0 left-0 h-auto w-[min(35vw,570px)] max-h-[78%] object-contain object-left-bottom" src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
+                <img class="absolute right-0 bottom-0 h-auto w-[min(35vw,570px)] max-h-[78%] object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
-            <div class="hero-content">
-                <h1>{{ __('public.hero_title_a') }} <em>{{ __('public.hero_title_em') }}</em></h1>
-                <p class="hero-copy">{{ __('public.hero_text') }}</p>
-                <div class="hero-actions"><a class="button" href="#availability">{{ app()->getLocale() === 'ro' ? 'Programează prima ședință complet gratuit' : 'Book your first session completely free' }}</a></div>
+
+            <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
+                <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
+                    {{ __('public.hero_title_a') }}
+                    <span class="block font-extrabold">{{ __('public.hero_title_em') }}</span>
+                </h1>
+                <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
+                    {{ __('public.hero_text') }}
+                </p>
+                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
+                    {{ app()->getLocale() === 'ro' ? 'Programează gratuit' : 'Book a free session' }}
+                </a>
             </div>
-            <div class="wrap trust">
-                <div><span class="trust-mark" aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
-                <div><span class="trust-mark" aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
-                <div><span class="trust-mark" aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
+
+            <div class="relative z-10 mt-7 grid w-full max-w-[430px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
+                <img class="h-[190px] w-full rounded-2xl object-cover object-center" src="{{ asset('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
+                <img class="h-[190px] w-full rounded-2xl object-cover object-center" src="{{ asset('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+            </div>
+
+            <div class="relative z-10 mt-6 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#14234b] md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
+                <div class="flex items-center gap-2"><span aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
+                <div class="flex items-center gap-2"><span aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
+                <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
             </div>
         </section>
         <section class="section wrap motivation" id="why">
