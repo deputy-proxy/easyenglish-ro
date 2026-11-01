@@ -49,6 +49,23 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('O singură sesiune introductivă gratuită per persoană');
 });
 
+test('public landing page versions logo and hero images using their file contents', function () {
+    $assets = [
+        'images/logo-white.svg',
+        'images/hero-teacher.png',
+        'images/hero-student.png',
+    ];
+
+    $response = $this->get('/')->assertOk();
+
+    foreach ($assets as $asset) {
+        $response->assertSee(
+            'src="'.asset($asset).'?v='.hash_file('sha256', public_path($asset)).'"',
+            false,
+        );
+    }
+});
+
 test('visitor can switch the public experience to English without an account', function () {
     $this->from('/')->post('/language', ['locale' => 'en'])->assertRedirect('/');
 
