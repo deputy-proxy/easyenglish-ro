@@ -53,6 +53,8 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('780')
         ->assertSee('15 minute pe sesiune')
         ->assertSee('Europe/Bucharest')
+        ->assertSee('Data viitoare când ai ceva de spus, spune-o în engleză.')
+        ->assertSee('Rezervă prima conversație gratuită.')
         ->assertSee('data-week-status', false)
         ->assertSee('Toate cele 7 zile sunt vizibile simultan. Alege direct un interval.')
         ->assertSee('grid min-w-0 grid-cols-7 gap-1 sm:gap-2', false)
@@ -101,6 +103,8 @@ test('visitor can switch the public experience to English without an account', f
         ->assertSee('1 free session + 20 paid sessions')
         ->assertSee('21 sessions in total')
         ->assertSee('All 7 days are visible at once. Choose a time directly.')
+        ->assertSee('Next time you have something to say, say it in English.')
+        ->assertSee('Book your first free conversation.')
         ->assertSee('MOST POPULAR');
 });
 
