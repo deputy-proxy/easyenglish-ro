@@ -152,27 +152,61 @@
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials">
-            <div class="mb-8 max-w-[650px]">
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.testimonials_eyebrow') }}</p>
-                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.testimonials_title') }}</h2>
+            <div class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                <div class="max-w-[650px]">
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.testimonials_eyebrow') }}</p>
+                    <h2 class="mb-0 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.testimonials_title') }}</h2>
+                </div>
                 @if ($testimonials->isNotEmpty())
-                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="flex shrink-0 items-center gap-2" data-testimonial-navigation>
+                        <button class="testimonial-arrow" type="button" data-testimonial-previous aria-label="{{ __('public.testimonials_previous') }}" @disabled($testimonials->count() < 2)>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+                        </button>
+                        <button class="testimonial-arrow testimonial-arrow--next" type="button" data-testimonial-next aria-label="{{ __('public.testimonials_next') }}" @disabled($testimonials->count() < 2)>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                @endif
+            </div>
+
+            @if ($testimonials->isNotEmpty())
+                <div class="testimonial-carousel" data-testimonials-carousel>
+                    <div class="testimonial-feature" aria-live="polite" aria-atomic="true">
+                        <span class="testimonial-quote-mark" aria-hidden="true">“</span>
                         @foreach ($testimonials as $testimonial)
-                            <figure class="m-0 flex h-full flex-col rounded-[20px] border border-line bg-white p-6">
-                                <blockquote class="flex-1 text-base leading-[1.8] text-ink">{{ $testimonial->quote }}</blockquote>
-                                <figcaption class="mt-6 border-t border-line pt-4">
-                                    <span class="block font-bold text-ink">{{ $testimonial->author_name ?: __('public.testimonials_anonymous') }}</span>
-                                    @if ($testimonial->author_context)
-                                        <span class="mt-1 block text-sm text-muted">{{ $testimonial->author_context }}</span>
-                                    @endif
+                            <figure class="testimonial-panel" data-testimonial-panel @if (! $loop->first) hidden @endif>
+                                <blockquote class="testimonial-quote">{{ $testimonial->quote }}</blockquote>
+                                <figcaption class="testimonial-attribution">
+                                    <span class="testimonial-avatar" aria-hidden="true">{{ $testimonial->author_name ? mb_strtoupper(mb_substr($testimonial->author_name, 0, 1)) : '—' }}</span>
+                                    <span class="min-w-0">
+                                        <span class="block font-bold text-ink">{{ $testimonial->author_name ?: __('public.testimonials_anonymous') }}</span>
+                                        @if ($testimonial->author_context)
+                                            <span class="mt-1 block text-sm text-muted">{{ $testimonial->author_context }}</span>
+                                        @endif
+                                    </span>
                                 </figcaption>
                             </figure>
                         @endforeach
                     </div>
-                @else
-                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
-                @endif
-            </div>
+
+                    <div class="testimonial-selector-list" role="group" aria-label="{{ __('public.testimonials_choose') }}">
+                        @foreach ($testimonials as $testimonial)
+                            <button class="testimonial-selector" type="button" data-testimonial-selector aria-label="{{ __('public.testimonials_show', ['name' => $testimonial->author_name ?: __('public.testimonials_anonymous')]) }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-active="{{ $loop->first ? 'true' : 'false' }}">
+                                <span class="testimonial-selector-avatar" aria-hidden="true">{{ $testimonial->author_name ? mb_strtoupper(mb_substr($testimonial->author_name, 0, 1)) : '—' }}</span>
+                                <span class="min-w-0 flex-1 text-left">
+                                    <span class="testimonial-selector-name">{{ $testimonial->author_name ?: __('public.testimonials_anonymous') }}</span>
+                                    @if ($testimonial->author_context)
+                                        <span class="testimonial-selector-context">{{ $testimonial->author_context }}</span>
+                                    @endif
+                                    <span class="testimonial-selector-progress" aria-hidden="true"><span data-testimonial-progress></span></span>
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
+            @endif
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
