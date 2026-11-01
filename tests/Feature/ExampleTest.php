@@ -29,10 +29,24 @@ test('public FAQ section mirrors the progress card layout with questions on the 
 
     $response->assertOk();
     $response->assertSee('id="faq"', false);
-    $response->assertSee('rounded-[22px] border border-line bg-white p-4 shadow-[0_16px_48px_rgba(20,35,75,0.06)] sm:p-6', false);
+    $response->assertSee('rounded-[22px] bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)] sm:p-6', false);
     $response->assertSee(__('public.faq_q1'));
     $response->assertSee(__('public.faq_a4'));
 
     expect(strpos($content, __('public.faq_q1')))
         ->toBeLessThan(strpos($content, __('public.faq_eyebrow')));
+});
+
+test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {
+    $response = $this->get(route('home'));
+    $content = $response->getContent();
+    $shadow = 'shadow-[0_1px_1px_rgba(0,0,0,0.15),0_2px_2px_rgba(0,0,0,0.15),0_4px_4px_rgba(0,0,0,0.15),0_8px_8px_rgba(0,0,0,0.15)]';
+
+    $response->assertOk();
+    expect(substr_count($content, $shadow))->toBeGreaterThanOrEqual(4);
+    $response->assertSee('data-availability');
+    $response->assertSee('aria-labelledby="public-progress-chart-title"', false);
+    $response->assertSee('aria-label="'.__('public.faq_title').'"', false);
+    $response->assertDontSee('rounded-[22px] border border-primary-border bg-white p-3');
+    $response->assertDontSee('rounded-[22px] border border-line bg-white p-4');
 });
