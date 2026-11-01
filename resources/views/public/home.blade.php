@@ -24,20 +24,20 @@
     <main>
         <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-8 pt-[112px] text-center text-[#14234b] sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
-                <img class="absolute bottom-0 left-0 h-auto w-[min(80vw,1280px)] max-h-full object-contain object-left-bottom" src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
+                <img class="absolute bottom-0 left-0 h-auto w-[min(80vw,1280px)] max-w-[calc(100vw-24px)] max-h-full object-contain object-left-bottom" src="{{ asset('images/hero-teacher.png') }}" alt="" fetchpriority="high">
                 <img class="absolute right-0 bottom-0 h-auto w-[min(80vw,1280px)] max-h-full object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
                 <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
-                    {{ __('public.hero_title_a') }}
+                    <span class="block md:whitespace-nowrap md:text-[clamp(34px,3.7vw,56px)]">{{ __('public.hero_title_a') }}</span>
                     <span class="block font-extrabold">{{ __('public.hero_title_em') }}</span>
                 </h1>
                 <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
                     {{ __('public.hero_text') }}
                 </p>
                 <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
-                    {{ app()->getLocale() === 'ro' ? 'Programează gratuit' : 'Book a free session' }}
+                    {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
                 </a>
             </div>
 
