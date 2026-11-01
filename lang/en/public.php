@@ -103,6 +103,7 @@ return [
     'testimonials_eyebrow' => 'LEARNER EXPERIENCES',
     'testimonials_title' => 'Good conversations deserve to be heard.',
     'testimonials_empty' => 'We are collecting feedback and permission to share it. We will publish learners’ words here once they have approved them.',
+    'testimonials_anonymous' => 'Anonymous learner',
     'progress_eyebrow' => 'SEE HOW YOU ARE DEVELOPING',
     'progress_title' => 'Progress you can understand.',
     'progress_text' => 'After sessions, your teacher can record feedback and prepare a progress report with your current level, strengths, areas to work on, and practical recommendations.',
