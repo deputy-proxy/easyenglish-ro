@@ -16,8 +16,8 @@
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
-            <a class="inline-flex min-h-10 max-w-[142px] items-center justify-center rounded-full bg-[#1450df] px-4 py-2.5 text-center text-xs leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:max-w-none sm:text-sm md:px-7 md:py-[15px] md:text-[15px]" href="#availability">
-                {{ app()->getLocale() === 'ro' ? 'Sesiune gratuită' : 'Free session' }}
+            <a class="inline-flex min-h-10 items-center justify-center rounded-[6px] border border-[#14234b] px-4 py-2.5 text-center text-xs leading-tight font-bold text-[#14234b] transition-colors hover:bg-[#14234b] hover:text-white sm:text-sm md:px-7 md:py-[15px] md:text-[15px]" href="{{ url('/admin/login') }}">
+                Autentificare
             </a>
         </nav>
     </header>
