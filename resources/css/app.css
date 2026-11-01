@@ -81,7 +81,7 @@ select:focus[data-flux-control] {
     }
 
     6%,
-    14% {
+    12% {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
@@ -157,7 +157,7 @@ select:focus[data-flux-control] {
     .hero-conversation {
         position: relative;
         inset: auto;
-        height: 76px;
+        height: 64px;
         width: 100%;
         margin-top: 20px;
     }
@@ -165,14 +165,14 @@ select:focus[data-flux-control] {
     .hero-conversation__side {
         top: 0;
         bottom: auto;
-        width: 78%;
-    }
-
-    .hero-conversation__side--teacher {
         left: 0;
+        right: 0;
+        width: 100%;
     }
 
+    .hero-conversation__side--teacher,
     .hero-conversation__side--learner {
+        left: 0;
         right: 0;
     }
 
@@ -184,7 +184,12 @@ select:focus[data-flux-control] {
     }
 
     .hero-conversation__side--learner .hero-conversation__bubble {
+        right: 0;
+        left: auto;
+        width: fit-content;
+        max-width: 100%;
         border-radius: 12px 12px 4px 12px;
+        text-align: right;
     }
 }
 
