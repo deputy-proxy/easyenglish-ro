@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Booking;
+use App\Models\ProgressReport;
 use App\Models\SessionFeedback;
 use App\Models\User;
 use Illuminate\Support\Str;
@@ -55,4 +56,86 @@ test('calendar and progress dashboard views show the learner’s own sessions an
         ->assertSee('85')
         ->assertSee('Practise everyday vocabulary')
         ->assertDontSee(__('public.dashboard_current'));
+});
+
+test('progress dashboard plots complete session assessments as separate radar chart series', function () {
+    $user = User::factory()->create(['email' => 'radar-learner@example.com']);
+    $metrics = ['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'];
+    $baseline = [20, 25, 30, 35, 40];
+    $firstScores = [35, 40, 45, 50, 55];
+    $secondScores = [40, 45, 50, 55, 60];
+
+    $makeBooking = function (int $daysAgo) use ($user): Booking {
+        return Booking::query()->create([
+            'public_reference' => (string) Str::uuid(),
+            'customer_name' => $user->name,
+            'customer_email' => $user->email,
+            'customer_phone' => '+40722123456',
+            'english_level' => 'B1',
+            'session_goal' => 'Work conversations',
+            'accepted_policy_version' => 'test-policy',
+            'starts_at' => now()->subDays($daysAgo),
+            'ends_at' => now()->subDays($daysAgo)->addMinutes(15),
+            'duration_minutes' => 15,
+            'status' => 'completed',
+            'locale' => 'en',
+        ]);
+    };
+
+    $firstBooking = $makeBooking(10);
+    foreach ($metrics as $index => $metric) {
+        SessionFeedback::query()->create([
+            'booking_id' => $firstBooking->id,
+            'metric_key' => $metric,
+            'baseline_score' => $baseline[$index],
+            'current_score' => $firstScores[$index],
+            'potential_score' => 90,
+        ]);
+    }
+
+    $secondBooking = $makeBooking(3);
+    foreach ($metrics as $index => $metric) {
+        SessionFeedback::query()->create([
+            'booking_id' => $secondBooking->id,
+            'metric_key' => $metric,
+            'baseline_score' => $baseline[$index],
+            'current_score' => $secondScores[$index],
+            'potential_score' => 95,
+        ]);
+    }
+
+    ProgressReport::query()->create([
+        'booking_id' => $secondBooking->id,
+        'title' => 'Your latest progress report',
+        'summary' => 'You are more comfortable maintaining a work conversation.',
+        'strengths' => 'Clearer vocabulary choices.',
+        'areas_to_improve' => 'Use more varied sentence structures.',
+        'recommendations' => 'Practise explaining decisions in English.',
+        'shared_at' => now(),
+        'created_by' => $user->id,
+    ]);
+
+    $partialBooking = $makeBooking(1);
+    foreach (array_slice($metrics, 0, 2) as $index => $metric) {
+        SessionFeedback::query()->create([
+            'booking_id' => $partialBooking->id,
+            'metric_key' => $metric,
+            'current_score' => 60 + $index,
+        ]);
+    }
+
+    $this->actingAs($user)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'progress']))
+        ->assertOk()
+        ->assertSee('Your development across five dimensions')
+        ->assertSee('2 complete session assessments')
+        ->assertSee('Session #'.$firstBooking->id)
+        ->assertSee('Session #'.$secondBooking->id)
+        ->assertSee('Strongest measured improvement')
+        ->assertSee('+20 points')
+        ->assertSee('Your latest progress report')
+        ->assertSee('Practise explaining decisions in English.')
+        ->assertSee('20', false)
+        ->assertSee('40', false)
+        ->assertSee('1 session assessment(s) are incomplete', false);
 });

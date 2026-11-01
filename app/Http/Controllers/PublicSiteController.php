@@ -7,6 +7,7 @@ use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
 use App\Models\FreeSessionClaim;
+use App\Models\ProgressReport;
 use App\Models\SessionFeedback;
 use App\Models\Testimonial;
 use App\Models\User;
@@ -16,6 +17,7 @@ use App\Services\Booking\BookingService;
 use App\Services\Booking\BundleEntitlementService;
 use App\Services\Booking\CancellationPolicyService;
 use App\Services\Payments\StripeCheckoutService;
+use App\Services\Progress\ProgressChartData;
 use App\Services\Verification\ContactVerificationService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
@@ -713,7 +715,7 @@ class PublicSiteController extends Controller
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
-    public function dashboard(Request $request): View
+    public function dashboard(Request $request, ProgressChartData $progressChartData): View
     {
         $this->applyLocale($request);
         $email = mb_strtolower((string) $request->user()->email);
@@ -747,8 +749,19 @@ class PublicSiteController extends Controller
         $feedback = SessionFeedback::query()
             ->with('booking')
             ->whereHas('booking', fn ($query) => $query->whereRaw('LOWER(customer_email) = ?', [$email]))
-            ->orderByDesc('updated_at')
             ->get();
+        $progressChart = $progressChartData->build($feedback, [
+            'vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence',
+        ]);
+        $latestProgressReport = ProgressReport::query()
+            ->with('booking')
+            ->whereNotNull('shared_at')
+            ->whereHas('booking', fn ($query) => $query->whereRaw('LOWER(customer_email) = ?', [$email]))
+            ->orderByDesc('shared_at')
+            ->first();
+        $feedback = $feedback->sortByDesc(fn (SessionFeedback $item): int => $item->booking->starts_at->getTimestamp())
+            ->unique('metric_key')
+            ->values();
         $activeView = $request->query('view', 'overview');
         if (! in_array($activeView, ['overview', 'calendar', 'progress'], true)) {
             $activeView = 'overview';
@@ -763,6 +776,8 @@ class PublicSiteController extends Controller
             'calendarBookingUrl' => $calendarBookingUrl,
             'calendarWeekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
             'feedback' => $feedback,
+            'progressChart' => $progressChart,
+            'latestProgressReport' => $latestProgressReport,
             'hasActiveBundle' => $activeEntitlements->isNotEmpty(),
         ]);
     }
