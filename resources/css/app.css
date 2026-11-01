@@ -71,3 +71,121 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+
+@keyframes hero-conversation-bubble {
+    0%,
+    3% {
+        opacity: 0;
+        transform: translateY(9px) scale(0.98);
+    }
+
+    6%,
+    14% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
+    18%,
+    100% {
+        opacity: 0;
+        transform: translateY(-5px) scale(0.99);
+    }
+}
+
+.hero-conversation__side {
+    position: absolute;
+    bottom: clamp(340px, 45%, 410px);
+    width: min(220px, 17vw);
+}
+
+.hero-conversation__side--teacher {
+    left: clamp(24px, 2.5vw, 42px);
+}
+
+.hero-conversation__side--learner {
+    right: clamp(24px, 2.5vw, 42px);
+}
+
+.hero-conversation__bubble {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    margin: 0;
+    border: 1px solid #dce6ff;
+    border-radius: 17px 17px 17px 5px;
+    background: rgb(255 255 255 / 96%);
+    padding: 13px 16px;
+    color: #14234b;
+    box-shadow: 0 8px 28px rgb(20 35 75 / 10%);
+    font-size: clamp(12px, 0.95vw, 14px);
+    font-weight: 600;
+    line-height: 1.4;
+    opacity: 0;
+    animation: hero-conversation-bubble 24s ease-in-out infinite both;
+    animation-delay: var(--conversation-delay);
+}
+
+.hero-conversation__side--learner .hero-conversation__bubble {
+    border-color: #dce9e2;
+    border-radius: 17px 17px 5px 17px;
+    background: #f3f8f5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-conversation__bubble {
+        animation: none;
+        opacity: 0;
+        transform: none;
+    }
+
+    .hero-conversation__side .hero-conversation__bubble:first-child {
+        opacity: 1;
+    }
+}
+
+
+.hero-conversation__typing {
+    display: flex;
+    width: 76px;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 16px 14px;
+}
+
+.hero-conversation__typing span {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: #53617b;
+    animation: hero-conversation-typing 1s ease-in-out infinite;
+}
+
+.hero-conversation__typing span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.hero-conversation__typing span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes hero-conversation-typing {
+    0%,
+    60%,
+    100% {
+        opacity: 0.45;
+        transform: translateY(0);
+    }
+
+    30% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-conversation__typing span {
+        animation: none;
+    }
+}
