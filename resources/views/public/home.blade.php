@@ -22,7 +22,7 @@
         </nav>
     </header>
     <main>
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-8 pt-[112px] text-center text-[#14234b] sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-7 pt-[100px] text-center text-[#14234b] sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
                 <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high">
                 <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high">
@@ -33,7 +33,7 @@
                     <span class="block md:whitespace-nowrap text-2xl">{{ __('public.hero_title_a') }}</span>
                     <span class="block font-bold text-6xl">{{ __('public.hero_title_em') }}</span>
                 </h1>
-                <p class="my-6 max-w-[38ch] text-lg font-medium text-[#53617b]">
+                <p class="my-5 max-w-[38ch] text-lg font-medium text-[#53617b]">
                     {{ __('public.hero_text') }}
                 </p>
                 <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
@@ -82,11 +82,11 @@
             </div>
 
             <div class="relative z-10 grid w-full max-w-[480px] grid-cols-2 gap-3 md:hidden" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant' : 'Teacher and learner' }}">
-                <img class="h-[280px] w-full rounded-2xl object-cover object-left" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
-                <img class="h-[280px] w-full rounded-2xl object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+                <img class="h-[250px] w-full rounded-2xl object-cover object-left" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
+                <img class="h-[250px] w-full rounded-2xl object-cover object-right" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
             </div>
 
-            <div class="relative z-10 mt-6 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#14234b] md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
+            <div class="relative z-10 mt-5 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-[#14234b] md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
                 <div class="flex items-center gap-2"><span aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
