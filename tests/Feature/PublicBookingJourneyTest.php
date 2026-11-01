@@ -74,6 +74,59 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('21 sesiuni în total');
 });
 
+test('landing page shows only active teachers by first name and never exposes their private details', function () {
+    User::factory()->create([
+        'name' => 'Alexandra Popescu',
+        'email' => 'alexandra.private@example.com',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+    User::factory()->create([
+        'name' => 'Inactive Teacher',
+        'is_teacher' => true,
+        'teacher_active' => false,
+    ]);
+    User::factory()->create([
+        'name' => 'Regular Staff',
+        'is_teacher' => false,
+        'teacher_active' => true,
+    ]);
+
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('id="teachers"', false)
+        ->assertSee('Alexandra')
+        ->assertDontSee('Popescu')
+        ->assertDontSee('alexandra.private@example.com')
+        ->assertDontSee('Inactive Teacher')
+        ->assertDontSee('Regular Staff');
+});
+
+test('landing page explains real progress reporting and handles missing testimonials honestly', function () {
+    $this->withSession(['locale' => 'en'])->get('/')
+        ->assertOk()
+        ->assertSee('id="testimonials"', false)
+        ->assertSee('We are collecting feedback and permission to share it.')
+        ->assertSee('id="progress-reports"', false)
+        ->assertSee('your current level, strengths, areas to work on, and practical recommendations')
+        ->assertSee('Speaking confidence')
+        ->assertSee('Fluency')
+        ->assertSee('Vocabulary')
+        ->assertSee('Pronunciation')
+        ->assertSee('Grammar')
+        ->assertSee('not an automated score')
+        ->assertDontSee('95% improvement');
+});
+
+test('teacher and progress sections are localized in Romanian', function () {
+    $this->get('/')
+        ->assertOk()
+        ->assertSee('Cunoaște-ți profesorii.')
+        ->assertSee('EXPERIENȚELE CURSANȚILOR')
+        ->assertSee('Progres pe care îl poți înțelege.')
+        ->assertSee('Nu este un scor automat');
+});
+
 test('public landing page versions logo and hero images using their file contents', function () {
     $assets = [
         'images/logo-white.svg',

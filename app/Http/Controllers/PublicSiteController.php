@@ -8,6 +8,7 @@ use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
 use App\Models\FreeSessionClaim;
 use App\Models\SessionFeedback;
+use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
@@ -36,6 +37,7 @@ class PublicSiteController extends Controller
 
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
+            'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name']),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
         ]);
     }
