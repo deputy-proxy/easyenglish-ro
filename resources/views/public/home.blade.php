@@ -29,9 +29,9 @@
             </div>
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
-                <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
+                <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] md:text-[clamp(44px,5.2vw,76px)]">
                     <span class="block md:whitespace-nowrap md:text-[clamp(34px,3.7vw,56px)]">{{ __('public.hero_title_a') }}</span>
-                    <span class="block font-extrabold">{{ __('public.hero_title_em') }}</span>
+                    <span class="block font-bold">{{ __('public.hero_title_em') }}</span>
                 </h1>
                 <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
                     {{ __('public.hero_text') }}
