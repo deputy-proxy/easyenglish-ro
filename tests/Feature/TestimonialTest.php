@@ -110,3 +110,36 @@ it('allows staff to create a consented testimonial from Filament', function () {
         'is_published' => true,
     ]);
 });
+
+it('renders published learner stories as an accessible single-story carousel', function () {
+    Testimonial::factory()->approvedAndPublished()->create([
+        'quote' => 'I can speak more confidently at work.',
+        'author_name' => 'Maria',
+        'author_context' => 'English for work',
+        'locale' => 'en',
+        'sort_order' => 1,
+    ]);
+    Testimonial::factory()->approvedAndPublished()->create([
+        'quote' => 'I can follow meetings without translating every sentence.',
+        'author_name' => 'Alex',
+        'author_context' => 'Professional English',
+        'locale' => 'en',
+        'sort_order' => 2,
+    ]);
+
+    $response = $this->withSession(['locale' => 'en'])->get('/');
+
+    $response->assertOk()
+        ->assertSee('data-testimonials-carousel', false)
+        ->assertSee('data-testimonial-previous', false)
+        ->assertSee('data-testimonial-next', false)
+        ->assertSee('data-testimonial-selector', false)
+        ->assertSee('aria-pressed="true"', false)
+        ->assertSee('I can speak more confidently at work.')
+        ->assertSee('I can follow meetings without translating every sentence.')
+        ->assertSee('Show the story from Maria')
+        ->assertSee('Show the story from Alex');
+
+    expect(substr_count($response->getContent(), 'data-testimonial-panel'))->toBe(2)
+        ->and(substr_count($response->getContent(), 'data-testimonial-selector'))->toBe(2);
+});
