@@ -13,7 +13,7 @@
 <body class="bg-paper font-sans text-ink antialiased">
     <header class="absolute inset-x-0 top-0 z-20 flex h-[76px] items-center justify-between gap-3 px-4 sm:px-6 md:h-[88px] md:px-[clamp(22px,5.5vw,96px)]">
         <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
-            <img class="block w-[138px] sm:w-[165px] md:w-[218px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
+            <img class="block w-[100px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ asset('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
             <a class="inline-flex min-h-10 max-w-[142px] items-center justify-center rounded-full bg-[#1450df] px-4 py-2.5 text-center text-xs leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:max-w-none sm:text-sm md:px-7 md:py-[15px] md:text-[15px]" href="#availability">
