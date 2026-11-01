@@ -28,6 +28,20 @@
                 <img class="absolute bottom-0 right-0 top-auto w-auto max-h-full max-w-[75%] object-contain object-right-bottom" src="{{ asset('images/hero-student.png') }}" alt="" fetchpriority="high">
             </div>
 
+            <div class="hero-conversation pointer-events-none absolute inset-0 z-10 hidden xl:block" aria-hidden="true">
+                <div class="hero-conversation__side hero-conversation__side--teacher">
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 0s">Hi! How was your weekend?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 8s">Nice! Where did you go?</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 16s">Sounds lovely. Tell me more!</p>
+                </div>
+                <div class="hero-conversation__side hero-conversation__side--learner">
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 4s">It was great. I went hiking!</p>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 12s">To the mountains. It was beautiful!</p>
+                    <div class="hero-conversation__bubble hero-conversation__typing" style="--conversation-delay: 18s"><span></span><span></span><span></span></div>
+                    <p class="hero-conversation__bubble" style="--conversation-delay: 20s">I'd love to!</p>
+                </div>
+            </div>
+
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
                 <h1 class="m-0 max-w-[900px] text-[clamp(2.15rem,8vw,4.75rem)] leading-[1.06] font-extrabold tracking-[-0.045em] md:text-[clamp(44px,5.2vw,76px)]">
                     <span class="block md:whitespace-nowrap md:text-[clamp(34px,3.7vw,56px)]">{{ __('public.hero_title_a') }}</span>
