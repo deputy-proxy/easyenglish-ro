@@ -30,10 +30,10 @@
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
                 <h1 class="m-0 leading-[1.06]">
-                    <span class="block md:whitespace-nowrap text-xl">{{ __('public.hero_title_a') }}</span>
-                    <span class="block font-bold text-3xl">{{ __('public.hero_title_em') }}</span>
+                    <span class="block md:whitespace-nowrap text-2xl">{{ __('public.hero_title_a') }}</span>
+                    <span class="block font-bold text-6xl">{{ __('public.hero_title_em') }}</span>
                 </h1>
-                <p class="my-6 max-w-[38ch] text-[17px] leading-[1.5] font-medium text-[#53617b] sm:text-[19px] md:my-[34px] md:mb-[42px] md:text-[clamp(19px,1.8vw,26px)]">
+                <p class="my-6 max-w-[38ch] text-lg font-medium text-[#53617b]">
                     {{ __('public.hero_text') }}
                 </p>
                 <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-[#1450df] px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-[#0d3db7] sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
