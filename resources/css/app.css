@@ -346,6 +346,9 @@ select:focus[data-flux-control] {
     justify-content: space-between;
     gap: 34px;
     margin: 0;
+}
+
+.testimonial-panel.is-entering {
     animation: testimonial-panel-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -515,7 +518,7 @@ select:focus[data-flux-control] {
         transition: none;
     }
 
-    .testimonial-panel {
+    .testimonial-panel.is-entering {
         animation: none;
     }
 }
