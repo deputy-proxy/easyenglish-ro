@@ -318,6 +318,7 @@ select:focus[data-flux-control] {
 
 .testimonial-feature {
     position: relative;
+    display: grid;
     min-height: 300px;
     overflow: hidden;
     border: 1px solid var(--color-line);
@@ -340,6 +341,7 @@ select:focus[data-flux-control] {
 
 .testimonial-panel {
     position: relative;
+    grid-area: 1 / 1;
     display: flex;
     min-height: 250px;
     flex-direction: column;
@@ -360,10 +362,10 @@ select:focus[data-flux-control] {
     max-width: 920px;
     margin: 12px 0 0;
     color: var(--color-ink);
-    font-size: clamp(21px, 3vw, 34px);
+    font-size: clamp(19px, 2.5vw, 29px);
     font-weight: 550;
-    line-height: 1.48;
-    letter-spacing: -0.7px;
+    line-height: 1.5;
+    letter-spacing: -0.55px;
 }
 
 .testimonial-attribution {
@@ -372,8 +374,7 @@ select:focus[data-flux-control] {
     gap: 13px;
 }
 
-.testimonial-avatar,
-.testimonial-selector-avatar {
+.testimonial-avatar {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -390,72 +391,17 @@ select:focus[data-flux-control] {
     font-size: 17px;
 }
 
-.testimonial-selector-list {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 18px 2px 4px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-line) transparent;
-}
-
-.testimonial-selector {
-    position: relative;
-    display: flex;
-    min-width: 220px;
-    flex: 1 0 220px;
-    align-items: center;
-    gap: 11px;
-    border: 1px solid transparent;
-    border-radius: 16px;
-    background: transparent;
-    padding: 12px;
-    text-align: left;
-    transition: border-color 180ms ease, background-color 180ms ease;
-}
-
-.testimonial-selector[data-active="true"] {
-    border-color: var(--color-primary-border);
-    background: var(--color-primary-soft);
-}
-
-.testimonial-selector-avatar {
-    width: 40px;
-    height: 40px;
-    background: white;
-    font-size: 14px;
-}
-
-.testimonial-selector-name,
-.testimonial-selector-context {
+.testimonial-author-progress {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.testimonial-selector-name {
-    color: var(--color-ink);
-    font-size: 13px;
-    font-weight: 750;
-}
-
-.testimonial-selector-context {
-    margin-top: 3px;
-    color: var(--color-muted);
-    font-size: 11px;
-}
-
-.testimonial-selector-progress {
-    display: block;
-    height: 2px;
+    width: min(190px, 100%);
+    height: 3px;
     overflow: hidden;
     margin-top: 9px;
     border-radius: 999px;
     background: var(--color-line);
 }
 
-.testimonial-selector-progress span {
+.testimonial-author-progress span {
     display: block;
     width: 100%;
     height: 100%;
@@ -463,11 +409,25 @@ select:focus[data-flux-control] {
     background: var(--color-primary);
     transform: scaleX(0);
     transform-origin: left center;
-    transition: transform 280ms ease;
 }
 
-.testimonial-selector[data-active="true"] .testimonial-selector-progress span {
-    transform: scaleX(1);
+.testimonial-carousel {
+    touch-action: pan-y;
+}
+
+.testimonial-panel.is-leaving {
+    animation: testimonial-panel-leave 220ms ease both;
+    pointer-events: none;
+}
+
+@keyframes testimonial-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+}
+
+@keyframes testimonial-panel-leave {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-5px); }
 }
 
 @keyframes testimonial-panel-enter {
@@ -484,41 +444,31 @@ select:focus[data-flux-control] {
 
 @media (max-width: 640px) {
     .testimonial-feature {
-        min-height: 330px;
+        min-height: 310px;
         border-radius: 19px;
         padding: 27px 22px;
     }
 
     .testimonial-panel {
-        min-height: 275px;
+        min-height: 255px;
         gap: 25px;
     }
 
     .testimonial-quote {
         margin-top: 19px;
-        font-size: 22px;
-        line-height: 1.5;
-    }
-
-    .testimonial-selector-list {
-        margin-right: -1.25rem;
-        padding-right: 1.25rem;
-    }
-
-    .testimonial-selector {
-        min-width: 205px;
-        flex-basis: 205px;
+        font-size: 19px;
+        line-height: 1.55;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .testimonial-arrow,
-    .testimonial-selector,
-    .testimonial-selector-progress span {
+    .testimonial-author-progress span {
         transition: none;
     }
 
-    .testimonial-panel.is-entering {
+    .testimonial-panel.is-entering,
+    .testimonial-panel.is-leaving {
         animation: none;
     }
 }

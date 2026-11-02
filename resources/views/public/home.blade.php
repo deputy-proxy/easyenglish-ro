@@ -191,7 +191,7 @@
             </div>
 
             @if ($testimonials->isNotEmpty())
-                <div class="testimonial-carousel" data-testimonials-carousel>
+                <div class="testimonial-carousel" data-testimonials-carousel data-autoplay-duration="7000">
                     <div class="testimonial-feature" aria-live="polite" aria-atomic="true">
                         <span class="testimonial-quote-mark" aria-hidden="true">“</span>
                         @foreach ($testimonials as $testimonial)
@@ -204,26 +204,13 @@
                                         @if ($testimonial->author_context)
                                             <span class="mt-1 block text-sm text-muted">{{ $testimonial->author_context }}</span>
                                         @endif
+                                        <span class="testimonial-author-progress" aria-hidden="true"><span data-testimonial-progress></span></span>
                                     </span>
                                 </figcaption>
                             </figure>
                         @endforeach
                     </div>
 
-                    <div class="testimonial-selector-list" role="group" aria-label="{{ __('public.testimonials_choose') }}">
-                        @foreach ($testimonials as $testimonial)
-                            <button class="testimonial-selector" type="button" data-testimonial-selector aria-label="{{ __('public.testimonials_show', ['name' => $testimonial->author_name ?: __('public.testimonials_anonymous')]) }}" aria-pressed="{{ $loop->first ? 'true' : 'false' }}" data-active="{{ $loop->first ? 'true' : 'false' }}">
-                                <span class="testimonial-selector-avatar" aria-hidden="true">{{ $testimonial->author_name ? mb_strtoupper(mb_substr($testimonial->author_name, 0, 1)) : '—' }}</span>
-                                <span class="min-w-0 flex-1 text-left">
-                                    <span class="testimonial-selector-name">{{ $testimonial->author_name ?: __('public.testimonials_anonymous') }}</span>
-                                    @if ($testimonial->author_context)
-                                        <span class="testimonial-selector-context">{{ $testimonial->author_context }}</span>
-                                    @endif
-                                    <span class="testimonial-selector-progress" aria-hidden="true"><span data-testimonial-progress></span></span>
-                                </span>
-                            </button>
-                        @endforeach
-                    </div>
                 </div>
             @else
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>

@@ -133,14 +133,22 @@ it('renders published learner stories as an accessible single-story carousel', f
         ->assertSee('data-testimonials-carousel', false)
         ->assertSee('data-testimonial-previous', false)
         ->assertSee('data-testimonial-next', false)
-        ->assertSee('data-testimonial-selector', false)
+        ->assertSee('data-testimonial-progress', false)
+        ->assertSee('data-autoplay-duration="7000"', false)
         ->assertSee('testimonial-panel is-entering', false)
-        ->assertSee('aria-pressed="true"', false)
+        ->assertDontSee('data-testimonial-selector', false)
         ->assertSee('I can speak more confidently at work.')
         ->assertSee('I can follow meetings without translating every sentence.')
-        ->assertSee('Show the story from Maria')
-        ->assertSee('Show the story from Alex');
+        ->assertSee('Maria')
+        ->assertSee('Alex');
 
     expect(substr_count($response->getContent(), 'data-testimonial-panel'))->toBe(2)
-        ->and(substr_count($response->getContent(), 'data-testimonial-selector'))->toBe(2);
+        ->and(substr_count($response->getContent(), 'data-testimonial-progress'))->toBe(2);
+
+    $script = file_get_contents(resource_path('js/app.js'));
+
+    expect($script)->toContain('setTimeout(() => showTestimonial(activeIndex + 1), duration)')
+        ->toContain('pointerdown')
+        ->toContain('pointerup')
+        ->toContain('data-testimonial-previous');
 });
