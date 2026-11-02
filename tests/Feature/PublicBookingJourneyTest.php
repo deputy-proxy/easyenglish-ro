@@ -35,6 +35,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('În engleză.')
         ->assertSee('data-mobile-conversation')
         ->assertSee('hero-visual-mobile relative z-10', false)
+        ->assertSee('pb-12 md:pb-0', false)
         ->assertSee('role="group"', false)
         ->assertSee('hero-conversation-mobile absolute inset-x-2 bottom-2 z-20', false)
         ->assertSee('grid grid-cols-2 items-end gap-0', false)
