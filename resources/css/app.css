@@ -481,7 +481,11 @@ select:focus[data-flux-control] {
 }
 
 [data-faq-section] article > details > summary {
-    flex-shrink: 0;
+    flex: 1 1 0%;
+}
+
+[data-faq-section] article > details[open] > summary {
+    flex: 0 0 auto;
 }
 
 [data-faq-section] article > details > [data-faq-answer] {

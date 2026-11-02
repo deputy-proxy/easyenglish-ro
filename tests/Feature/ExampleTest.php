@@ -65,6 +65,14 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
         ->toBeLessThan(strpos($content, 'Backend-managed question?'));
 });
 
+test('FAQ question headers fill closed rows and keep their natural height when expanded', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('flex: 1 1 0%;')
+        ->toContain('flex: 0 0 auto;');
+});
+
 test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {
     Faq::factory()->published()->create(['locale' => 'ro']);
 
