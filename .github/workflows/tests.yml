@@ -51,19 +51,6 @@ jobs:
           touch database/database.sqlite
           php artisan migrate --force
 
-      - name: Setup Node for frontend assets
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Build frontend assets for view tests
-        run: npm run build
-
       - name: Run CI checks
         run: composer ci:check
 
