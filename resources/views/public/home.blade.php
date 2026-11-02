@@ -62,12 +62,12 @@
                 </div>
             </div>
 
-            <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] pb-[134px] md:pb-0 md:hidden" role="group" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
+            <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] md:hidden" role="group" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
                 <div class="grid grid-cols-2 items-end gap-0">
-                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/teacher-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
-                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
+                    <img class="order-1 block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/teacher-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
+                    <img class="order-2 block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
                 </div>
-                <div class="hero-conversation-mobile absolute inset-x-2 bottom-2 z-20" data-mobile-conversation aria-hidden="true">
+                <div class="hero-conversation-mobile absolute inset-x-2 bottom-0 z-20" data-mobile-conversation aria-hidden="true">
                 <div class="hero-conversation-mobile__track" data-conversation-track>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
