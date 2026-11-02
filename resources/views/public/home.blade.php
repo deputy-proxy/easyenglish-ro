@@ -229,27 +229,6 @@
                 <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
             @endif
         </section>
-        @if ($faqs->isNotEmpty())
-            <section class="bg-surface-subtle py-14 md:py-[82px]" id="faqs">
-                <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[900px]">
-                    <div class="mb-8 max-w-[650px]">
-                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ app()->getLocale() === 'ro' ? 'ÎNTREBĂRI FRECVENTE' : 'FREQUENTLY ASKED QUESTIONS' }}</p>
-                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ app()->getLocale() === 'ro' ? 'Tot ce vrei să știi înainte să începi' : 'Everything you need to know before you start' }}</h2>
-                    </div>
-                    <div class="divide-y divide-line border-y border-line" data-faq-list>
-                        @foreach ($faqs as $faq)
-                            <details class="group py-5" data-faq-item>
-                                <summary class="flex cursor-pointer list-none items-center justify-between gap-5 text-left text-base font-semibold text-ink marker:hidden focus-visible:rounded focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus sm:text-lg">
-                                    <span>{{ $faq->question }}</span>
-                                    <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xl font-normal text-primary transition-transform group-open:rotate-45" aria-hidden="true">+</span>
-                                </summary>
-                                <div class="max-w-[760px] pt-4 pr-10 text-sm leading-[1.75] whitespace-pre-line text-muted sm:text-base">{{ $faq->answer }}</div>
-                            </details>
-                        @endforeach
-                    </div>
-                </div>
-            </section>
-        @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.availability_eyebrow') }}</p>
@@ -346,32 +325,24 @@
                 </article>
             </div>
         </section>
-        <section class="py-14 md:py-[82px]" id="faq">
-            <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
-                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
-                    <details class="border-b border-line py-[18px]">
-                        <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q1') }}</summary>
-                        <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a1') }}</p>
-                    </details>
-                    <details class="border-b border-line py-[18px]">
-                        <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q2') }}</summary>
-                        <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a2') }}</p>
-                    </details>
-                    <details class="border-b border-line py-[18px]">
-                        <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q3') }}</summary>
-                        <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a3') }}</p>
-                    </details>
-                    <details class="py-[18px]">
-                        <summary class="cursor-pointer font-bold marker:text-primary">{{ __('public.faq_q4') }}</summary>
-                        <p class="text-sm leading-[1.7] text-muted">{{ __('public.faq_a4') }}</p>
-                    </details>
-                </article>
-                <div>
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.faq_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.faq_title') }}</h2>
+        @if ($faqs->isNotEmpty())
+            <section class="py-14 md:py-[82px]" id="faq">
+                <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
+                    <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
+                        @foreach ($faqs as $faq)
+                            <details class="border-b border-line py-[18px] last:border-b-0">
+                                <summary class="cursor-pointer font-bold marker:text-primary">{{ $faq->question }}</summary>
+                                <p class="text-sm leading-[1.7] text-muted whitespace-pre-line">{{ $faq->answer }}</p>
+                            </details>
+                        @endforeach
+                    </article>
+                    <div>
+                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.faq_eyebrow') }}</p>
+                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.faq_title') }}</h2>
+                    </div>
                 </div>
-            </div>
-        </section>
+            </section>
+        @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
             <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]">
                 <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover" href="#availability">{{
