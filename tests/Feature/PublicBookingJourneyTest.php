@@ -154,7 +154,7 @@ test('landing page explains real progress reporting and handles missing testimon
         ->assertSee('We are collecting feedback and permission to share it.')
         ->assertSee('id="progress-reports"', false)
         ->assertSee('your current level, strengths, areas to work on, and practical recommendations')
-        ->assertSee('Speaking confidence')
+        ->assertSee('Confidence')
         ->assertSee('Fluency')
         ->assertSee('Vocabulary')
         ->assertSee('Pronunciation')

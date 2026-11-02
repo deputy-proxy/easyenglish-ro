@@ -135,6 +135,7 @@ return [
     'progress_chart_after_ten' => 'După 10 sesiuni',
     'faq_eyebrow' => 'ÎNTREBĂRI FRECVENTE',
     'faq_title' => 'Înainte să începem',
+    'faq_text' => 'Găsești răspunsuri despre sesiuni, rezervări și la ce să te aștepți când exersezi cu un profesor.',
     'faq_q1' => 'Chiar durează doar 15 minute?',
     'faq_a1' => 'Da. Fiecare sesiune durează 15 minute, urmate de o pauză de 15 minute pentru pregătire.',
     'faq_q2' => 'Am nevoie de cont?',
