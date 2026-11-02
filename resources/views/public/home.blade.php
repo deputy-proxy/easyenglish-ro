@@ -222,6 +222,7 @@
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.availability_eyebrow') }}</p>
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.availability_title') }}</h2>
                 <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.availability_text') }}</p>
+                <p class="mt-2 max-w-[620px] text-sm leading-[1.6] text-muted" data-reveal>{{ __('public.availability_week_hint') }}</p>
             </div>
             <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}" data-reveal>
