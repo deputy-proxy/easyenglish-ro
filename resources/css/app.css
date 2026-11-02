@@ -472,20 +472,20 @@ select:focus[data-flux-control] {
 }
 
 [data-faq-section] article > details {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
     flex-basis: 0;
     transition: flex-grow 300ms ease;
 }
 
 [data-faq-section] article > details[open] {
     flex-grow: 4;
+    grid-template-rows: auto minmax(0, 1fr);
 }
 
 [data-faq-section] article > details > summary {
-    flex: 1 1 0%;
-}
-
-[data-faq-section] article > details[open] > summary {
-    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
 }
 
 [data-faq-section] article > details > [data-faq-answer] {
