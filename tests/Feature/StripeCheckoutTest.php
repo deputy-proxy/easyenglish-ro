@@ -280,8 +280,9 @@ test('an out-of-order unpaid completion followed by verified asynchronous succes
         ->and($purchase['entitlement']->fresh()->status)->toBe('pending_payment');
 
     $fake->setSessionStatus('cs_test_1', 'complete', 'paid', 'pi_async_paid');
-    postStripeTestEvent($this, stripeTestEvent('evt_async_paid_1', 'checkout.session.async_payment_succeeded', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
-    postStripeTestEvent($this, stripeTestEvent('evt_async_paid_1', 'checkout.session.async_payment_succeeded', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
+    $asyncSuccessEvent = stripeTestEvent('evt_async_paid_1', 'checkout.session.async_payment_succeeded', $fake->retrieveCheckoutSession('cs_test_1'));
+    postStripeTestEvent($this, $asyncSuccessEvent)->assertOk();
+    postStripeTestEvent($this, $asyncSuccessEvent)->assertOk();
 
     expect($purchase['payment']->fresh()->status)->toBe('succeeded')
         ->and($purchase['entitlement']->fresh()->status)->toBe('active')
