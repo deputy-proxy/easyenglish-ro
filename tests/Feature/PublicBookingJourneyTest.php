@@ -4,6 +4,7 @@ use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\Faq;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
@@ -74,6 +75,29 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('11 sesiuni în total')
         ->assertSee('1 sesiune gratuită + 20 sesiuni plătite')
         ->assertSee('21 sesiuni în total');
+});
+
+test('public landing page exposes progressive enhancement hooks for its animation system', function () {
+    Faq::factory()->published()->create(['locale' => 'ro']);
+
+    $this->get('/')
+        ->assertSee('data-hero', false)
+        ->assertSee('data-hero-title', false)
+        ->assertSee('data-hero-image', false)
+        ->assertSee('data-reveal-stagger', false)
+        ->assertSee('data-reveal-item', false)
+        ->assertSee('data-image-reveal', false)
+        ->assertSee('data-progress-chart', false)
+        ->assertSee('data-chart-shape', false)
+        ->assertSee('data-chart-grid', false)
+        ->assertSee('data-chart-labels', false)
+        ->assertSee('data-chart-legend', false)
+        ->assertSee('easyenglish:availability-loading', false)
+        ->assertSee('easyenglish:availability-rendered', false)
+        ->assertSee('data-faq-section', false)
+        ->assertSee('data-faq-answer', false)
+        ->assertSee('data-faq-chevron', false)
+        ->assertSee('data-reveal-background', false);
 });
 
 test('landing page shows only active teachers by first name and never exposes their private details', function () {
