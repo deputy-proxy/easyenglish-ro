@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Faq;
+
 test('returns a successful response', function () {
     $response = $this->get(route('home'));
 
@@ -8,6 +10,10 @@ test('returns a successful response', function () {
     $response->assertSee('hero-student.png');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp');
+    $response->assertSee('data-weekgrid-mobile');
+    $response->assertSee('data-weekgrid aria-live="polite"', false);
+    $response->assertSee(__('public.availability_more_times'));
+    $response->assertSee('rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full', false);
 });
 
 test('public progress section displays an illustrative radar chart instead of metric cards', function () {
@@ -23,21 +29,54 @@ test('public progress section displays an illustrative radar chart instead of me
     $response->assertDontSee(__('public.progress_metric_confidence_text'));
 });
 
-test('public FAQ section mirrors the progress card layout with questions on the left', function () {
-    $response = $this->get(route('home'));
+test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
+    Faq::factory()->published()->create([
+        'question' => 'Another backend-managed question?',
+        'answer' => 'Another backend-managed answer.',
+        'locale' => app()->getLocale(),
+        'sort_order' => 5,
+    ]);
+
+    Faq::factory()->published()->create([
+        'question' => 'Backend-managed question?',
+        'answer' => 'Backend-managed answer.',
+        'locale' => app()->getLocale(),
+        'sort_order' => 10,
+    ]);
+
+    $response = $this->withSession(['locale' => 'en'])->get(route('home'));
     $content = $response->getContent();
 
     $response->assertOk();
     $response->assertSee('id="faq"', false);
+    $response->assertDontSee('id="faqs"', false);
+    $response->assertSee('Backend-managed question?');
+    $response->assertSee('Backend-managed answer.');
+    $response->assertSee('name="faq"', false);
+    expect(substr_count($content, 'name="faq"'))->toBe(2);
+    $response->assertSee(__('public.faq_text'));
     $response->assertSee('rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6', false);
-    $response->assertSee(__('public.faq_q1'));
-    $response->assertSee(__('public.faq_a4'));
+    $response->assertDontSee(__('public.faq_q1'));
 
-    expect(strpos($content, __('public.faq_q1')))
-        ->toBeLessThan(strpos($content, __('public.faq_eyebrow')));
+    expect(substr_count($content, 'id="faq"'))->toBe(1)
+        ->and(strpos($content, __('public.faq_eyebrow')))
+        ->toBeLessThan(strpos($content, 'Backend-managed question?'))
+        ->and(strpos($content, __('public.faq_text')))
+        ->toBeLessThan(strpos($content, 'Backend-managed question?'));
+});
+
+test('FAQ rows center closed question headers and reserve a separate answer row when expanded', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('grid-template-rows: minmax(0, 1fr);')
+        ->toContain('grid-template-rows: auto minmax(0, 1fr);')
+        ->toContain('align-items: center;');
 });
 
 test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {
+    Faq::factory()->published()->create(['locale' => 'ro']);
+
     $response = $this->get(route('home'));
     $content = $response->getContent();
     $shadow = 'shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]';

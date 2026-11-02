@@ -140,6 +140,10 @@ select:focus[data-flux-control] {
     right: clamp(176px, 14vw, 230px);
 }
 
+.gsap-ready .hero-conversation__bubble {
+    animation: none;
+}
+
 .hero-conversation__bubble {
     position: absolute;
     inset: 0 auto auto 0;
@@ -175,7 +179,7 @@ select:focus[data-flux-control] {
         inset-inline: 8px;
         bottom: 8px;
         z-index: 20;
-        height: 120px;
+        height: 156px;
         overflow: hidden;
         border: 1px solid rgb(255 255 255 / 82%);
         border-radius: 16px;
@@ -318,6 +322,7 @@ select:focus[data-flux-control] {
 
 .testimonial-feature {
     position: relative;
+    display: grid;
     min-height: 300px;
     overflow: hidden;
     border: 1px solid var(--color-line);
@@ -340,16 +345,13 @@ select:focus[data-flux-control] {
 
 .testimonial-panel {
     position: relative;
+    grid-area: 1 / 1;
     display: flex;
     min-height: 250px;
     flex-direction: column;
     justify-content: space-between;
     gap: 34px;
     margin: 0;
-}
-
-.testimonial-panel.is-entering {
-    animation: testimonial-panel-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .testimonial-panel[hidden] {
@@ -360,10 +362,10 @@ select:focus[data-flux-control] {
     max-width: 920px;
     margin: 12px 0 0;
     color: var(--color-ink);
-    font-size: clamp(21px, 3vw, 34px);
+    font-size: clamp(19px, 2.5vw, 29px);
     font-weight: 550;
-    line-height: 1.48;
-    letter-spacing: -0.7px;
+    line-height: 1.5;
+    letter-spacing: -0.55px;
 }
 
 .testimonial-attribution {
@@ -372,8 +374,7 @@ select:focus[data-flux-control] {
     gap: 13px;
 }
 
-.testimonial-avatar,
-.testimonial-selector-avatar {
+.testimonial-avatar {
     display: inline-flex;
     flex: 0 0 auto;
     align-items: center;
@@ -390,72 +391,17 @@ select:focus[data-flux-control] {
     font-size: 17px;
 }
 
-.testimonial-selector-list {
-    display: flex;
-    gap: 10px;
-    overflow-x: auto;
-    padding: 18px 2px 4px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-line) transparent;
-}
-
-.testimonial-selector {
-    position: relative;
-    display: flex;
-    min-width: 220px;
-    flex: 1 0 220px;
-    align-items: center;
-    gap: 11px;
-    border: 1px solid transparent;
-    border-radius: 16px;
-    background: transparent;
-    padding: 12px;
-    text-align: left;
-    transition: border-color 180ms ease, background-color 180ms ease;
-}
-
-.testimonial-selector[data-active="true"] {
-    border-color: var(--color-primary-border);
-    background: var(--color-primary-soft);
-}
-
-.testimonial-selector-avatar {
-    width: 40px;
-    height: 40px;
-    background: white;
-    font-size: 14px;
-}
-
-.testimonial-selector-name,
-.testimonial-selector-context {
+.testimonial-author-progress {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.testimonial-selector-name {
-    color: var(--color-ink);
-    font-size: 13px;
-    font-weight: 750;
-}
-
-.testimonial-selector-context {
-    margin-top: 3px;
-    color: var(--color-muted);
-    font-size: 11px;
-}
-
-.testimonial-selector-progress {
-    display: block;
-    height: 2px;
+    width: min(190px, 100%);
+    height: 3px;
     overflow: hidden;
     margin-top: 9px;
     border-radius: 999px;
     background: var(--color-line);
 }
 
-.testimonial-selector-progress span {
+.testimonial-author-progress span {
     display: block;
     width: 100%;
     height: 100%;
@@ -463,62 +409,105 @@ select:focus[data-flux-control] {
     background: var(--color-primary);
     transform: scaleX(0);
     transform-origin: left center;
-    transition: transform 280ms ease;
 }
 
-.testimonial-selector[data-active="true"] .testimonial-selector-progress span {
-    transform: scaleX(1);
+.testimonial-carousel {
+    touch-action: pan-y;
 }
 
-@keyframes testimonial-panel-enter {
-    from {
-        opacity: 0;
-        transform: translateY(8px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+@keyframes testimonial-progress {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
 }
 
 @media (max-width: 640px) {
+    .teacher-carousel {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+    }
+
+    .teacher-carousel::-webkit-scrollbar {
+        display: none;
+    }
+
+    .teacher-carousel .teacher-card {
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: none;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+    }
+
     .testimonial-feature {
-        min-height: 330px;
+        min-height: 310px;
         border-radius: 19px;
         padding: 27px 22px;
     }
 
     .testimonial-panel {
-        min-height: 275px;
+        min-height: 255px;
         gap: 25px;
     }
 
     .testimonial-quote {
         margin-top: 19px;
-        font-size: 22px;
-        line-height: 1.5;
-    }
-
-    .testimonial-selector-list {
-        margin-right: -1.25rem;
-        padding-right: 1.25rem;
-    }
-
-    .testimonial-selector {
-        min-width: 205px;
-        flex-basis: 205px;
+        font-size: 19px;
+        line-height: 1.55;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .testimonial-arrow,
-    .testimonial-selector,
-    .testimonial-selector-progress span {
+    .testimonial-author-progress span {
         transition: none;
     }
 
-    .testimonial-panel.is-entering {
-        animation: none;
+}
+
+[data-faq-section] article > details {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    flex-basis: 0;
+    transition: flex-grow 300ms ease;
+}
+
+[data-faq-section] article > details[open] {
+    flex-grow: 4;
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+[data-faq-section] article > details > summary {
+    display: flex;
+    align-items: center;
+}
+
+[data-faq-section] article > details > [data-faq-answer] {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+[data-faq-chevron] {
+    transition: transform 180ms ease;
+}
+
+details[open] [data-faq-chevron] {
+    transform: rotate(180deg);
+}
+
+.gsap-ready [data-faq-chevron] {
+    transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-faq-section] article > details,
+    [data-faq-chevron] {
+        transition: none;
     }
 }

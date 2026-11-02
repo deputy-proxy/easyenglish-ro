@@ -4,6 +4,7 @@ use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\Faq;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
@@ -35,9 +36,10 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('În engleză.')
         ->assertSee('data-mobile-conversation')
         ->assertSee('hero-visual-mobile relative z-10', false)
+        ->assertSee('pb-[134px] md:pb-0', false)
         ->assertSee('role="group"', false)
         ->assertSee('hero-conversation-mobile absolute inset-x-2 bottom-2 z-20', false)
-        ->assertSee('grid h-[320px] grid-cols-2 gap-0', false)
+        ->assertSee('grid grid-cols-2 items-end gap-0', false)
         ->assertSee('data-conversation-track')
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
@@ -46,8 +48,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('I feel more confident now.')
         ->assertSee('pb-7 pt-[100px]', false)
         ->assertSee('my-5 max-w-[38ch]', false)
-        ->assertSee('h-[320px] w-full object-cover object-left', false)
-        ->assertSee('h-[320px] w-full object-cover object-right', false)
+        ->assertSee('block aspect-square w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
         ->assertSee('h-[20.87px] items-center justify-center rounded-[6px] border border-ink', false)
@@ -61,8 +62,9 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('Data viitoare când ai ceva de spus, spune-o în engleză.')
         ->assertSee('Rezervă prima conversație gratuită.')
         ->assertSee('data-week-status', false)
-        ->assertSee('Toate cele 7 zile sunt vizibile simultan. Alege direct un interval.')
-        ->assertSee('grid min-w-0 grid-cols-7 gap-1 sm:gap-2', false)
+        ->assertSee('Vezi rapid programul întregii săptămâni și alege ziua și intervalul dorit.')
+        ->assertSee('data-weekgrid-mobile', false)
+        ->assertSee('hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2', false)
         ->assertSee('min-h-10 rounded-[7px]', false)
         ->assertSee('Pachete simple. Engleză în ritmul tău.')
         ->assertSee('Alegi pachetul potrivit și îți programezi conversațiile atunci când ai timp.')
@@ -73,6 +75,29 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('11 sesiuni în total')
         ->assertSee('1 sesiune gratuită + 20 sesiuni plătite')
         ->assertSee('21 sesiuni în total');
+});
+
+test('public landing page exposes progressive enhancement hooks for its animation system', function () {
+    Faq::factory()->published()->create(['locale' => 'ro']);
+
+    $this->get('/')
+        ->assertSee('data-hero', false)
+        ->assertSee('data-hero-title', false)
+        ->assertSee('data-hero-image', false)
+        ->assertSee('data-reveal-stagger', false)
+        ->assertSee('data-reveal-item', false)
+        ->assertSee('data-image-reveal', false)
+        ->assertSee('data-progress-chart', false)
+        ->assertSee('data-chart-shape', false)
+        ->assertSee('data-chart-grid', false)
+        ->assertSee('data-chart-labels', false)
+        ->assertSee('data-chart-legend', false)
+        ->assertSee('easyenglish:availability-loading', false)
+        ->assertSee('easyenglish:availability-rendered', false)
+        ->assertSee('data-faq-section', false)
+        ->assertSee('data-faq-answer', false)
+        ->assertSee('data-faq-chevron', false)
+        ->assertSee('data-reveal-background', false);
 });
 
 test('landing page shows only active teachers by first name and never exposes their private details', function () {
@@ -129,7 +154,7 @@ test('landing page explains real progress reporting and handles missing testimon
         ->assertSee('We are collecting feedback and permission to share it.')
         ->assertSee('id="progress-reports"', false)
         ->assertSee('your current level, strengths, areas to work on, and practical recommendations')
-        ->assertSee('Speaking confidence')
+        ->assertSee('Confidence')
         ->assertSee('Fluency')
         ->assertSee('Vocabulary')
         ->assertSee('Pronunciation')
@@ -179,7 +204,8 @@ test('visitor can switch the public experience to English without an account', f
         ->assertSee('11 sessions in total')
         ->assertSee('1 free session + 20 paid sessions')
         ->assertSee('21 sessions in total')
-        ->assertSee('All 7 days are visible at once. Choose a time directly.')
+        ->assertSee('Quickly scan the week and choose your preferred day and time.')
+        ->assertSee('data-weekgrid-mobile', false)
         ->assertSee('Next time you have something to say, say it in English.')
         ->assertSee('Book your first free conversation.')
         ->assertSee('bg-primary', false)

@@ -70,7 +70,14 @@
                 <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_calendar_help') }}</p>
                 @if (str_contains($calendarBookingUrl, '/book'))
                     <div class="mt-5" data-availability data-week="{{ $calendarWeekStart->format('Y-m-d') }}" data-book-url="{{ $calendarBookingUrl }}">
-                        <div class="mb-4 flex justify-between gap-3"><button type="button" data-prev class="rounded-full border px-3 py-2 text-sm">← {{ __('public.previous_week') }}</button><button type="button" data-next class="rounded-full border px-3 py-2 text-sm">{{ __('public.next_week') }} →</button></div>
+                        <div class="mb-4 flex items-center justify-between gap-3" data-week-navigation>
+                            <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+                            </button>
+                            <button class="testimonial-arrow testimonial-arrow--next" type="button" data-next aria-label="{{ __('public.next_week') }}">
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                            </button>
+                        </div>
                         <div data-weekgrid class="grid gap-3 sm:grid-cols-4 lg:grid-cols-7"><p>{{ __('public.availability_loading') }}</p></div>
                         <p class="mt-4 text-xs text-zinc-500">{{ __('public.timezone_note') }}</p>
                     </div>
