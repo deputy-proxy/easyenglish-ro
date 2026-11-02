@@ -225,11 +225,7 @@
             </div>
             <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}" data-reveal>
-                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
-                    <div class="min-w-0">
-                        <h3 class="m-0 text-base font-bold text-ink sm:text-[19px]">{{ __('public.booking_week_title') }}</h3>
-                        <p class="mt-1 mb-0 text-[11px] text-muted sm:text-xs">{{ __('public.availability_week_hint') }}</p>
-                    </div>
+                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">                    
                     <div class="flex shrink-0 items-center gap-2" data-availability-navigation>
                         <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
