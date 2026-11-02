@@ -268,8 +268,11 @@
                             aria-label="{{ __('public.next_week') }}">›</button></div>
                 </div>
                 <p class="mb-3 min-h-5 text-xs font-semibold text-primary-strong" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
-                <div class="grid min-w-0 grid-cols-7 gap-1 sm:gap-2" data-weekgrid aria-live="polite">
+                <div class="hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2" data-weekgrid aria-live="polite">
                     <p class="col-span-7">{{ __('public.availability_loading') }}</p>
+                </div>
+                <div class="grid gap-2 sm:hidden" data-weekgrid-mobile aria-live="polite">
+                    <p>{{ __('public.availability_loading') }}</p>
                 </div>
                 <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
             </div>
@@ -442,6 +445,7 @@
             if (!root) return;
 
             const grid = root.querySelector('[data-weekgrid]');
+            const mobileGrid = root.querySelector('[data-weekgrid-mobile]');
             const status = root.querySelector('[data-week-status]');
             let week = root.dataset.week;
             const base = root.dataset.bookUrl;
@@ -452,6 +456,9 @@
             const lowMessage = @json(__('public.availability_low'));
             const countMessage = @json(__('public.availability_week_count'));
             const noTimesLabel = @json(__('public.slot_none'));
+            const dayCountMessage = @json(__('public.availability_day_count'));
+            const moreTimesMessage = @json(__('public.availability_more_times'));
+            const fewerTimesMessage = @json(__('public.availability_fewer_times'));
             const loadError = @json(__('public.availability_error'));
             const monday = date => {
                 const value = new Date(date + 'T12:00:00');
@@ -463,11 +470,78 @@
                 value.setDate(value.getDate() + days);
                 return value.toLocaleDateString('en-CA');
             };
+            const createSlotButton = (day, slot) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'min-h-10 rounded-[7px] border-0 bg-primary-soft px-2 py-2 text-xs leading-none font-semibold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
+                button.textContent = slot.time;
+                button.setAttribute('aria-label', day.date + ' ' + slot.time);
+                button.addEventListener('click', () => {
+                    location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking';
+                });
+                return button;
+            };
+
+            const renderMobileDay = day => {
+                const card = document.createElement('article');
+                card.className = 'rounded-[13px] border border-primary-border bg-white p-3';
+
+                const heading = document.createElement('div');
+                heading.className = 'mb-2.5 flex items-center justify-between gap-3';
+
+                const title = document.createElement('h4');
+                title.className = 'm-0 text-sm font-bold text-ink';
+                title.textContent = day.label + ', ' + day.day;
+
+                const count = document.createElement('span');
+                count.className = 'shrink-0 text-[11px] font-medium text-muted';
+                count.textContent = day.slots.length
+                    ? dayCountMessage.replace(':count', String(day.slots.length))
+                    : noTimesLabel;
+                heading.append(title, count);
+                card.append(heading);
+
+                if (!day.slots.length) {
+                    card.classList.add('bg-surface-subtle');
+                    mobileGrid.append(card);
+                    return;
+                }
+
+                const slots = document.createElement('div');
+                slots.className = 'grid grid-cols-4 gap-1.5';
+                const visibleSlots = day.slots.slice(0, 4);
+                visibleSlots.forEach(slot => slots.append(createSlotButton(day, slot)));
+                card.append(slots);
+
+                if (day.slots.length > 4) {
+                    let expanded = false;
+                    const toggle = document.createElement('button');
+                    toggle.type = 'button';
+                    toggle.className = 'mt-2 inline-flex min-h-9 w-full items-center justify-center rounded-lg bg-primary-soft px-3 py-2 text-xs font-bold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
+                    toggle.textContent = moreTimesMessage.replace(':count', String(day.slots.length - 4));
+                    toggle.setAttribute('aria-expanded', 'false');
+                    toggle.addEventListener('click', () => {
+                        expanded = !expanded;
+                        slots.innerHTML = '';
+                        (expanded ? day.slots : visibleSlots).forEach(slot => slots.append(createSlotButton(day, slot)));
+                        toggle.textContent = expanded
+                            ? fewerTimesMessage
+                            : moreTimesMessage.replace(':count', String(day.slots.length - 4));
+                        toggle.setAttribute('aria-expanded', String(expanded));
+                    });
+                    card.append(toggle);
+                }
+
+                mobileGrid.append(card);
+            };
+
             const render = days => {
                 grid.innerHTML = '';
+                mobileGrid.innerHTML = '';
                 const slotCount = days.reduce((total, day) => total + day.slots.length, 0);
 
                 days.forEach(day => {
+                    renderMobileDay(day);
                     const column = document.createElement('div');
                     column.className = 'min-w-0 rounded-[10px] border border-primary-border bg-surface p-1.5 sm:rounded-[13px] sm:p-3';
 
@@ -518,6 +592,7 @@
             const load = () => {
                 status.textContent = @json(__('public.availability_loading'));
                 grid.innerHTML = '<p class="col-span-7 text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
+                mobileGrid.innerHTML = '<p class="text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
                 fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), {
                     headers: { Accept: 'application/json' },
                 })
@@ -529,6 +604,7 @@
                     .catch(() => {
                         status.textContent = loadError;
                         grid.innerHTML = '';
+                        mobileGrid.innerHTML = '';
                     });
             };
 
