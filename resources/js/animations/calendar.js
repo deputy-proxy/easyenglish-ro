@@ -3,33 +3,37 @@ export function initializeCalendarAnimations(gsap, ScrollTrigger) {
     const options = { signal: controller.signal };
     let direction = 0;
     const root = document.querySelector('[data-availability]');
-    let hasEntered = false;
+    let isInView = false;
     const animationContext = gsap.context(() => {}, root || document);
 
     if (root) {
-        ScrollTrigger.create({
-            trigger: root,
-            start: 'top 86%',
-            once: true,
-            onEnter: () => {
-                hasEntered = true;
-                const items = [
-                    ...Array.from(root.querySelector('[data-weekgrid]')?.children || []),
-                    ...Array.from(root.querySelector('[data-weekgrid-mobile]')?.children || []),
-                ];
+        const items = [
+            ...Array.from(root.querySelector('[data-weekgrid]')?.children || []),
+            ...Array.from(root.querySelector('[data-weekgrid-mobile]')?.children || []),
+        ];
 
-                animationContext.add(() => {
-                    gsap.fromTo(items, { autoAlpha: 0, y: 7 }, {
-                        autoAlpha: 1,
-                        y: 0,
-                        duration: 0.32,
-                        stagger: 0.025,
-                        ease: 'power3.out',
-                        clearProps: 'transform,opacity,visibility',
-                    });
+        if (items.length) {
+            animationContext.add(() => {
+                const entrance = gsap.fromTo(items, { autoAlpha: 0, y: 7 }, {
+                    autoAlpha: 1,
+                    y: 0,
+                    duration: 0.32,
+                    stagger: 0.025,
+                    ease: 'power3.out',
                 });
-            },
-        });
+
+                ScrollTrigger.create({
+                    trigger: root,
+                    start: 'top 86%',
+                    animation: entrance,
+                    toggleActions: 'play none none reverse',
+                    onEnter: () => { isInView = true; },
+                    onEnterBack: () => { isInView = true; },
+                    onLeave: () => { isInView = false; },
+                    onLeaveBack: () => { isInView = false; },
+                });
+            });
+        }
     }
 
     document.addEventListener('easyenglish:availability-loading', (event) => {
@@ -39,7 +43,7 @@ export function initializeCalendarAnimations(gsap, ScrollTrigger) {
             return;
         }
 
-        if (!hasEntered || !root) {
+        if (!isInView || !root) {
             return;
         }
 
@@ -62,7 +66,7 @@ export function initializeCalendarAnimations(gsap, ScrollTrigger) {
     document.addEventListener('easyenglish:availability-rendered', (event) => {
         direction = Number(event.detail?.direction) || direction;
 
-        if (!hasEntered) {
+        if (!isInView) {
             return;
         }
 

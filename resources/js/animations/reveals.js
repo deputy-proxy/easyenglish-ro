@@ -19,11 +19,10 @@ export function initializeScrollReveals(gsap) {
             duration,
             stagger: mobile ? 0.07 : 0.12,
             ease: 'power3.out',
-            clearProps: 'transform,opacity,visibility',
             scrollTrigger: {
                 trigger: group,
                 start: 'top 86%',
-                once: true,
+                toggleActions: 'play none none reverse',
             },
         });
     });
@@ -41,11 +40,10 @@ export function initializeScrollReveals(gsap) {
             y: 0,
             duration,
             ease: 'power3.out',
-            clearProps: 'transform,opacity,visibility',
             scrollTrigger: {
                 trigger: element,
                 start: 'top 88%',
-                once: true,
+                toggleActions: 'play none none reverse',
             },
         });
     });
@@ -60,11 +58,10 @@ export function initializeScrollReveals(gsap) {
                 y: 0,
                 duration: 0.55,
                 ease: 'power3.out',
-                clearProps: 'transform,opacity,visibility',
                 scrollTrigger: {
                     trigger: image,
                     start: 'top 88%',
-                    once: true,
+                    toggleActions: 'play none none reverse',
                 },
             });
 
@@ -79,11 +76,10 @@ export function initializeScrollReveals(gsap) {
             scale: 1,
             duration: 0.9,
             ease: 'power3.out',
-            clearProps: 'clipPath,transform',
             scrollTrigger: {
                 trigger: image,
                 start: 'top 88%',
-                once: true,
+                toggleActions: 'play none none reverse',
             },
         });
     });
@@ -93,11 +89,10 @@ export function initializeScrollReveals(gsap) {
             autoAlpha: 1,
             duration: mobile ? 0.4 : 0.55,
             ease: 'power2.out',
-            clearProps: 'opacity,visibility',
             scrollTrigger: {
                 trigger: background,
                 start: 'top 86%',
-                once: true,
+                toggleActions: 'play none none reverse',
             },
         });
     });
