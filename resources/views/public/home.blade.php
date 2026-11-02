@@ -325,7 +325,7 @@
                     </div>
                     <article class="order-2 flex h-[560px] flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6 md:order-1" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
                         @foreach ($faqs as $faq)
-                            <details class="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-line last:border-b-0" data-reveal-item>
+                            <details name="faq" class="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-line last:border-b-0" data-reveal-item>
                                 <summary class="flex shrink-0 list-none cursor-pointer items-center justify-between gap-4 py-[18px] font-bold marker:text-primary"><span>{{ $faq->question }}</span><svg class="size-4 shrink-0 text-primary" data-faq-chevron aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7.5 5 5 5-5" /></svg></summary>
                                 <p class="min-h-0 flex-1 overflow-y-auto pb-2 text-sm leading-[1.7] text-muted whitespace-pre-line" data-faq-answer>{{ $faq->answer }}</p>
                             </details>

@@ -44,6 +44,22 @@ export function initializeFaqAnimations(gsap) {
                 return;
             }
 
+            section.querySelectorAll('details[open]').forEach((openDetails) => {
+                if (openDetails === details) {
+                    return;
+                }
+
+                const openChevron = openDetails.querySelector('[data-faq-chevron]');
+
+                gsap.killTweensOf([openDetails, openChevron].filter(Boolean));
+                openDetails.open = false;
+                gsap.to(openDetails, { flexGrow: 1, duration: 0.24, ease: 'power1.inOut' });
+
+                if (openChevron) {
+                    gsap.to(openChevron, { rotation: 0, duration: 0.2, ease: 'power1.inOut' });
+                }
+            });
+
             details.open = true;
             animationContext.add(() => {
                 gsap.to(details, { flexGrow: 4, duration: 0.3, ease: 'power2.out' });
