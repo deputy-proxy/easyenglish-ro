@@ -229,9 +229,14 @@
                         <h3 class="m-0 text-base font-bold text-ink sm:text-[19px]">{{ __('public.booking_week_title') }}</h3>
                         <p class="mt-1 mb-0 text-[11px] text-muted sm:text-xs">{{ __('public.availability_week_hint') }}</p>
                     </div>
-                    <div class="flex shrink-0 gap-2"><button class="size-[36px] rounded-full border border-primary-border bg-white text-xl text-ink transition hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:opacity-35 sm:size-[38px]" type="button" data-prev
-                            aria-label="{{ __('public.previous_week') }}">‹</button><button class="size-[36px] rounded-full border border-primary-border bg-white text-xl text-ink transition hover:bg-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:size-[38px]" type="button" data-next
-                            aria-label="{{ __('public.next_week') }}">›</button></div>
+                    <div class="flex shrink-0 items-center gap-2" data-availability-navigation>
+                        <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+                        </button>
+                        <button class="testimonial-arrow testimonial-arrow--next" type="button" data-next aria-label="{{ __('public.next_week') }}">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                        </button>
+                    </div>
                 </div>
                 <p class="mb-3 min-h-5 text-xs font-semibold text-primary-strong" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
                 <div class="hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2" data-weekgrid aria-live="polite">
