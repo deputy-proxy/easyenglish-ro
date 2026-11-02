@@ -136,6 +136,7 @@ return [
     'progress_chart_after_ten' => 'After 10 sessions',
     'faq_eyebrow' => 'FREQUENTLY ASKED QUESTIONS',
     'faq_title' => 'Before we start',
+    'faq_text' => 'Find quick answers about sessions, booking and what to expect when you practise with a teacher.',
     'faq_q1' => 'Is it really only 15 minutes?',
     'faq_a1' => 'Yes. Every session lasts 15 minutes, with a 15-minute gap between sessions for preparation.',
     'faq_q2' => 'Do I need an account?',

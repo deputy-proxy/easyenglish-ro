@@ -44,12 +44,15 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
     $response->assertDontSee('id="faqs"', false);
     $response->assertSee('Backend-managed question?');
     $response->assertSee('Backend-managed answer.');
+    $response->assertSee(__('public.faq_text'));
     $response->assertSee('rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6', false);
     $response->assertDontSee(__('public.faq_q1'));
 
     expect(substr_count($content, 'id="faq"'))->toBe(1)
-        ->and(strpos($content, 'Backend-managed question?'))
-        ->toBeLessThan(strpos($content, __('public.faq_eyebrow')));
+        ->and(strpos($content, __('public.faq_eyebrow')))
+        ->toBeLessThan(strpos($content, 'Backend-managed question?'))
+        ->and(strpos($content, __('public.faq_text')))
+        ->toBeLessThan(strpos($content, 'Backend-managed question?'));
 });
 
 test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {

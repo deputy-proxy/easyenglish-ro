@@ -447,6 +447,24 @@ select:focus[data-flux-control] {
 
 }
 
+[data-faq-section] article > details {
+    flex-basis: 0;
+    transition: flex-grow 300ms ease;
+}
+
+[data-faq-section] article > details[open] {
+    flex-grow: 4;
+}
+
+[data-faq-section] article > details > summary {
+    flex-shrink: 0;
+}
+
+[data-faq-section] article > details > [data-faq-answer] {
+    min-height: 0;
+    overflow-y: auto;
+}
+
 [data-faq-chevron] {
     transition: transform 180ms ease;
 }
@@ -460,6 +478,7 @@ details[open] [data-faq-chevron] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    [data-faq-section] article > details,
     [data-faq-chevron] {
         transition: none;
     }

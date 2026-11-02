@@ -318,18 +318,19 @@
         @if ($faqs->isNotEmpty())
             <section class="py-14 md:py-[82px]" id="faq" data-faq-section>
                 <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
-                    <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
+                    <div class="order-1 md:order-2">
+                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.faq_eyebrow') }}</p>
+                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.faq_title') }}</h2>
+                        <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.faq_text') }}</p>
+                    </div>
+                    <article class="order-2 flex h-[560px] flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6 md:order-1" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
                         @foreach ($faqs as $faq)
-                            <details class="border-b border-line py-[18px] last:border-b-0" data-reveal-item>
-                                <summary class="flex list-none cursor-pointer items-center justify-between gap-4 font-bold marker:text-primary"><span>{{ $faq->question }}</span><svg class="size-4 shrink-0 text-primary" data-faq-chevron aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7.5 5 5 5-5" /></svg></summary>
-                                <p class="text-sm leading-[1.7] text-muted whitespace-pre-line" data-faq-answer>{{ $faq->answer }}</p>
+                            <details class="flex min-h-0 flex-1 flex-col overflow-hidden border-b border-line last:border-b-0" data-reveal-item>
+                                <summary class="flex shrink-0 list-none cursor-pointer items-center justify-between gap-4 py-[18px] font-bold marker:text-primary"><span>{{ $faq->question }}</span><svg class="size-4 shrink-0 text-primary" data-faq-chevron aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7.5 5 5 5-5" /></svg></summary>
+                                <p class="min-h-0 flex-1 overflow-y-auto pb-2 text-sm leading-[1.7] text-muted whitespace-pre-line" data-faq-answer>{{ $faq->answer }}</p>
                             </details>
                         @endforeach
                     </article>
-                    <div>
-                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.faq_eyebrow') }}</p>
-                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.faq_title') }}</h2>
-                    </div>
                 </div>
             </section>
         @endif
