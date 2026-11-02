@@ -36,7 +36,7 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
         'sort_order' => 10,
     ]);
 
-    $response = $this->get(route('home'));
+    $response = $this->withSession(['locale' => 'en'])->get(route('home'));
     $content = $response->getContent();
 
     $response->assertOk();
@@ -53,6 +53,8 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
 });
 
 test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {
+    Faq::factory()->published()->create(['locale' => 'ro']);
+
     $response = $this->get(route('home'));
     $content = $response->getContent();
     $shadow = 'shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]';
