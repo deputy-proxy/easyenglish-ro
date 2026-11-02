@@ -13,6 +13,7 @@ test('returns a successful response', function () {
     $response->assertSee('data-weekgrid-mobile');
     $response->assertSee('data-weekgrid aria-live="polite"', false);
     $response->assertSee(__('public.availability_more_times'));
+    $response->assertSee('rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full', false);
 });
 
 test('public progress section displays an illustrative radar chart instead of metric cards', function () {

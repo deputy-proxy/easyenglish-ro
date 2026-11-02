@@ -336,7 +336,7 @@
         @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
             <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]" data-reveal-stagger data-reveal-background>
-                <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover" href="#availability" data-reveal-item>{{
+                <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="#availability" data-reveal-item>{{
                     __('public.closing_cta') }}</a>
             </div>
         </section>
