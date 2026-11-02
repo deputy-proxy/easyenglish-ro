@@ -177,9 +177,9 @@ select:focus[data-flux-control] {
     .hero-conversation-mobile {
         position: absolute;
         inset-inline: 8px;
-        bottom: 8px;
+        bottom: 0;
         z-index: 20;
-        height: 156px;
+        height: 50%;
         overflow: hidden;
         border: 1px solid rgb(255 255 255 / 82%);
         border-radius: 16px;
