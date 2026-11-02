@@ -30,6 +30,13 @@ test('public progress section displays an illustrative radar chart instead of me
 
 test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
     Faq::factory()->published()->create([
+        'question' => 'Another backend-managed question?',
+        'answer' => 'Another backend-managed answer.',
+        'locale' => app()->getLocale(),
+        'sort_order' => 5,
+    ]);
+
+    Faq::factory()->published()->create([
         'question' => 'Backend-managed question?',
         'answer' => 'Backend-managed answer.',
         'locale' => app()->getLocale(),
@@ -44,6 +51,8 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
     $response->assertDontSee('id="faqs"', false);
     $response->assertSee('Backend-managed question?');
     $response->assertSee('Backend-managed answer.');
+    $response->assertSee('name="faq"', false);
+    expect(substr_count($content, 'name="faq"'))->toBe(2);
     $response->assertSee(__('public.faq_text'));
     $response->assertSee('rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6', false);
     $response->assertDontSee(__('public.faq_q1'));
