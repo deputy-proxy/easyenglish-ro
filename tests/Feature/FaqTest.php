@@ -23,7 +23,8 @@ it('renders only published FAQs for the active locale in display order', functio
     $response = $this->withSession(['locale' => 'en'])->get('/');
 
     $response->assertOk()
-        ->assertSee('id="faqs"', false)
+        ->assertSee('id="faq"', false)
+        ->assertDontSee('id="faqs"', false)
         ->assertSee('First question')
         ->assertSee('Second question')
         ->assertDontSee('Romanian question')
@@ -38,7 +39,7 @@ it('does not render an empty FAQ section', function () {
 
     $this->get('/')
         ->assertOk()
-        ->assertDontSee('id="faqs"', false);
+        ->assertDontSee('id="faq"', false);
 });
 
 it('escapes FAQ answers instead of rendering administrator-entered HTML', function () {

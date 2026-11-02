@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Faq;
+
 test('returns a successful response', function () {
     $response = $this->get(route('home'));
 
@@ -26,21 +28,33 @@ test('public progress section displays an illustrative radar chart instead of me
     $response->assertDontSee(__('public.progress_metric_confidence_text'));
 });
 
-test('public FAQ section mirrors the progress card layout with questions on the left', function () {
-    $response = $this->get(route('home'));
+test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
+    Faq::factory()->published()->create([
+        'question' => 'Backend-managed question?',
+        'answer' => 'Backend-managed answer.',
+        'locale' => app()->getLocale(),
+        'sort_order' => 10,
+    ]);
+
+    $response = $this->withSession(['locale' => 'en'])->get(route('home'));
     $content = $response->getContent();
 
     $response->assertOk();
     $response->assertSee('id="faq"', false);
+    $response->assertDontSee('id="faqs"', false);
+    $response->assertSee('Backend-managed question?');
+    $response->assertSee('Backend-managed answer.');
     $response->assertSee('rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6', false);
-    $response->assertSee(__('public.faq_q1'));
-    $response->assertSee(__('public.faq_a4'));
+    $response->assertDontSee(__('public.faq_q1'));
 
-    expect(strpos($content, __('public.faq_q1')))
+    expect(substr_count($content, 'id="faq"'))->toBe(1)
+        ->and(strpos($content, 'Backend-managed question?'))
         ->toBeLessThan(strpos($content, __('public.faq_eyebrow')));
 });
 
 test('public booking, bundle, progress, and FAQ containers share the borderless layered shadow', function () {
+    Faq::factory()->published()->create(['locale' => 'ro']);
+
     $response = $this->get(route('home'));
     $content = $response->getContent();
     $shadow = 'shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]';
