@@ -22,7 +22,7 @@
         </nav>
     </header>
     <main>
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-3 pt-[100px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-0 pt-[100px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
                 <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high" data-hero-image>
                 <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high" data-hero-image>
@@ -64,8 +64,8 @@
 
             <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] md:hidden" role="group" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
                 <div class="grid grid-cols-2 items-end gap-0">
-                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/teacher-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
-                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
+                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
+                    <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/teacher-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
                 </div>
                 <div class="hero-conversation-mobile absolute inset-x-2 bottom-0 z-20" data-mobile-conversation aria-hidden="true">
                 <div class="hero-conversation-mobile__track" data-conversation-track>
@@ -87,7 +87,7 @@
                 </div>
             </div>
 
-            <div class="relative z-10 mt-5 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm" data-hero-trust>
+            <div class="relative z-10 mt-3 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm" data-hero-trust>
                 <div class="flex items-center gap-2"><span aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
