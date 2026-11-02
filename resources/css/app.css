@@ -421,6 +421,30 @@ select:focus[data-flux-control] {
 }
 
 @media (max-width: 640px) {
+    .teacher-carousel {
+        display: flex;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-x pan-y;
+    }
+
+    .teacher-carousel::-webkit-scrollbar {
+        display: none;
+    }
+
+    .teacher-carousel .teacher-card {
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: none;
+        scroll-snap-align: start;
+        scroll-snap-stop: always;
+    }
+
     .testimonial-feature {
         min-height: 310px;
         border-radius: 19px;

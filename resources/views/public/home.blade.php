@@ -141,7 +141,7 @@
                     <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
-                    <div class="grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-reveal-stagger>
+                    <div class="teacher-carousel grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-reveal-stagger>
                         @foreach ($teachers as $teacher)
                             <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1" data-reveal-item>
                                 @if ($teacher->teacher_photo_path)
