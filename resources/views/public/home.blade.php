@@ -22,21 +22,21 @@
         </nav>
     </header>
     <main>
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-7 pt-[100px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]">
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-7 pt-[100px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
-                <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high">
-                <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high">
+                <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high" data-hero-image>
+                <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high" data-hero-image>
             </div>
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
-                <h1 class="m-0 leading-[1.06]">
-                    <span class="block md:whitespace-nowrap text-2xl">{{ __('public.hero_title_a') }}</span>
-                    <span class="block font-bold text-6xl">{{ __('public.hero_title_em') }}</span>
+                <h1 class="m-0 leading-[1.06]" data-hero-title>
+                    <span class="block md:whitespace-nowrap text-2xl" data-hero-title-line>{{ __('public.hero_title_a') }}</span>
+                    <span class="block font-bold text-6xl" data-hero-title-line>{{ __('public.hero_title_em') }}</span>
                 </h1>
-                <p class="my-5 max-w-[38ch] text-lg font-medium text-muted">
+                <p class="my-5 max-w-[38ch] text-lg font-medium text-muted" data-hero-description>
                     {{ __('public.hero_text') }}
                 </p>
-                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-primary-hover sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability">
+                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-primary-hover sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability" data-hero-cta>
                     {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
                 </a>
             </div>
@@ -64,8 +64,8 @@
 
             <div class="hero-visual-mobile relative z-10 mt-4 w-full max-w-[480px] overflow-hidden rounded-[24px] pb-[134px] md:pb-0 md:hidden" role="group" aria-label="{{ app()->getLocale() === 'ro' ? 'Profesor și cursant exersând o conversație' : 'Teacher and learner practising a conversation' }}">
                 <div class="grid grid-cols-2 items-end gap-0">
-                    <img class="block aspect-square w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high">
-                    <img class="block aspect-square w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high">
+                    <img class="block aspect-square w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
+                    <img class="block aspect-square w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
                 </div>
                 <div class="hero-conversation-mobile absolute inset-x-2 bottom-2 z-20" data-mobile-conversation aria-hidden="true">
                 <div class="hero-conversation-mobile__track" data-conversation-track>
@@ -87,7 +87,7 @@
                 </div>
             </div>
 
-            <div class="relative z-10 mt-5 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm">
+            <div class="relative z-10 mt-5 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm" data-hero-trust>
                 <div class="flex items-center gap-2"><span aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
                 <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
@@ -95,25 +95,25 @@
         </section>
         <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">
             <div>
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.motivation_eyebrow') }}</p>
-                <h2 class="mb-4 text-[clamp(34px,4vw,48px)] leading-[1.08] tracking-[-2px]">{{ __('public.motivation_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.motivation_text') }}</p>
+                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
+                <h2 class="mb-4 text-[clamp(34px,4vw,48px)] leading-[1.08] tracking-[-2px]" data-reveal>{{ __('public.motivation_title') }}</h2>
+                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
-            <div class="border-t border-line">
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5"><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_job') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5"><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_meeting') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5"><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_travel') }}</p></article>
+            <div class="border-t border-line" data-reveal-stagger>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_job') }}</p></article>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_meeting') }}</p></article>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_travel') }}</p></article>
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="how">
             <div class="mb-8 max-w-[650px]">
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.how_eyebrow') }}</p>
-                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.how_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.how_text') }}</p>
+                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.how_eyebrow') }}</p>
+                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.how_title') }}</h2>
+                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.how_text') }}</p>
             </div>
-            <div class="grid auto-rows-fr gap-5 md:grid-cols-2">
+            <div class="grid auto-rows-fr gap-5 md:grid-cols-2" data-reveal-stagger>
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6">
+                    <article class="flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6" data-reveal-item>
                         <div class="flex h-[230px] shrink-0 items-center justify-center">
                             <img
                                 class="block h-full w-full object-contain"
@@ -121,6 +121,7 @@
                                 alt="{{ __('public.step_'.$step.'_title') }}"
                                 loading="lazy"
                                 decoding="async"
+                                data-image-reveal
                             >
                         </div>
                         <div class="mt-4 flex-1">
@@ -135,16 +136,16 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="teachers">
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.teachers_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.teachers_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.teachers_text') }}</p>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.teachers_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.teachers_title') }}</h2>
+                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
-                    <div class="grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div class="grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-reveal-stagger>
                         @foreach ($teachers as $teacher)
-                            <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1">
+                            <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1" data-reveal-item>
                                 @if ($teacher->teacher_photo_path)
-                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
+                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy" data-image-reveal>
                                 @else
                                     <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
                                 @endif
@@ -175,11 +176,11 @@
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials">
             <div class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                 <div class="max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.testimonials_eyebrow') }}</p>
-                    <h2 class="mb-0 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.testimonials_title') }}</h2>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.testimonials_eyebrow') }}</p>
+                    <h2 class="mb-0 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.testimonials_title') }}</h2>
                 </div>
                 @if ($testimonials->isNotEmpty())
-                    <div class="flex shrink-0 items-center gap-2" data-testimonial-navigation>
+                    <div class="flex shrink-0 items-center gap-2" data-testimonial-navigation data-reveal>
                         <button class="testimonial-arrow" type="button" data-testimonial-previous aria-label="{{ __('public.testimonials_previous') }}" @disabled($testimonials->count() < 2)>
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
                         </button>
@@ -191,7 +192,7 @@
             </div>
 
             @if ($testimonials->isNotEmpty())
-                <div class="testimonial-carousel" data-testimonials-carousel data-autoplay-duration="7000">
+                <div class="testimonial-carousel" data-testimonials-carousel data-autoplay-duration="7000" data-reveal>
                     <div class="testimonial-feature" aria-live="polite" aria-atomic="true">
                         <span class="testimonial-quote-mark" aria-hidden="true">“</span>
                         @foreach ($testimonials as $testimonial)
@@ -218,12 +219,12 @@
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.availability_eyebrow') }}</p>
-                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.availability_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.availability_text') }}</p>
+                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.availability_eyebrow') }}</p>
+                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.availability_title') }}</h2>
+                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.availability_text') }}</p>
             </div>
             <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
-                data-book-url="{{ route('booking.create') }}">
+                data-book-url="{{ route('booking.create') }}" data-reveal>
                 <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
                     <div class="min-w-0">
                         <h3 class="m-0 text-base font-bold text-ink sm:text-[19px]">{{ __('public.booking_week_title') }}</h3>
@@ -251,13 +252,13 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles">
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.packages_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.packages_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.packages_text') }}</p>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.packages_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.packages_title') }}</h2>
+                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.packages_text') }}</p>
                 </div>
-                <p class="mb-6 leading-[1.7] text-muted">{{ __('public.shared_free_notice') }}</p>
-                <div class="grid gap-[18px] md:grid-cols-3">@foreach($bundles as $bundle)<article
-                        class="relative flex flex-col items-start rounded-[20px] bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]">@if($bundle->price_ron===390)<span
+                <p class="mb-6 leading-[1.7] text-muted" data-reveal>{{ __('public.shared_free_notice') }}</p>
+                <div class="grid gap-[18px] md:grid-cols-3" data-reveal-stagger>@foreach($bundles as $bundle)<article
+                        class="relative flex flex-col items-start rounded-[20px] bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-reveal-item>@if($bundle->price_ron===390)<span
                             class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ __('public.package_popular') }}</span>@endif<span class="text-[13px] font-bold text-muted">{{
                             __('public.bundle_label') }} {{ $loop->iteration }}</span>
                         <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px]">{{ number_format($bundle->price_ron, 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
@@ -273,11 +274,11 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="progress-reports">
             <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[0.85fr_1.15fr] md:items-center md:gap-14">
                 <div>
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.progress_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.progress_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.progress_text') }}</p>
+                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.progress_eyebrow') }}</p>
+                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.progress_title') }}</h2>
+                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.progress_text') }}</p>
                 </div>
-                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-labelledby="public-progress-chart-title">
+                <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-labelledby="public-progress-chart-title" data-reveal>
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h3 id="public-progress-chart-title" class="m-0 text-lg font-bold text-ink">{{ __('public.progress_chart_title') }}</h3>
@@ -285,8 +286,8 @@
                         </div>
                         <span class="rounded-full bg-primary-soft px-3 py-1.5 text-[10px] font-extrabold tracking-[0.08em] text-primary uppercase">{{ __('public.progress_chart_sample') }}</span>
                     </div>
-                    <svg viewBox="0 0 440 340" role="img" aria-label="{{ __('public.progress_chart_aria') }}" class="mx-auto mt-4 block w-full max-w-[520px] overflow-visible text-ink">
-                        <g fill="none" stroke="currentColor" stroke-opacity=".12" stroke-width="1">
+                    <svg viewBox="0 0 440 340" role="img" aria-label="{{ __('public.progress_chart_aria') }}" class="mx-auto mt-4 block w-full max-w-[520px] overflow-visible text-ink" data-progress-chart>
+                        <g fill="none" stroke="currentColor" stroke-opacity=".12" stroke-width="1" data-chart-grid>
                             <polygon points="220,159.2 243.6,176.8 234.5,198.1 205.5,198.1 196.4,176.8" />
                             <polygon points="220,134.4 267.1,169.6 249,212.2 191,212.2 172.9,169.6" />
                             <polygon points="220,109.6 290.7,162.4 263.5,226.2 176.5,226.2 149.3,162.4" />
@@ -294,13 +295,13 @@
                             <polygon points="220,60 337.9,145.7 292.6,284.5 147.4,284.5 102.1,145.7" />
                             <path d="M220 184 220 60 M220 184 337.9 145.7 M220 184 292.6 284.5 M220 184 147.4 284.5 M220 184 102.1 145.7" />
                         </g>
-                        <polygon points="220,140.6 255.4,172.5 249.2,224.1 187.2,229.1 178.7,170.6" fill="#94a3b8" fill-opacity=".08" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 5" stroke-linejoin="round" />
-                        <polygon points="220,119.5 276.6,165.6 262.3,242.2 174.8,246.2 156.3,163.3" fill="#60a5fa" fill-opacity=".10" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round" />
-                        <polygon points="220,89.8 302.6,157.2 279.8,266.3 158.8,268.3 128,154.1" fill="#1747bd" fill-opacity=".14" stroke="#1747bd" stroke-width="3" stroke-linejoin="round" />
-                        <g fill="#1747bd">
+                        <polygon data-chart-shape points="220,140.6 255.4,172.5 249.2,224.1 187.2,229.1 178.7,170.6" fill="#94a3b8" fill-opacity=".08" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 5" stroke-linejoin="round" />
+                        <polygon data-chart-shape points="220,119.5 276.6,165.6 262.3,242.2 174.8,246.2 156.3,163.3" fill="#60a5fa" fill-opacity=".10" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round" />
+                        <polygon data-chart-shape points="220,89.8 302.6,157.2 279.8,266.3 158.8,268.3 128,154.1" fill="#1747bd" fill-opacity=".14" stroke="#1747bd" stroke-width="3" stroke-linejoin="round" />
+                        <g fill="#1747bd" data-chart-points>
                             <circle cx="220" cy="89.8" r="4"/><circle cx="302.6" cy="157.2" r="4"/><circle cx="279.8" cy="266.3" r="4"/><circle cx="158.8" cy="268.3" r="4"/><circle cx="128" cy="154.1" r="4"/>
                         </g>
-                        <g fill="currentColor" font-size="12" font-weight="600">
+                        <g fill="currentColor" font-size="12" font-weight="600" data-chart-labels>
                             <text x="220" y="25" text-anchor="middle">{{ __('public.progress_metric_vocabulary') }}</text>
                             <text x="369" y="137" text-anchor="start">{{ __('public.progress_metric_pronunciation') }}</text>
                             <text x="310" y="315" text-anchor="middle">{{ __('public.progress_metric_fluency') }}</text>
@@ -308,7 +309,7 @@
                             <text x="70" y="137" text-anchor="end">{{ __('public.progress_metric_confidence') }}</text>
                         </g>
                     </svg>
-                    <div class="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold text-muted">
+                    <div class="mt-2 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold text-muted" data-chart-legend>
                         <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 border-t-2 border-dashed border-slate-400"></span>{{ __('public.progress_chart_baseline') }}</span>
                         <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 bg-blue-400"></span>{{ __('public.progress_chart_after_five') }}</span>
                         <span class="inline-flex items-center gap-2"><span class="h-0.5 w-5 bg-primary"></span>{{ __('public.progress_chart_after_ten') }}</span>
@@ -318,26 +319,26 @@
             </div>
         </section>
         @if ($faqs->isNotEmpty())
-            <section class="py-14 md:py-[82px]" id="faq">
+            <section class="py-14 md:py-[82px]" id="faq" data-faq-section>
                 <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
-                    <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}">
+                    <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
                         @foreach ($faqs as $faq)
-                            <details class="border-b border-line py-[18px] last:border-b-0">
-                                <summary class="cursor-pointer font-bold marker:text-primary">{{ $faq->question }}</summary>
-                                <p class="text-sm leading-[1.7] text-muted whitespace-pre-line">{{ $faq->answer }}</p>
+                            <details class="border-b border-line py-[18px] last:border-b-0" data-reveal-item>
+                                <summary class="flex list-none cursor-pointer items-center justify-between gap-4 font-bold marker:text-primary"><span>{{ $faq->question }}</span><svg class="size-4 shrink-0 text-primary" data-faq-chevron aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m5 7.5 5 5 5-5" /></svg></summary>
+                                <p class="text-sm leading-[1.7] text-muted whitespace-pre-line" data-faq-answer>{{ $faq->answer }}</p>
                             </details>
                         @endforeach
                     </article>
                     <div>
-                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.faq_eyebrow') }}</p>
-                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.faq_title') }}</h2>
+                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.faq_eyebrow') }}</p>
+                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.faq_title') }}</h2>
                     </div>
                 </div>
             </section>
         @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
-            <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]">
-                <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]">{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover" href="#availability">{{
+            <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]" data-reveal-stagger data-reveal-background>
+                <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover" href="#availability" data-reveal-item>{{
                     __('public.closing_cta') }}</a>
             </div>
         </section>
@@ -411,6 +412,7 @@
             const mobileGrid = root.querySelector('[data-weekgrid-mobile]');
             const status = root.querySelector('[data-week-status]');
             let week = root.dataset.week;
+            let navigationDirection = 0;
             const base = root.dataset.bookUrl;
             const previous = root.querySelector('[data-prev]');
             const next = root.querySelector('[data-next]');
@@ -551,8 +553,15 @@
                         ? lowMessage
                         : countMessage.replace(':count', String(slotCount));
                 previous.disabled = week <= monday(today);
+                document.dispatchEvent(new CustomEvent('easyenglish:availability-rendered', {
+                    detail: { root, direction: navigationDirection },
+                }));
+                navigationDirection = 0;
             };
             const load = () => {
+                document.dispatchEvent(new CustomEvent('easyenglish:availability-loading', {
+                    detail: { root, direction: navigationDirection },
+                }));
                 status.textContent = @json(__('public.availability_loading'));
                 grid.innerHTML = '<p class="col-span-7 text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
                 mobileGrid.innerHTML = '<p class="text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
@@ -574,11 +583,13 @@
             previous.addEventListener('click', () => {
                 if (!previous.disabled) {
                     week = add(week, -7);
+                    navigationDirection = -1;
                     load();
                 }
             });
             next.addEventListener('click', () => {
                 week = add(week, 7);
+                navigationDirection = 1;
                 load();
             });
             load();
