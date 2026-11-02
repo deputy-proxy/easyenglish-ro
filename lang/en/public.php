@@ -116,7 +116,7 @@ return [
     'progress_eyebrow' => 'SEE HOW YOU ARE DEVELOPING',
     'progress_title' => 'Progress you can understand.',
     'progress_text' => 'After sessions, your teacher can record feedback and prepare a progress report with your current level, strengths, areas to work on, and practical recommendations.',
-    'progress_metric_confidence' => 'Speaking confidence',
+    'progress_metric_confidence' => 'Confidence',
     'progress_metric_confidence_text' => 'Feedback on how comfortably you express your ideas.',
     'progress_metric_fluency' => 'Fluency',
     'progress_metric_fluency_text' => 'Feedback on how naturally and smoothly you keep a conversation going.',
