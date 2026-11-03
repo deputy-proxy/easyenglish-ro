@@ -727,20 +727,34 @@ details[open] [data-faq-chevron] {
     color: var(--color-ink);
 }
 .teacher-dialog {
-    width: min(560px, calc(100% - 32px));
+    position: fixed;
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: min(680px, calc(100vw - 32px));
     max-width: none;
     max-height: min(88vh, 900px);
     padding: 0;
-    overflow: auto;
+    overflow: hidden;
+    transform: translate(-50%, -50%);
     border: 0;
-    border-radius: 24px;
-    background: white;
+    border-radius: 28px;
+    background: #f8fafc;
     color: var(--color-ink);
     box-shadow: 0 24px 80px rgb(0 0 0 / 25%);
 }
 .teacher-dialog::backdrop { background: rgb(10 20 16 / 65%); backdrop-filter: blur(4px); }
-.teacher-dialog__content { position: relative; }
-.teacher-dialog__photo { display: block; width: 100%; max-height: 420px; aspect-ratio: 4 / 3; object-fit: cover; }
+.teacher-dialog__background { position: absolute; inset: 0; overflow: hidden; }
+.teacher-dialog__background img,
+.teacher-dialog__background-fallback { width: 100%; height: 100%; object-fit: cover; filter: blur(24px); transform: scale(1.12); }
+.teacher-dialog__background::after { position: absolute; inset: 0; background: rgb(255 255 255 / 82%); content: ''; }
+.teacher-dialog__background-fallback { background: linear-gradient(135deg, var(--color-primary-soft), var(--color-primary), var(--color-primary-strong)); }
+.teacher-dialog__content { position: relative; z-index: 1; max-height: inherit; overflow-y: auto; padding: 64px clamp(24px, 5vw, 48px) clamp(28px, 5vw, 48px); }
+.teacher-dialog__profile { display: flex; flex-direction: column; align-items: center; gap: 24px; text-align: center; }
+.teacher-dialog__photo { display: block; width: 152px; height: 152px; flex: 0 0 152px; aspect-ratio: 1; border: 5px solid rgb(255 255 255 / 90%); border-radius: 50%; object-fit: cover; box-shadow: 0 12px 32px rgb(15 23 42 / 18%); }
+.teacher-dialog__photo--fallback { display: grid; place-items: center; background: linear-gradient(135deg, var(--color-primary-soft), var(--color-primary), var(--color-primary-strong)); color: white; font-size: 4rem; font-weight: 700; }
+.teacher-dialog__biography { width: 100%; max-width: 520px; }
+@media (min-width: 640px) { .teacher-dialog__profile { gap: 28px; } }
 .teacher-dialog__close {
     position: absolute;
     z-index: 1;
@@ -795,15 +809,6 @@ details[open] [data-faq-chevron] {
     overscroll-behavior: contain;
 }
 
-.teacher-dialog__photo {
-    width: 100%;
-    height: min(48dvh, 520px);
-    max-height: none;
-    aspect-ratio: 3 / 4;
-    object-fit: contain;
-    object-position: center;
-    background: #e9edf2;
-}
 
 .teacher-dialog__close {
     outline: none;
@@ -832,10 +837,6 @@ details[open] [data-faq-chevron] {
         border-radius: 24px;
     }
 
-    .teacher-dialog__photo {
-        height: min(44dvh, 440px);
-        aspect-ratio: 3 / 4;
-    }
 }
 
 

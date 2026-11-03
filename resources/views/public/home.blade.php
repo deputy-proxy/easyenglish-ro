@@ -171,17 +171,25 @@
                                     </button>
                                 </div>
                                 <dialog class="teacher-dialog" data-teacher-dialog aria-labelledby="teacher-dialog-title-{{ $teacher->id }}">
+                                    <div class="teacher-dialog__background" aria-hidden="true">
+                                        @if ($teacher->teacher_photo_path)
+                                            <img src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="">
+                                        @else
+                                            <div class="teacher-dialog__background-fallback"></div>
+                                        @endif
+                                    </div>
                                     <div class="teacher-dialog__content">
                                         <button class="teacher-dialog__close" type="button" data-teacher-close aria-label="{{ __('public.teacher_close') }}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12" /></svg></button>
-                                        @if ($teacher->teacher_photo_path)
-                                            <img class="teacher-dialog__photo" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}">
-                                        @else
-                                            <div class="teacher-dialog__photo flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong text-7xl font-semibold text-white" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</div>
-                                        @endif
-                                        <div class="p-6 sm:p-8">
-                                            <p class="mb-2 text-xs font-extrabold tracking-[1.5px] text-primary uppercase">{{ __('public.teacher_role') }}</p>
-                                            <h3 class="mb-4 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
-                                            <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
+                                        <div class="teacher-dialog__profile">
+                                            @if ($teacher->teacher_photo_path)
+                                                <img class="teacher-dialog__photo" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}">
+                                            @else
+                                                <div class="teacher-dialog__photo teacher-dialog__photo--fallback" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</div>
+                                            @endif
+                                            <div class="teacher-dialog__biography">
+                                                <h3 class="mb-3 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
+                                                <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
+                                            </div>
                                         </div>
                                     </div>
                                 </dialog>

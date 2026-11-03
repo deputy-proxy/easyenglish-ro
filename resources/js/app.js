@@ -262,7 +262,26 @@ document.querySelectorAll('[data-teacher-carousel]').forEach((carousel) => {
 
         if (!dialog || !open || typeof dialog.showModal !== 'function') return;
 
-        open.addEventListener('click', () => dialog.showModal(), options);
+        open.addEventListener('click', () => {
+            dialog.showModal();
+            const content = dialog.querySelector('.teacher-dialog__content');
+
+            if (content && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                gsap.killTweensOf(content);
+                gsap.fromTo(content, {
+                    autoAlpha: 0,
+                    y: 22,
+                    scale: 0.97,
+                }, {
+                    autoAlpha: 1,
+                    y: 0,
+                    scale: 1,
+                    duration: 0.48,
+                    ease: 'power3.out',
+                    clearProps: 'opacity,visibility,transform',
+                });
+            }
+        }, options);
         close?.addEventListener('click', () => dialog.close(), options);
         dialog.addEventListener('click', (event) => {
             if (event.target === dialog) dialog.close();
