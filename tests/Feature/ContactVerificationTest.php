@@ -210,7 +210,7 @@ test('email verification route validates the signed single-use link and returns 
     expect($challenge->fresh()->email_verified_at)->not->toBeNull();
 });
 
-test('email verification started from bundle checkout returns to that bundle', function () {
+test('email verification return to a bundle shows the separate free-session offer without bundle verification controls', function () {
     $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $challenge = makeVerificationChallenge(['return_to' => 'purchase', 'return_bundle_id' => $bundle->id]);
@@ -223,8 +223,8 @@ test('email verification started from bundle checkout returns to that bundle', f
     $this->get($url)->assertRedirect(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]));
     $this->get(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]))
         ->assertOk()
-        ->assertSee(__('public.bundle_verification_explainer'))
-        ->assertSee(__('public.verification_code_label'));
+        ->assertSee(__('public.purchase_free_intro_notice'))
+        ->assertDontSee(__('public.verification_code_label'));
     expect($challenge->fresh()->email_verified_at)->not->toBeNull();
 });
 
@@ -351,9 +351,9 @@ test('verified contacts are persisted on bundle checkout without adding a free s
         ->and($entitlement->free_credits_granted)->toBe(0);
 
     $entitlement->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => now()->addMonths(3)])->save();
-    $updated = app(BundleEntitlementService::class)->grantIncludedFreeCreditIfEligible($entitlement->id);
-    expect($updated->free_credits_granted)->toBe(0)
-        ->and($updated->free_credits_remaining)->toBe(0);
+    expect($entitlement->fresh()->free_credits_granted)->toBe(0)
+        ->and($entitlement->fresh()->free_credits_remaining)->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
 });
 
 test('verified challenge cannot be reused with a different email or phone', function () {
