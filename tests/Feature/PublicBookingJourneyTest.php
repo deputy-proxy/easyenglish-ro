@@ -545,7 +545,7 @@ test('desktop hero taglines share one frosted-glass container while the mobile r
         ->and($styles)->toContain('@media (min-width: 768px) {')
         ->and($styles)->toContain('[data-hero-trust] {')
         ->and($styles)->toContain('border: 1px solid var(--hero-glass-border)')
-        ->and($styles)->toContain('border-radius: 22px')
+        ->and($styles)->toContain('border-radius: 100%')
         ->and($styles)->toContain('background: var(--hero-glass-surface)')
         ->and($styles)->toContain('backdrop-filter: blur(var(--hero-glass-blur))')
         ->and($styles)->toContain('@media (max-width: 767px) {');

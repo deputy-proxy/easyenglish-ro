@@ -15,6 +15,17 @@
     --hero-glass-blur: 10px;
 }
 
+/* Keep the sticky navigation over the hero without reserving vertical layout space. */
+.public-site-header {
+    margin-bottom: calc(-76px - env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+    .public-site-header {
+        margin-bottom: calc(-88px - env(safe-area-inset-top, 0px));
+    }
+}
+
 /* Keep in-page destinations clear of the persistent public navigation. */
 html {
     scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px));
@@ -293,7 +304,7 @@ select:focus[data-flux-control] {
 @media (min-width: 768px) {
     [data-hero-trust] {
         border: 1px solid var(--hero-glass-border);
-        border-radius: 22px;
+        border-radius: 100%;
         background: var(--hero-glass-surface);
         box-shadow: var(--hero-glass-shadow);
         -webkit-backdrop-filter: blur(var(--hero-glass-blur));

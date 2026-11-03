@@ -11,6 +11,9 @@ test('returns a successful response', function () {
     $response->assertSee('/admin/login');
     $response->assertSee('public-site-header', false);
     $response->assertSee('sticky inset-x-0 top-0 z-50', false);
+    $response->assertSee('bg-white/55', false);
+    $response->assertDontSee('border-b border-line/70 bg-white/95', false);
+    $response->assertDontSee('shadow-[0_1px_12px_rgba(20,35,75,0.06)]', false);
     $response->assertSee('hero-teacher.png');
     $response->assertSee('hero-student.png');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session');
@@ -37,10 +40,12 @@ test('mobile booking CTA reuses the free booking anchor and localized copy', fun
     }
 });
 
-test('sticky public navigation reserves anchor offsets and mobile safe areas', function () {
+test('sticky public navigation overlays the hero without reserving layout space and preserves anchor offsets', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 
     expect($styles)
+        ->toContain('margin-bottom: calc(-76px - env(safe-area-inset-top, 0px))')
+        ->toContain('margin-bottom: calc(-88px - env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(88px + env(safe-area-inset-top, 0px))');
 });
