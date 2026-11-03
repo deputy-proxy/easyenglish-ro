@@ -85,6 +85,7 @@ return [
     'availability_eyebrow' => 'PICK A TIME THAT WORKS',
     'availability_title' => 'Your week, all at once.',
     'availability_text' => 'See available times for the whole week without clicking through one day at a time.',
+    'availability_pricing_transition' => 'Found a time that works? If you’d like to continue, explore the bundles and choose the one that suits you.',
     'free_intro_title' => 'Your first conversation. Free. No obligation.',
     'free_intro_text' => 'In 15 minutes, talk with a teacher about your level, goals and the situations where you need English. Experience a guided conversation and see how future sessions can be tailored to your needs.',
     'free_intro_facts_label' => 'Free introduction details',

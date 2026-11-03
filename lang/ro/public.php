@@ -84,6 +84,7 @@ return [
     'availability_eyebrow' => 'ALEGE UN INTERVAL POTRIVIT',
     'availability_title' => 'Toată săptămâna, dintr-o privire.',
     'availability_text' => 'Vezi orele disponibile pentru întreaga săptămână, fără să deschizi fiecare zi separat.',
+    'availability_pricing_transition' => 'Ai găsit un interval potrivit? Dacă vrei să continui, descoperă pachetele și alege pachetul potrivit.',
     'free_intro_title' => 'Prima conversație. Gratuit. Fără obligații.',
     'free_intro_text' => 'În 15 minute, discuți cu un profesor despre nivelul tău, obiectivele și situațiile în care ai nevoie de engleză. Vezi cum decurge o conversație ghidată și cum pot fi adaptate sesiunile următoare nevoilor tale.',
     'free_intro_facts_label' => 'Detalii despre sesiunea introductivă',
