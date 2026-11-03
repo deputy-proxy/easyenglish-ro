@@ -519,10 +519,21 @@ test('public teacher cards open accessible profile dialogs without exposing priv
         ->assertSee('Morgan')
         ->assertSee('data-teacher-open', false)
         ->assertSee('data-teacher-dialog', false)
+        ->assertSee('teacher-dialog__background', false)
+        ->assertSee('teacher-dialog__photo', false)
+        ->assertSee('teacher-dialog__biography', false)
         ->assertSee('I help adults speak with confidence at work and while travelling.')
         ->assertSee('More about Morgan')
         ->assertDontSee('Book a session')
         ->assertDontSee('morgan.private@example.com');
+
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $scripts = file_get_contents(resource_path('js/app.js'));
+
+    expect($styles)->toContain('filter: blur(24px)')
+        ->and($styles)->toContain('border-radius: 50%')
+        ->and($scripts)->toContain('prefers-reduced-motion: reduce')
+        ->and($scripts)->toContain('duration: 0.48');
 });
 
 test('mobile hero photos retain retina resolution', function () {
