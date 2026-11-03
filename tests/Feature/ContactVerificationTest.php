@@ -149,8 +149,7 @@ test('verification requests are rate-limited per normalized contact', function (
 });
 
 test('provider delivery failure invalidates a partially delivered challenge', function () {
-    app()->instance(WhatsAppGateway::class, new class implements WhatsAppGateway
-    {
+    app()->instance(WhatsAppGateway::class, new class implements WhatsAppGateway {
         public function sendTemplate(string $recipient, string $template, string $language, array $components, string $callbackData): array
         {
             throw new RuntimeException('fake provider failure');
