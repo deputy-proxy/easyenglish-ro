@@ -10,11 +10,42 @@ document.querySelectorAll('[data-testimonials-carousel]').forEach((carousel) => 
     const previous = section?.querySelector('[data-testimonial-previous]');
     const next = section?.querySelector('[data-testimonial-next]');
     const duration = Number(carousel.dataset.autoplayDuration) || 7000;
+    const feature = carousel.querySelector('.testimonial-feature');
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    if (panels.length < 2 || panels.length !== progress.length) {
+    if (panels.length < 2 || panels.length !== progress.length || !feature) {
         return;
     }
+
+    const setFeatureHeight = () => {
+        const featureStyles = window.getComputedStyle(feature);
+        const horizontalPadding = Number.parseFloat(featureStyles.paddingLeft) + Number.parseFloat(featureStyles.paddingRight);
+        const verticalSpacing = Number.parseFloat(featureStyles.paddingTop) + Number.parseFloat(featureStyles.paddingBottom)
+            + Number.parseFloat(featureStyles.borderTopWidth) + Number.parseFloat(featureStyles.borderBottomWidth);
+        const panelWidth = feature.clientWidth - horizontalPadding;
+        let tallestPanel = 0;
+
+        panels.forEach((panel) => {
+            const wasHidden = panel.hidden;
+            const originalStyle = panel.getAttribute('style');
+
+            panel.hidden = false;
+            Object.assign(panel.style, {
+                position: 'absolute',
+                top: '0',
+                left: '0',
+                width: `${panelWidth}px`,
+                visibility: 'hidden',
+            });
+            tallestPanel = Math.max(tallestPanel, panel.getBoundingClientRect().height);
+            panel.hidden = wasHidden;
+
+            if (originalStyle === null) panel.removeAttribute('style');
+            else panel.setAttribute('style', originalStyle);
+        });
+
+        feature.style.height = `${Math.ceil(tallestPanel + verticalSpacing)}px`;
+    };
 
     let activeIndex = 0;
     let timer = null;
@@ -177,6 +208,10 @@ document.querySelectorAll('[data-testimonials-carousel]').forEach((carousel) => 
         restartProgress();
         scheduleNext();
     }, options);
+
+    setFeatureHeight();
+    window.addEventListener('resize', setFeatureHeight, { passive: true, signal: controller.signal });
+    document.fonts?.ready.then(setFeatureHeight);
 
     restartProgress();
     scheduleNext();
