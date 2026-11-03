@@ -241,11 +241,11 @@
                 <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.availability_eyebrow') }}</p>
                 <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.availability_title') }}</h2>
                 <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.availability_text') }}</p>
-                <p class="mt-2 max-w-[620px] text-sm leading-[1.6] text-muted" data-reveal>{{ __('public.availability_week_hint') }}</p>
             </div>
             <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}" data-reveal>
-                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">                    
+                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
+                    <p class="min-h-5 min-w-0 whitespace-nowrap text-[10px] font-semibold leading-5 text-primary-strong sm:text-xs" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
                     <div class="flex shrink-0 items-center gap-2" data-availability-navigation>
                         <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
@@ -255,7 +255,6 @@
                         </button>
                     </div>
                 </div>
-                <p class="mb-3 min-h-5 text-xs font-semibold text-primary-strong" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
                 <div class="hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2" data-weekgrid aria-live="polite">
                     <p class="col-span-7">{{ __('public.availability_loading') }}</p>
                 </div>
