@@ -6,10 +6,10 @@ use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\ContactVerificationChallenge;
+use App\Models\FreeSessionClaim;
 use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
-use App\Services\Booking\BundleEntitlementService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Verification\ContactVerificationService;
 use Illuminate\Support\Carbon;
@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Mockery;
 use RuntimeException;
 use Tests\Support\FakeStripeGateway;
 use Tests\Support\FakeWhatsAppGateway;
@@ -149,13 +150,9 @@ test('verification requests are rate-limited per normalized contact', function (
 });
 
 test('provider delivery failure invalidates a partially delivered challenge', function () {
-    app()->instance(WhatsAppGateway::class, new class implements WhatsAppGateway
-    {
-        public function sendTemplate(string $recipient, string $template, string $language, array $components, string $callbackData): array
-        {
-            throw new RuntimeException('fake provider failure');
-        }
-    });
+    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('fake provider failure'));
+    app()->instance(WhatsAppGateway::class, $gateway);
 
     expect(fn () => app(ContactVerificationService::class)->start('partial@example.com', '+40722987657', 'en'))
         ->toThrow(RuntimeException::class);
@@ -210,7 +207,7 @@ test('email verification route validates the signed single-use link and returns 
     expect($challenge->fresh()->email_verified_at)->not->toBeNull();
 });
 
-test('email verification started from bundle checkout returns to that bundle', function () {
+test('email verification return to a bundle shows the separate free-session offer without bundle verification controls', function () {
     $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $challenge = makeVerificationChallenge(['return_to' => 'purchase', 'return_bundle_id' => $bundle->id]);
@@ -223,8 +220,8 @@ test('email verification started from bundle checkout returns to that bundle', f
     $this->get($url)->assertRedirect(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]));
     $this->get(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]))
         ->assertOk()
-        ->assertSee(__('public.bundle_verification_explainer'))
-        ->assertSee(__('public.verification_code_label'));
+        ->assertSee(__('public.purchase_free_intro_notice'))
+        ->assertDontSee(__('public.verification_code_label'));
     expect($challenge->fresh()->email_verified_at)->not->toBeNull();
 });
 
@@ -351,9 +348,9 @@ test('verified contacts are persisted on bundle checkout without adding a free s
         ->and($entitlement->free_credits_granted)->toBe(0);
 
     $entitlement->forceFill(['status' => 'active', 'activated_at' => now(), 'expires_at' => now()->addMonths(3)])->save();
-    $updated = app(BundleEntitlementService::class)->grantIncludedFreeCreditIfEligible($entitlement->id);
-    expect($updated->free_credits_granted)->toBe(0)
-        ->and($updated->free_credits_remaining)->toBe(0);
+    expect($entitlement->fresh()->free_credits_granted)->toBe(0)
+        ->and($entitlement->fresh()->free_credits_remaining)->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
 });
 
 test('verified challenge cannot be reused with a different email or phone', function () {

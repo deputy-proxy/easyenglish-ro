@@ -381,7 +381,7 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
         ->assertOk()
         ->assertSee('156 RON')
         ->assertSee('trei luni calendaristice')
-        ->assertSee('O singură sesiune introductivă gratuită per persoană')
+        ->assertSee('Sesiunea introductivă gratuită nu face parte din acest pachet')
         ->assertSee('Programările trebuie să înceapă înainte de expirarea pachetului')
         ->assertSee(route('terms'), false)
         ->assertSee('Plata online nu este încă activată');

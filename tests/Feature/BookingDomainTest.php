@@ -216,10 +216,10 @@ test('staff can open Filament booking administration while ordinary users are de
     $this->get('/admin/booking-audits')->assertOk();
 });
 
-test('included free credit is shared across bundles and restored when its slot hold expires', function () {
+test('bundle activation grants paid credits only and leaves the standalone free offer separate', function () {
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addAvailabilityWindow($day);
-    $definition = BundleDefinition::query()->create(['name' => 'Shared free test', 'price_ron' => 156, 'paid_credits' => 4, 'included_free_credits' => 1, 'is_active' => true]);
+    $definition = BundleDefinition::query()->create(['name' => 'Paid-only test', 'price_ron' => 156, 'paid_credits' => 4, 'included_free_credits' => 1, 'is_active' => true]);
     $first = BundleEntitlement::query()->create([
         'bundle_definition_id' => $definition->id, 'customer_name' => 'Shared Buyer', 'customer_email' => 'shared@example.com',
         'customer_phone' => '+40722333333', 'customer_email_verified_at' => now(), 'customer_phone_verified_at' => now(), 'status' => 'pending_payment', 'paid_amount_ron' => 156, 'currency' => 'RON',
@@ -234,21 +234,23 @@ test('included free credit is shared across bundles and restored when its slot h
     $first = $activation->activateAfterVerifiedPayment($first->id);
     $second = $activation->activateAfterVerifiedPayment($second->id);
 
-    expect($first->free_credits_remaining)->toBe(1)
-        ->and($second->free_credits_remaining)->toBe(0);
+    expect($first->credits_remaining)->toBe(4)
+        ->and($second->credits_remaining)->toBe(4)
+        ->and($first->free_credits_remaining)->toBe(0)
+        ->and($second->free_credits_remaining)->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
 
-    $booking = app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'), $first->id);
-    expect($booking->credit_type)->toBe('free')
+    $paidBooking = app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'), $first->id);
+    expect($paidBooking->credit_type)->toBe('paid')
         ->and($first->fresh()->free_credits_remaining)->toBe(0);
 
-    $booking->update(['hold_expires_at' => now()->subSecond()]);
-    app(BookingService::class)->expireHolds();
-
-    expect($first->fresh()->free_credits_remaining)->toBe(1)
-        ->and(FreeSessionClaim::query()->where('bundle_entitlement_id', $first->id)->where('status', 'bundle_credit_granted')->whereNull('booking_id')->exists())->toBeTrue()
-        ->and(fn () => app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 09:30', 'Europe/Bucharest'), null, true, true, true))->toThrow(ValidationException::class);
+    $freeBooking = app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 09:30', 'Europe/Bucharest'), null, true, true, true);
+    expect($freeBooking->credit_type)->toBeNull()
+        ->and($freeBooking->bundle_entitlement_id)->toBeNull()
+        ->and($freeBooking->free_session_claim_id)->not->toBeNull()
+        ->and(FreeSessionClaim::query()->where('customer_email', 'shared@example.com')->where('status', 'reserved')->exists())->toBeTrue()
+        ->and(fn () => app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 10:00', 'Europe/Bucharest'), null, true, true, true))->toThrow(ValidationException::class);
 });
-
 test('payment state transitions are explicit and successful payment activates a bundle once', function () {
     $definition = BundleDefinition::query()->create(['name' => 'Payment state test', 'price_ron' => 156, 'paid_credits' => 4, 'included_free_credits' => 1, 'is_active' => true]);
     $entitlement = BundleEntitlement::query()->create([
@@ -296,24 +298,23 @@ test('availability remains valid across the spring daylight-saving jump', functi
         ->and($slots->pluck('starts_at')->map(fn (CarbonImmutable $start) => $start->utc()->timestamp)->unique())->toHaveCount(2);
 });
 
-test('bundle included free credit waits for both verified contact channels', function () {
-    $definition = BundleDefinition::query()->create(['name' => 'Verification gate test', 'price_ron' => 156, 'paid_credits' => 4, 'included_free_credits' => 1, 'is_active' => true]);
+test('verified contact details never add free credits to a purchased bundle', function () {
+    $definition = BundleDefinition::query()->create(['name' => 'Verification independence test', 'price_ron' => 156, 'paid_credits' => 4, 'included_free_credits' => 1, 'is_active' => true]);
     $entitlement = BundleEntitlement::query()->create([
-        'bundle_definition_id' => $definition->id, 'customer_name' => 'Unverified Buyer', 'customer_email' => 'unverified@example.com',
+        'bundle_definition_id' => $definition->id, 'customer_name' => 'Verified Buyer', 'customer_email' => 'verified-buyer@example.com',
         'customer_phone' => '+40722555555', 'status' => 'pending_payment', 'paid_amount_ron' => 156, 'currency' => 'RON',
         'paid_credits' => 4, 'free_credits_granted' => 0, 'credits_remaining' => 0, 'free_credits_remaining' => 0,
     ]);
     $service = app(BundleEntitlementService::class);
     $activated = $service->activateAfterVerifiedPayment($entitlement->id);
-    expect($activated->status)->toBe('active')->and($activated->free_credits_remaining)->toBe(0);
+    $activated->update(['customer_email_verified_at' => now(), 'customer_phone_verified_at' => now()]);
 
-    $activated->update(['customer_email_verified_at' => now()]);
-    expect($service->grantIncludedFreeCreditIfEligible($activated->id)->free_credits_remaining)->toBe(0);
-    $activated->update(['customer_phone_verified_at' => now()]);
-    expect($service->grantIncludedFreeCreditIfEligible($activated->id)->free_credits_remaining)->toBe(1)
-        ->and($service->grantIncludedFreeCreditIfEligible($activated->id)->free_credits_remaining)->toBe(1);
+    expect($activated->fresh()->status)->toBe('active')
+        ->and($activated->fresh()->credits_remaining)->toBe(4)
+        ->and($activated->fresh()->free_credits_granted)->toBe(0)
+        ->and($activated->fresh()->free_credits_remaining)->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
 });
-
 test('staff credit adjustments are auditable and cannot create a negative balance', function () {
     $entitlement = makeBundleEntitlement(['credits_remaining' => 2]);
     $staff = User::factory()->create();
