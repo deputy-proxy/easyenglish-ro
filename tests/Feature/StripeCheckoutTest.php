@@ -555,6 +555,7 @@ test('already verified customer accounts can purchase a bundle without repeating
     ]);
     $this->actingAs($user);
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['included_free_credits' => 1]);
     $token = str_repeat('V', 48);
 
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
