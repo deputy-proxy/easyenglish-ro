@@ -451,7 +451,7 @@ select:focus[data-flux-control] {
         justify-content: flex-start;
         overflow-x: auto;
         overflow-y: auto;
-        padding: 1.25rem 1.25rem 2rem;
+        padding: 3.5rem 2.5rem 4rem;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
@@ -618,8 +618,8 @@ details[open] [data-faq-chevron] {
     .teacher-carousel {
         width: calc(100% + 2.5rem);
         margin-left: -1.25rem;
-        padding: 1.25rem 1.25rem 2rem;
-        scroll-padding-inline: 1.25rem;
+        padding: 3.5rem 2.5rem 4rem;
+        scroll-padding-inline: 2.5rem;
     }
     .teacher-carousel .teacher-card {
         flex-basis: 100%;
