@@ -67,16 +67,13 @@
                     <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Profesor de engleză' : 'English teacher' }}" fetchpriority="high" data-hero-mobile-image>
                     <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/teacher-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
                 </div>
-                <div class="hero-conversation-mobile absolute inset-x-2 top-[24%] z-20" data-mobile-conversation aria-hidden="true">
+                <div class="hero-conversation-mobile absolute inset-x-2 top-[24%] bottom-2 z-20" data-mobile-conversation data-visible-messages="5" aria-hidden="true">
                 <div class="hero-conversation-mobile__track" data-conversation-track>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What's your presentation about?</p>
                     <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">It's about our new product launch.</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Great! Do you want to practice the key points together?</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Yes, please. I'd like to sound more confident.</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Perfect! We can also go over some common questions.</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">That would be really helpful. Thank you!</p>
+                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Let's practise the key points together.</p>
                 </div>
                 </div>
             </div>
