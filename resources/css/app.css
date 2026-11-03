@@ -543,10 +543,13 @@ details[open] [data-faq-chevron] {
 .teacher-carousel {
     display: flex;
     gap: 20px;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
     overflow-x: auto;
     overflow-y: auto;
-    padding: 40px 24px 52px;
-    scroll-padding-inline: 24px;
+    padding: 72px 64px 88px;
+    scroll-padding-inline: 64px;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
