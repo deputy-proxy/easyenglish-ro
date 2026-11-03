@@ -262,7 +262,7 @@ return [
     'terms_late_text' => 'The credit is forfeited. Rescheduling is not free.',
     'terms_teacher_title' => 'Teacher cancellation',
     'terms_teacher_text' => 'The session credit is restored. If needed, bundle validity is extended so at least 14 days remain to use the restored credit.',
-    'terms_refund_text' => 'The standard refund assessment values each unused paid session at 39 RON. The included free session is not a paid session. A full bundle refund can cancel affected future appointments and revoke the included free credit. Mandatory statutory consumer rights take precedence; cancelling an appointment does not automatically refund the bundle.',
+    'terms_refund_text' => 'The standard refund assessment values each unused paid session at 39 RON. The free introductory session is a separate offer and is not part of a paid bundle. A full bundle refund can cancel affected future paid appointments. Mandatory statutory consumer rights take precedence; cancelling an appointment does not automatically refund the bundle.',
     'back_home' => 'Back to home',
     'back_booking' => 'Choose another time',
     'policy_heading' => 'Please review the information below',
