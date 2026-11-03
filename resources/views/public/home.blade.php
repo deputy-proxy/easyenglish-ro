@@ -135,7 +135,7 @@
                 @endforeach
             </div>
         </section>
-        <section class="bg-surface-subtle py-14 md:py-[82px]" id="teachers">
+        <section class="bg-surface-subtle py-14 md:py-[82px]" id="teachers" data-mobile-booking-cta-blocker>
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
                     <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.teachers_eyebrow') }}</p>
@@ -192,7 +192,7 @@
                 @endif
             </div>
         </section>
-        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials">
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials" data-mobile-booking-cta-blocker>
             <div class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                 <div class="max-w-[650px]">
                     <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.testimonials_eyebrow') }}</p>
@@ -236,7 +236,7 @@
                 <p class="type-section-copy">{{ __('public.testimonials_empty') }}</p>
             @endif
         </section>
-        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability" data-mobile-booking-cta-blocker>
             <div class="mb-8 max-w-[650px]">
                 <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.availability_eyebrow') }}</p>
                 <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.availability_title') }}</h2>
@@ -264,7 +264,7 @@
                 <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
             </div>
         </section>
-        <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles">
+        <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles" data-mobile-booking-cta-blocker>
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
                     <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.packages_eyebrow') }}</p>
@@ -347,7 +347,7 @@
             </div>
         </section>
         @if ($faqs->isNotEmpty())
-            <section class="py-14 md:py-[82px]" id="faq" data-faq-section>
+            <section class="py-14 md:py-[82px]" id="faq" data-faq-section data-mobile-booking-cta-blocker>
                 <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
                     <div class="order-1 md:order-2">
                         <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.faq_eyebrow') }}</p>
@@ -365,14 +365,22 @@
                 </div>
             </section>
         @endif
-        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]" data-mobile-booking-cta-blocker>
             <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]" data-reveal-stagger data-reveal-background>
                 <h2 class="type-section-title mb-0 max-w-[620px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="type-action inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="#availability" data-reveal-item>{{
                     __('public.closing_cta') }}</a>
             </div>
         </section>
+        <a
+            class="mobile-booking-cta type-action"
+            href="#availability"
+            data-mobile-booking-cta
+            hidden
+            inert
+            aria-hidden="true"
+        >{{ __('public.mobile_booking_cta') }}</a>
     </main>
-    <footer class="type-meta mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col items-start justify-between gap-5 py-9 pb-6 text-muted md:flex-row md:items-center"><span>{{ __('public.footer_line') }}</span>
+    <footer class="type-meta mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col items-start justify-between gap-5 py-9 pb-6 text-muted md:flex-row md:items-center" data-mobile-booking-cta-blocker><span>{{ __('public.footer_line') }}</span>
         <div class="flex flex-wrap items-center gap-x-[18px] gap-y-3"><a class="hover:text-primary" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a><a
                 class="hover:text-primary" href="{{ route('policy','terms') }}">{{ __('public.footer_terms')
                 }}</a>@if(config('easyenglish.contact_email'))<a
