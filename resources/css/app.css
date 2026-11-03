@@ -8,6 +8,17 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Keep in-page destinations clear of the persistent public navigation. */
+html {
+    scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px));
+}
+
+@media (min-width: 768px) {
+    html {
+        scroll-padding-top: calc(88px + env(safe-area-inset-top, 0px));
+    }
+}
+
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
