@@ -143,30 +143,47 @@
                     <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
-                    <div class="teacher-carousel grid grid-cols-1 justify-items-center gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-reveal-stagger>
+                    <div class="mb-5 flex items-center justify-end gap-2" data-teacher-navigation>
+                        <button class="testimonial-arrow" type="button" data-teacher-previous aria-label="{{ __('public.teachers_previous') }}" @disabled($teachers->count() < 2)>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+                        </button>
+                        <button class="testimonial-arrow testimonial-arrow--next" type="button" data-teacher-next aria-label="{{ __('public.teachers_next') }}" @disabled($teachers->count() < 2)>
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                        </button>
+                    </div>
+                    <div class="teacher-carousel" data-teacher-carousel>
                         @foreach ($teachers as $teacher)
-                            <article class="teacher-card group relative aspect-[3/4] w-full max-w-[300px] overflow-hidden rounded-[28px] bg-primary-strong shadow-sm transition duration-300 hover:-translate-y-1 focus-within:-translate-y-1" data-reveal-item>
+                            <article class="teacher-card relative aspect-[3/4] w-full overflow-hidden rounded-[28px] bg-primary-strong shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-teacher-card>
                                 @if ($teacher->teacher_photo_path)
-                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy" data-image-reveal>
+                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
                                 @else
                                     <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
                                 @endif
-                                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#173c99]/35 to-[#101b45] opacity-90 transition-opacity duration-300 group-hover:opacity-0 group-focus-within:opacity-0"></div>
-                                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-black/65 to-[#101b45] opacity-0 transition-opacity duration-300 group-hover:opacity-100 group-focus-within:opacity-100"></div>
-                                <div class="absolute inset-x-0 bottom-0 flex flex-col p-6 text-white sm:p-7">
-                                    <h3 class="m-0 text-2xl font-semibold tracking-tight">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
-                                    <p class="mt-1 mb-0 text-sm text-white/75">{{ __('public.teacher_role') }}</p>
-                                    <div class="grid grid-rows-[1fr] transition-all duration-300 lg:grid-rows-[0fr] lg:group-hover:grid-rows-[1fr] lg:group-focus-within:grid-rows-[1fr]">
-                                        <div class="overflow-hidden">
-                                            @if (filled($teacher->teacher_bio))
-                                                <p class="pt-3 text-sm leading-relaxed text-white/90">{{ $teacher->teacher_bio }}</p>
-                                            @else
-                                                <p class="pt-3 text-sm leading-relaxed text-white/90">{{ __('public.teacher_bio_fallback') }}</p>
-                                            @endif
-                                            <a class="mt-5 inline-flex w-max items-center rounded-full border border-white/90 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-ink focus-visible:bg-white focus-visible:text-ink" href="#availability">{{ __('public.teacher_cta') }}</a>
+                                <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#173c99]/20 to-[#101b45]/75 opacity-80" aria-hidden="true"></div>
+                                <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-6 text-white sm:p-7">
+                                    <div class="min-w-0">
+                                        <h3 class="m-0 text-2xl font-semibold tracking-tight">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
+                                        <p class="mt-1 mb-0 text-sm text-white/80">{{ __('public.teacher_role') }}</p>
+                                    </div>
+                                    <button class="teacher-card__more" type="button" data-teacher-open aria-label="{{ __('public.teacher_more', ['name' => Illuminate\Support\Str::of($teacher->name)->before(' ')]) }}" aria-haspopup="dialog">
+                                        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                                    </button>
+                                </div>
+                                <dialog class="teacher-dialog" data-teacher-dialog aria-labelledby="teacher-dialog-title-{{ $teacher->id }}">
+                                    <div class="teacher-dialog__content">
+                                        <button class="teacher-dialog__close" type="button" data-teacher-close aria-label="{{ __('public.teacher_close') }}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12" /></svg></button>
+                                        @if ($teacher->teacher_photo_path)
+                                            <img class="teacher-dialog__photo" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}">
+                                        @else
+                                            <div class="teacher-dialog__photo flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong text-7xl font-semibold text-white" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</div>
+                                        @endif
+                                        <div class="p-6 sm:p-8">
+                                            <p class="mb-2 text-xs font-extrabold tracking-[1.5px] text-primary uppercase">{{ __('public.teacher_role') }}</p>
+                                            <h3 class="mb-4 text-3xl font-semibold tracking-tight" id="teacher-dialog-title-{{ $teacher->id }}">{{ $teacher->name }}</h3>
+                                            <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
                                         </div>
                                     </div>
-                                </div>
+                                </dialog>
                             </article>
                         @endforeach
                     </div>

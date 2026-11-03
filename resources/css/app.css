@@ -444,10 +444,14 @@ select:focus[data-flux-control] {
 
 @media (max-width: 640px) {
     .teacher-carousel {
+        width: calc(100% + 2.5rem);
+        margin-left: -1.25rem;
         display: flex;
         flex-wrap: nowrap;
         justify-content: flex-start;
         overflow-x: auto;
+        overflow-y: visible;
+        padding: 0 1.25rem 1.5rem;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
@@ -532,4 +536,89 @@ details[open] [data-faq-chevron] {
     [data-faq-chevron] {
         transition: none;
     }
+}
+
+
+/* Teacher profiles */
+.teacher-carousel {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 0 2px 18px;
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.teacher-carousel::-webkit-scrollbar { display: none; }
+.teacher-card {
+    flex: 0 0 min(300px, calc((100% - 60px) / 4));
+    min-width: 0;
+    scroll-snap-align: start;
+}
+.teacher-card__more {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(255 255 255 / 75%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 16%);
+    color: white;
+    backdrop-filter: blur(8px);
+    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.teacher-card__more svg { width: 20px; height: 20px; }
+.teacher-card__more:hover, .teacher-card__more:focus-visible {
+    transform: translateY(-1px);
+    background: white;
+    color: var(--color-ink);
+}
+.teacher-dialog {
+    width: min(560px, calc(100% - 32px));
+    max-width: none;
+    max-height: min(88vh, 900px);
+    padding: 0;
+    overflow: auto;
+    border: 0;
+    border-radius: 24px;
+    background: white;
+    color: var(--color-ink);
+    box-shadow: 0 24px 80px rgb(0 0 0 / 25%);
+}
+.teacher-dialog::backdrop { background: rgb(10 20 16 / 65%); backdrop-filter: blur(4px); }
+.teacher-dialog__content { position: relative; }
+.teacher-dialog__photo { display: block; width: 100%; max-height: 420px; aspect-ratio: 4 / 3; object-fit: cover; }
+.teacher-dialog__close {
+    position: absolute;
+    z-index: 1;
+    top: 14px;
+    right: 14px;
+    display: grid;
+    width: 40px;
+    height: 40px;
+    place-items: center;
+    border: 1px solid rgb(255 255 255 / 65%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 92%);
+    color: var(--color-ink);
+}
+.teacher-dialog__close svg { width: 18px; height: 18px; }
+@media (min-width: 641px) and (max-width: 1023px) {
+    .teacher-card { flex-basis: min(300px, calc((100% - 20px) / 2)); }
+}
+@media (min-width: 1024px) {
+    .teacher-card { flex-basis: min(300px, calc((100% - 60px) / 4)); }
+}
+@media (max-width: 640px) {
+    .teacher-carousel {
+        width: calc(100% + 2.5rem);
+        margin-left: -1.25rem;
+        padding: 0 1.25rem 1.5rem;
+    }
+    .teacher-carousel .teacher-card { flex-basis: 100%; }
 }
