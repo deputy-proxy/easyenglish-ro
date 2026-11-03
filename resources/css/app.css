@@ -544,8 +544,9 @@ details[open] [data-faq-chevron] {
     display: flex;
     gap: 20px;
     overflow-x: auto;
-    overflow-y: visible;
-    padding: 0 2px 18px;
+    overflow-y: auto;
+    padding: 40px 24px 52px;
+    scroll-padding-inline: 24px;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
