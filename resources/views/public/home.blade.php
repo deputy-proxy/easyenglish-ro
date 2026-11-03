@@ -22,7 +22,7 @@
         </nav>
     </header>
     <main>
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pb-0 pt-[100px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden rounded-b-[24px] bg-white px-5 pt-[100px] pb-5 md:rounded-b-none md:pb-[150px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
                 <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high" data-hero-image>
                 <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high" data-hero-image>
@@ -90,9 +90,9 @@
             </div>
 
             <div class="relative z-10 mt-3 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm" data-hero-trust>
-                <div class="flex items-center gap-2"><span aria-hidden="true">◷</span>{{ __('public.trust_flexibility') }}</div>
-                <div class="flex items-center gap-2"><span aria-hidden="true">◎</span>{{ __('public.trust_teachers') }}</div>
-                <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ __('public.trust_speaking') }}</div>
+                <div class="hero-trust-item is-active flex items-center justify-center gap-2" data-hero-trust-item><span aria-hidden="true">◷</span>{{ __('public.trust_flexibility') }}</div>
+                <div class="hero-trust-item flex items-center justify-center gap-2" data-hero-trust-item><span aria-hidden="true">◎</span>{{ __('public.trust_teachers') }}</div>
+                <div class="hero-trust-item flex items-center justify-center gap-2" data-hero-trust-item><span aria-hidden="true">↗</span>{{ __('public.trust_speaking') }}</div>
             </div>
         </section>
         <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">
