@@ -164,7 +164,6 @@
                                 <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-6 text-white sm:p-7">
                                     <div class="min-w-0">
                                         <h3 class="m-0 text-xl font-semibold leading-tight tracking-tight sm:text-2xl">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
-                                        <p class="mt-1 mb-0 text-sm text-white/80">{{ __('public.teacher_role') }}</p>
                                     </div>
                                     <button class="teacher-card__more" type="button" data-teacher-open aria-label="{{ __('public.teacher_more', ['name' => Illuminate\Support\Str::of($teacher->name)->before(' ')]) }}" aria-haspopup="dialog">
                                         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14" /></svg>

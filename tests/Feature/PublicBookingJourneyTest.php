@@ -524,6 +524,8 @@ test('public teacher cards open accessible profile dialogs without exposing priv
         ->assertSee('teacher-dialog__biography', false)
         ->assertSee('I help adults speak with confidence at work and while travelling.')
         ->assertSee('More about Morgan')
+        ->assertDontSee('English conversation teacher')
+        ->assertDontSee('Profesor de conversație în limba engleză')
         ->assertDontSee('Book a session')
         ->assertDontSee('morgan.private@example.com');
 
