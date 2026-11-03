@@ -6,7 +6,7 @@
     <body class="auth-page antialiased">
         <main class="auth-shell">
             <div class="auth-pattern" aria-hidden="true">
-                @for ($row = 0; $row < 12; $row++)
+                @for ($row = 0; $row < 10; $row++)
                     <div class="auth-pattern__row" style="--auth-row: {{ $row }};"></div>
                 @endfor
             </div>

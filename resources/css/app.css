@@ -916,12 +916,12 @@ details[open] [data-faq-chevron] {
 
 .auth-pattern__row {
     width: 100%;
-    min-height: 3.25rem;
-    flex: 1 0 3.25rem;
-    background-image: url('/images/easyenglish-symbol.svg');
+    min-height: 2.2rem;
+    flex: 1 0 2.2rem;
+    background-image: url('/images/easyenglish-symbol-pattern.svg');
     background-repeat: repeat-x;
     background-position: left center;
-    background-size: 4.5rem 3.6rem;
+    background-size: 6.875rem 2.1875rem;
     opacity: 0.19;
     will-change: background-position;
     animation: auth-drift-right 58s linear infinite;
@@ -931,7 +931,7 @@ details[open] [data-faq-chevron] {
 .auth-pattern__row:nth-child(even) {
     animation-name: auth-drift-left;
     animation-duration: 64s;
-    background-position-x: 2.25rem;
+    background-position-x: 3.4375rem;
     opacity: 0.15;
 }
 
@@ -941,12 +941,12 @@ details[open] [data-faq-chevron] {
 
 @keyframes auth-drift-right {
     from { background-position-x: 0; }
-    to { background-position-x: 9rem; }
+    to { background-position-x: 13.75rem; }
 }
 
 @keyframes auth-drift-left {
-    from { background-position-x: 2.25rem; }
-    to { background-position-x: -6.75rem; }
+    from { background-position-x: 3.4375rem; }
+    to { background-position-x: -10.3125rem; }
 }
 
 .auth-content {
@@ -962,8 +962,10 @@ details[open] [data-faq-chevron] {
     width: min(100%, 29rem);
     border: 1px solid rgb(255 255 255 / 72%);
     border-radius: 1.75rem;
-    background: #fff;
+    background: rgb(255 255 255 / 82%);
     padding: clamp(1.5rem, 4vw, 2.5rem);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
     color: var(--color-ink);
     box-shadow: 0 28px 80px rgb(8 30 91 / 24%), 0 5px 18px rgb(8 30 91 / 10%);
 }
@@ -1064,7 +1066,7 @@ details[open] [data-faq-chevron] {
     }
 
     .auth-pattern__row {
-        background-size: 3.8rem 3.05rem;
+        background-size: 5.5rem 1.75rem;
     }
 }
 
