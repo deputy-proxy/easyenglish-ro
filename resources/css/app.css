@@ -290,6 +290,17 @@ select:focus[data-flux-control] {
     border-radius: 17px 17px 5px 17px;
 }
 
+@media (min-width: 768px) {
+    [data-hero-trust] {
+        border: 1px solid var(--hero-glass-border);
+        border-radius: 22px;
+        background: var(--hero-glass-surface);
+        box-shadow: var(--hero-glass-shadow);
+        -webkit-backdrop-filter: blur(var(--hero-glass-blur));
+        backdrop-filter: blur(var(--hero-glass-blur));
+    }
+}
+
 @media (max-width: 767px) {
     .hero-conversation {
         display: none;

@@ -535,6 +535,22 @@ test('mobile hero photos retain retina resolution', function () {
     }
 });
 
+test('desktop hero taglines share one frosted-glass container while the mobile rotator remains separate', function () {
+    $response = $this->get('/')->assertOk();
+    $content = $response->getContent();
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect(substr_count($content, 'data-hero-trust>'))->toBe(1)
+        ->and(substr_count($content, 'data-hero-trust-item'))->toBe(3)
+        ->and($styles)->toContain('@media (min-width: 768px) {')
+        ->and($styles)->toContain('[data-hero-trust] {')
+        ->and($styles)->toContain('border: 1px solid var(--hero-glass-border)')
+        ->and($styles)->toContain('border-radius: 22px')
+        ->and($styles)->toContain('background: var(--hero-glass-surface)')
+        ->and($styles)->toContain('backdrop-filter: blur(var(--hero-glass-blur))')
+        ->and($styles)->toContain('@media (max-width: 767px) {');
+});
+
 test('desktop hero chat bubbles reuse the frosted-glass surface without changing the conversation hooks', function () {
     $response = $this->get('/')->assertOk();
     $styles = file_get_contents(resource_path('css/app.css'));
