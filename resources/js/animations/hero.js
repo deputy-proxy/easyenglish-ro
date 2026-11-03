@@ -44,19 +44,21 @@ export function initializeHeroAnimations(gsap) {
     const mobileBubbles = gsap.utils.toArray(hero.querySelectorAll('[data-mobile-conversation] .hero-conversation-mobile__message'));
 
     if (mobileBubbles.length) {
-        timeline.fromTo(mobileBubbles, {
+        gsap.set(mobileBubbles, {
             autoAlpha: 0,
             y: 9,
             scale: 0.98,
-        }, {
+        });
+
+        timeline.to(mobileBubbles, {
             autoAlpha: 1,
             y: 0,
             scale: 1,
             duration: 0.38,
-            stagger: 0.14,
+            stagger: 0.62,
             ease: 'power2.out',
             clearProps: 'opacity,visibility,transform',
-        }, 0.65);
+        }, 0.85);
     }
 
     if (titleLines.length) {
