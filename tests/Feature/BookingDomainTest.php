@@ -245,7 +245,9 @@ test('bundle activation grants paid credits only and leaves the standalone free 
         ->and($first->fresh()->free_credits_remaining)->toBe(0);
 
     $freeBooking = app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 09:30', 'Europe/Bucharest'), null, true, true, true);
-    expect($freeBooking->credit_type)->toBe('free')
+    expect($freeBooking->credit_type)->toBeNull()
+        ->and($freeBooking->bundle_entitlement_id)->toBeNull()
+        ->and($freeBooking->free_session_claim_id)->not->toBeNull()
         ->and(FreeSessionClaim::query()->where('customer_email', 'shared@example.com')->where('status', 'reserved')->exists())->toBeTrue()
         ->and(fn () => app(BookingService::class)->holdSlot(bookingCustomer(['email' => 'shared@example.com', 'phone' => '+40722333333']), CarbonImmutable::parse('2026-10-27 10:00', 'Europe/Bucharest'), null, true, true, true))->toThrow(ValidationException::class);
 });
