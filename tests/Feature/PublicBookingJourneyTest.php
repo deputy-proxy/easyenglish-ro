@@ -54,7 +54,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('data-visible-messages="5"', false)
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
-        ->assertSee('rounded-b-[24px]', false)
+        ->assertSee('data-hero-shell', false)
         ->assertSee('pt-6', false)
         ->assertSee('md:pt-[88px]', false)
         ->assertSeeInOrder(['images/teacher-mobile-hero.webp', 'images/student-mobile-hero.webp'])
@@ -210,6 +210,31 @@ test('public landing page exposes progressive enhancement hooks for its animatio
         ->assertSee('data-faq-answer', false)
         ->assertSee('data-faq-chevron', false)
         ->assertSee('data-reveal-background', false);
+});
+
+test('landing hero and navigation transform into a floating sticky header on scroll', function () {
+    $response = $this->get('/')->assertOk();
+    $content = $response->getContent();
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $script = file_get_contents(resource_path('js/animations/hero-shell-navigation.js'));
+
+    $shellStart = strpos($content, 'data-hero-shell');
+    $headerStart = strpos($content, 'data-public-site-header');
+    $heroStart = strpos($content, 'data-hero>');
+    $shellEnd = strpos($content, '</div>'.PHP_EOL.'    <main>', $heroStart);
+
+    expect($shellStart)->not->toBeFalse()
+        ->and($headerStart)->toBeGreaterThan($shellStart)
+        ->and($heroStart)->toBeGreaterThan($headerStart)
+        ->and($shellEnd)->toBeGreaterThan($heroStart)
+        ->and($styles)->toContain('.public-site-header.is-floating')
+        ->and($styles)->toContain('position: fixed')
+        ->and($styles)->toContain('width: var(--hero-shell-width)')
+        ->and($script)->toContain('TRANSITION_DISTANCE = 140')
+        ->and($script)->toContain('MAX_RADIUS = 24')
+        ->and($script)->toContain('window.requestAnimationFrame(update)')
+        ->and($script)->toContain("header.classList.toggle('is-floating', progress >= 1)")
+        ->and($script)->toContain("window.matchMedia('(prefers-reduced-motion: reduce)')");
 });
 
 test('landing page shows only active teachers by first name and never exposes their private details', function () {

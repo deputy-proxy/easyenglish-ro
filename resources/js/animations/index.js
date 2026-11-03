@@ -5,6 +5,7 @@ import { initializeBookingCta } from './booking-cta';
 import { initializeCalendarAnimations } from './calendar';
 import { initializeFaqAnimations } from './faq';
 import { initializeHeroAnimations } from './hero';
+import { initializeHeroShellNavigation } from './hero-shell-navigation';
 import { initializeProgressAnimation } from './progress';
 import { initializeScrollReveals } from './reveals';
 
@@ -14,6 +15,7 @@ export function initializeAnimations() {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     initializeBookingCta(gsap, ScrollTrigger);
+    initializeHeroShellNavigation();
     const bookingTransitionCleanup = initializeAvailabilityBookingTransition(gsap);
 
     if (motionPreference.matches) {
