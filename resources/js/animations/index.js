@@ -59,6 +59,9 @@ export function initializeAnimations() {
         gsap.set('[data-reveal], [data-reveal-item], [data-reveal-background], [data-image-reveal], [data-hero-image], [data-hero-mobile-image], [data-hero-title], [data-hero-title-line], [data-hero-description], [data-hero-cta], [data-hero-trust], [data-progress-chart] [data-chart-grid], [data-progress-chart] [data-chart-labels], [data-chart-legend]', {
             clearProps: 'all',
         });
+        gsap.set('.hero-conversation-mobile__viewport', { height: 'auto', overflow: 'visible' });
+        gsap.set('.hero-conversation-mobile__track', { clearProps: 'transform' });
+        gsap.set('.hero-conversation-mobile__message', { autoAlpha: 1, clearProps: 'transform' });
         console.error('EasyEnglish animations could not be initialized.', error);
     }
 }

@@ -39,15 +39,18 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('role="group"', false)
         ->assertSee('hero-conversation-mobile absolute inset-x-2 bottom-2 z-20', false)
         ->assertDontSee('hero-conversation-mobile absolute inset-x-2 bottom-0 z-20', false)
-        ->assertSeeInOrder([
-            'What can I help you with today?',
-            'I have a presentation next week.',
-            "What's your presentation about?",
-            "It's about our new product launch.",
-            "Let's practise the key points together.",
-        ])
+        ->assertSee('Who will be listening?')
+        ->assertSee('My classmates. I have five minutes.')
+        ->assertSee('An introduction, three points, and a conclusion?')
+        ->assertSee("That's a strong opening!", false)
+        ->assertSee("Good morning. Today I'll talk about...", false)
+        ->assertSee('Try speaking a little slower.')
+        ->assertSee('Can we practise questions, too?')
+        ->assertSee("You're going to do well!", false)
+        ->assertSee('Thank you! I feel more confident now.')
         ->assertSee('grid grid-cols-2 items-end gap-0', false)
         ->assertSee('data-conversation-track')
+        ->assertSee('data-conversation-viewport')
         ->assertSee('data-visible-messages="5"', false)
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
@@ -424,4 +427,11 @@ test('mobile hero photos retain retina resolution', function () {
             ->and($dimensions[0])->toBeGreaterThanOrEqual(800)
             ->and($dimensions[1])->toBeGreaterThanOrEqual(1600);
     }
+});
+
+test('mobile hero contains the complete fourteen-message conversation', function () {
+    $response = $this->get('/')->assertOk();
+
+    expect(substr_count($response->getContent(), 'hero-conversation-mobile__message--teacher'))->toBe(7)
+        ->and(substr_count($response->getContent(), 'hero-conversation-mobile__message--learner'))->toBe(7);
 });

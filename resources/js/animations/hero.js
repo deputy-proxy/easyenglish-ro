@@ -41,24 +41,50 @@ export function initializeHeroAnimations(gsap) {
         }, 0.1);
     }
 
-    const mobileBubbles = gsap.utils.toArray(hero.querySelectorAll('[data-mobile-conversation] .hero-conversation-mobile__message'));
+    const mobileConversation = hero.querySelector('[data-mobile-conversation]');
+    const mobileViewport = mobileConversation?.querySelector('[data-conversation-viewport]');
+    const mobileTrack = mobileConversation?.querySelector('[data-conversation-track]');
+    const mobileBubbles = mobileTrack ? gsap.utils.toArray(mobileTrack.querySelectorAll('.hero-conversation-mobile__message')) : [];
 
-    if (mobileBubbles.length) {
+    if (window.matchMedia('(max-width: 767px)').matches && mobileBubbles.length && mobileViewport && mobileTrack) {
+        if (mobileBubbles.length >= 5) {
+            const fifthBubble = mobileBubbles[4];
+
+            mobileViewport.style.height = `${fifthBubble.offsetTop + fifthBubble.offsetHeight}px`;
+        }
+
         gsap.set(mobileBubbles, {
             autoAlpha: 0,
             y: 9,
             scale: 0.98,
         });
 
-        timeline.to(mobileBubbles, {
-            autoAlpha: 1,
-            y: 0,
-            scale: 1,
-            duration: 0.38,
-            stagger: 0.62,
-            ease: 'power2.out',
-            clearProps: 'opacity,visibility,transform',
-        }, 0.85);
+        const chat = gsap.timeline({
+            delay: 1.1,
+            defaults: {
+                ease: 'power2.out',
+            },
+        });
+
+        mobileBubbles.forEach((bubble, index) => {
+            if (index >= 5) {
+                const scrollDistance = Math.max(0, bubble.offsetTop + bubble.offsetHeight - mobileViewport.clientHeight);
+
+                chat.to(mobileTrack, {
+                    y: -scrollDistance,
+                    duration: 0.8,
+                    ease: 'power2.inOut',
+                }, '+=1.25');
+            }
+
+            chat.to(bubble, {
+                autoAlpha: 1,
+                y: 0,
+                scale: 1,
+                duration: 0.42,
+                ease: 'power2.out',
+            }, index === 0 ? 0 : index >= 5 ? '+=0.12' : '+=1.05');
+        });
     }
 
     if (titleLines.length) {

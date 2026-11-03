@@ -68,13 +68,24 @@
                     <img class="block aspect-[1/2] w-full object-contain object-bottom" src="{{ \App\Support\VersionedAsset::url('images/student-mobile-hero.webp') }}" alt="{{ app()->getLocale() === 'ro' ? 'Cursant' : 'Learner' }}" fetchpriority="high" data-hero-mobile-image>
                 </div>
                 <div class="hero-conversation-mobile absolute inset-x-2 bottom-2 z-20" data-mobile-conversation data-visible-messages="5" aria-hidden="true">
-                <div class="hero-conversation-mobile__track" data-conversation-track>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What's your presentation about?</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">It's about our new product launch.</p>
-                    <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Let's practise the key points together.</p>
-                </div>
+                    <div class="hero-conversation-mobile__viewport" data-conversation-viewport>
+                        <div class="hero-conversation-mobile__track" data-conversation-track>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What can I help you with today?</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">I have a presentation next week.</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">What's your presentation about?</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">It's about renewable energy.</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Who will be listening?</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">My classmates. I have five minutes.</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Let's give it a clear structure.</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">An introduction, three points, and a conclusion?</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">That's a strong opening!</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Good morning. Today I'll talk about...</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">Try speaking a little slower.</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Can we practise questions, too?</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--teacher">You're going to do well!</p>
+                            <p class="hero-conversation-mobile__message hero-conversation-mobile__message--learner">Thank you! I feel more confident now.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 

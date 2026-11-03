@@ -192,16 +192,21 @@ select:focus[data-flux-control] {
         backdrop-filter: blur(10px);
     }
 
+    .hero-conversation-mobile__viewport {
+        height: 150px;
+        overflow: hidden;
+    }
+
     .hero-conversation-mobile__track {
+        position: relative;
         display: flex;
-        min-height: 0;
-        flex: 1;
         flex-direction: column;
-        justify-content: flex-start;
         row-gap: 5px;
+        will-change: transform;
     }
 
     .hero-conversation-mobile__message {
+        flex-shrink: 0;
         width: fit-content;
         max-width: 90%;
         margin: 0;
@@ -214,8 +219,9 @@ select:focus[data-flux-control] {
         font-size: 10px;
         font-weight: 600;
         line-height: 1.3;
-        opacity: 1;
-        transform: none;
+        opacity: 0;
+        visibility: hidden;
+        will-change: transform, opacity;
     }
 
     .hero-conversation-mobile__message--learner {
@@ -228,6 +234,25 @@ select:focus[data-flux-control] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .hero-conversation-mobile {
+        height: auto;
+    }
+
+    .hero-conversation-mobile__viewport {
+        height: auto;
+        overflow: visible;
+    }
+
+    .hero-conversation-mobile__track {
+        transform: none !important;
+    }
+
+    .hero-conversation-mobile__message {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+    }
+
     .hero-conversation__bubble {
         animation: none;
         opacity: 0;
