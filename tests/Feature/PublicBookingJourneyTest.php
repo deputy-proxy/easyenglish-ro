@@ -52,7 +52,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
         ->assertSee('pb-0 pt-[100px]', false)
-        ->assertSeeInOrder(['images/student-mobile-hero.webp', 'images/teacher-mobile-hero.webp'])
+        ->assertSeeInOrder(['images/teacher-mobile-hero.webp', 'images/student-mobile-hero.webp'])
         ->assertSee('my-5 max-w-[38ch]', false)
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
