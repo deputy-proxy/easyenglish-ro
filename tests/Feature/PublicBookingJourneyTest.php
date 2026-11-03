@@ -92,6 +92,36 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('21 sesiuni în total');
 });
 
+test('free session availability reveals the booking form for authenticated learners', function () {
+    $user = User::factory()->create([
+        'email' => 'free-session@example.com',
+        'phone' => '+40722123456',
+        'english_level' => null,
+        'session_goal' => null,
+    ]);
+
+    $this->actingAs($user)->withSession(['locale' => 'en'])->get('/')
+        ->assertSee('Book your free introductory session.')
+        ->assertSee('data-availability-content', false)
+        ->assertSee('data-booking-form-panel', false)
+        ->assertSee('data-booking-form-close', false)
+        ->assertSee('data-booking-starts-at', false)
+        ->assertSee('action="'.route('booking.submit').'"', false)
+        ->assertSee('name="type" value="intro"', false)
+        ->assertSee('name="phone"', false)
+        ->assertSee('name="english_level"', false)
+        ->assertSee('name="session_goal"', false)
+        ->assertSee('name="accepted_policy"', false);
+});
+
+test('free session availability asks guests to sign in while preserving the selected slot', function () {
+    $this->withSession(['locale' => 'en'])->get('/')
+        ->assertSee('data-booking-form-panel', false)
+        ->assertSee('Sign in to complete your free session booking.', false)
+        ->assertSee('data-booking-login-link', false)
+        ->assertSee('easyenglish:availability-slot-selected', false);
+});
+
 test('public landing page exposes progressive enhancement hooks for its animation system', function () {
     Faq::factory()->published()->create(['locale' => 'ro']);
 

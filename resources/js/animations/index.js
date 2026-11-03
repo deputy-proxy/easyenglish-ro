@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { initializeAvailabilityBookingTransition } from './availability-booking';
 import { initializeBookingCta } from './booking-cta';
 import { initializeCalendarAnimations } from './calendar';
 import { initializeFaqAnimations } from './faq';
@@ -13,12 +14,13 @@ export function initializeAnimations() {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     initializeBookingCta(gsap, ScrollTrigger);
+    const bookingTransitionCleanup = initializeAvailabilityBookingTransition(gsap);
 
     if (motionPreference.matches) {
         return;
     }
 
-    const cleanup = [];
+    const cleanup = [bookingTransitionCleanup];
     let context;
     let disposed = false;
 
