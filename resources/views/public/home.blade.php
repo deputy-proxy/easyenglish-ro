@@ -90,9 +90,9 @@
             </div>
 
             <div class="relative z-10 mt-3 flex w-full max-w-[850px] flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold text-ink md:absolute md:bottom-[26px] md:left-1/2 md:mt-0 md:w-[min(850px,calc(100%-48px))] md:-translate-x-1/2 md:gap-x-8 md:px-6 md:py-4 md:text-sm" data-hero-trust>
-                <div class="flex items-center gap-2"><span aria-hidden="true">◴</span>{{ __('public.trust_minutes') }}</div>
-                <div class="flex items-center gap-2"><span aria-hidden="true">◉</span>{{ app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp' }}</div>
-                <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ app()->getLocale() === 'ro' ? 'Progres real și predictibil' : 'Real, measurable progress' }}</div>
+                <div class="flex items-center gap-2"><span aria-hidden="true">◷</span>{{ __('public.trust_flexibility') }}</div>
+                <div class="flex items-center gap-2"><span aria-hidden="true">◎</span>{{ __('public.trust_teachers') }}</div>
+                <div class="flex items-center gap-2"><span aria-hidden="true">↗</span>{{ __('public.trust_speaking') }}</div>
             </div>
         </section>
         <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">

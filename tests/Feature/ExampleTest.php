@@ -9,7 +9,9 @@ test('returns a successful response', function () {
     $response->assertSee('hero-teacher.png');
     $response->assertSee('hero-student.png');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session');
-    $response->assertSee(app()->getLocale() === 'ro' ? 'Conversație pe WhatsApp' : 'Conversation on WhatsApp');
+    $response->assertSee(__('public.trust_flexibility'));
+    $response->assertSee(__('public.trust_teachers'));
+    $response->assertSee(__('public.trust_speaking'));
     $response->assertSee('data-weekgrid-mobile');
     $response->assertSee('data-weekgrid aria-live="polite"', false);
     $response->assertSee(__('public.availability_more_times'));
