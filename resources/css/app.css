@@ -178,9 +178,11 @@ select:focus[data-flux-control] {
         position: absolute;
         inset-inline: 8px;
         top: 24%;
-        bottom: auto;
+        bottom: 8px;
         z-index: 20;
-        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
         border: 1px solid rgb(255 255 255 / 82%);
         border-radius: 22px;
         background: rgb(255 255 255 / 82%);
@@ -192,7 +194,10 @@ select:focus[data-flux-control] {
 
     .hero-conversation-mobile__track {
         display: flex;
+        min-height: 0;
+        flex: 1;
         flex-direction: column;
+        justify-content: space-between;
         row-gap: 7px;
     }
 

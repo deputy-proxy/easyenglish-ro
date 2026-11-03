@@ -37,20 +37,18 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('data-mobile-conversation')
         ->assertSee('hero-visual-mobile relative z-10', false)
         ->assertSee('role="group"', false)
-        ->assertSee('hero-conversation-mobile absolute inset-x-2 top-[24%] z-20', false)
+        ->assertSee('hero-conversation-mobile absolute inset-x-2 top-[24%] bottom-2 z-20', false)
         ->assertDontSee('hero-conversation-mobile absolute inset-x-2 bottom-0 z-20', false)
         ->assertSeeInOrder([
             'What can I help you with today?',
             'I have a presentation next week.',
             "What's your presentation about?",
             "It's about our new product launch.",
-            'Great! Do you want to practice the key points together?',
-            "Yes, please. I'd like to sound more confident.",
-            'Perfect! We can also go over some common questions.',
-            'That would be really helpful. Thank you!',
+            "Let's practise the key points together.",
         ])
         ->assertSee('grid grid-cols-2 items-end gap-0', false)
         ->assertSee('data-conversation-track')
+        ->assertSee('data-visible-messages="5"', false)
         ->assertSee('What can I help you with today?')
         ->assertSee('I have a presentation next week.')
         ->assertSee('pb-0 pt-[100px]', false)
