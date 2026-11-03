@@ -304,7 +304,7 @@ select:focus[data-flux-control] {
 @media (min-width: 768px) {
     [data-hero-trust] {
         border: 1px solid var(--hero-glass-border);
-        border-radius: 100%;
+        border-radius: 100px;
         background: var(--hero-glass-surface);
         box-shadow: var(--hero-glass-shadow);
         -webkit-backdrop-filter: blur(var(--hero-glass-blur));
