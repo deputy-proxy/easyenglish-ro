@@ -250,33 +250,6 @@
                 <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.availability_title') }}</h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.availability_text') }}</p>
             </div>
-            <aside
-                id="free-intro-explainer"
-                class="mb-6 rounded-[18px] border border-primary-border bg-surface-subtle p-4 sm:p-5"
-                aria-labelledby="free-intro-title"
-                data-reveal
-            >
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-                    <div class="min-w-0">
-                        <h3 id="free-intro-title" class="type-card-title m-0 text-ink">{{ __('public.free_intro_title') }}</h3>
-                        <p class="type-card-copy mt-2 mb-0 max-w-[720px]">{{ __('public.free_intro_text') }}</p>
-                    </div>
-                    <ul class="m-0 flex shrink-0 list-none flex-wrap items-center gap-2 p-0 sm:max-w-[330px] sm:justify-end" aria-label="{{ __('public.free_intro_facts_label') }}">
-                        <li class="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1.5 text-[11px] leading-none font-semibold text-ink">
-                            <svg class="size-3.5 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-                            {{ __('public.free_intro_duration') }}
-                        </li>
-                        <li class="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1.5 text-[11px] leading-none font-semibold text-ink">
-                            <svg class="size-3.5 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.6L3 21l1.9-5.6A8.5 8.5 0 1 1 21 11.5Z" /></svg>
-                            {{ __('public.free_intro_channel') }}
-                        </li>
-                        <li class="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-2.5 py-1.5 text-[11px] leading-none font-semibold text-ink">
-                            <svg class="size-3.5 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-1.5a7 7 0 0 1 14 0V21" /></svg>
-                            {{ __('public.free_intro_teacher') }}
-                        </li>
-                    </ul>
-                </div>
-            </aside>
             <div
                 class="relative"
                 data-availability
@@ -306,10 +279,7 @@
                         </div>
                         <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
                     </div>
-                    <div id="availability-pricing-transition" class="mt-5 flex items-start gap-2 border-t border-line pt-4" data-reveal>
-                        <svg class="mt-0.5 size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
-                        <p class="type-card-copy m-0 max-w-[760px]">{{ __('public.availability_pricing_transition') }}</p>
-                    </div>
+
                 </div>
 
                 <div
