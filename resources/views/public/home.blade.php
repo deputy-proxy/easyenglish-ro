@@ -30,13 +30,13 @@
 
             <div class="relative z-10 flex w-full max-w-[900px] flex-col items-center">
                 <h1 class="m-0 leading-[1.06]" data-hero-title>
-                    <span class="block md:whitespace-nowrap text-2xl" data-hero-title-line>{{ __('public.hero_title_a') }}</span>
-                    <span class="block font-bold text-6xl" data-hero-title-line>{{ __('public.hero_title_em') }}</span>
+                    <span class="type-hero-kicker block md:whitespace-nowrap" data-hero-title-line>{{ __('public.hero_title_a') }}</span>
+                    <span class="type-hero-title block" data-hero-title-line>{{ __('public.hero_title_em') }}</span>
                 </h1>
-                <p class="my-5 max-w-[38ch] text-lg font-medium text-muted" data-hero-description>
+                <p class="type-hero-copy my-5 max-w-[38ch]" data-hero-description>
                     {{ __('public.hero_text') }}
                 </p>
-                <a class="inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 text-base leading-tight font-bold !text-white transition-colors hover:bg-primary-hover sm:text-lg md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px] md:text-[19px]" href="#availability" data-hero-cta>
+                <a class="type-action inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 !text-white transition-colors hover:bg-primary-hover md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px]" href="#availability" data-hero-cta>
                     {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
                 </a>
             </div>
@@ -97,21 +97,21 @@
         </section>
         <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">
             <div>
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
-                <h2 class="mb-4 text-[clamp(34px,4vw,48px)] leading-[1.08] tracking-[-2px]" data-reveal>{{ __('public.motivation_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.motivation_text') }}</p>
+                <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
+                <h2 class="type-section-title mb-4" data-reveal>{{ __('public.motivation_title') }}</h2>
+                <p class="type-section-copy" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
             <div class="border-t border-line" data-reveal-stagger>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_job') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_meeting') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="m-0 text-lg leading-[1.45] font-semibold">{{ __('public.motivation_travel') }}</p></article>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="type-body-emphasis m-0">{{ __('public.motivation_job') }}</p></article>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="type-body-emphasis m-0">{{ __('public.motivation_meeting') }}</p></article>
+                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="type-body-emphasis m-0">{{ __('public.motivation_travel') }}</p></article>
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="how">
             <div class="mb-8 max-w-[650px]">
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.how_eyebrow') }}</p>
-                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.how_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.how_text') }}</p>
+                <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.how_eyebrow') }}</p>
+                <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.how_title') }}</h2>
+                <p class="type-section-copy" data-reveal>{{ __('public.how_text') }}</p>
             </div>
             <div class="grid auto-rows-fr gap-5 md:grid-cols-2" data-reveal-stagger>
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
@@ -128,8 +128,8 @@
                         </div>
                         <div class="mt-4 flex-1">
                             <span class="inline-flex rounded-[9px] bg-primary-soft px-3 py-2 text-xs font-extrabold text-primary">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</span>
-                            <h3 class="mt-3 mb-2 text-xl">{{ __('public.step_'.$step.'_title') }}</h3>
-                            <p class="m-0 text-sm leading-[1.65] text-muted">{{ __('public.step_'.$step.'_text') }}</p>
+                            <h3 class="type-card-title mt-3 mb-2">{{ __('public.step_'.$step.'_title') }}</h3>
+                            <p class="type-card-copy m-0">{{ __('public.step_'.$step.'_text') }}</p>
                         </div>
                     </article>
                 @endforeach
@@ -138,9 +138,9 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="teachers">
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.teachers_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.teachers_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.teachers_text') }}</p>
+                    <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.teachers_eyebrow') }}</p>
+                    <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.teachers_title') }}</h2>
+                    <p class="type-section-copy" data-reveal>{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
                     <div class="mb-5 flex items-center justify-end gap-2" data-teacher-navigation>
@@ -162,7 +162,7 @@
                                 <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#173c99]/20 to-[#101b45]/75 opacity-80" aria-hidden="true"></div>
                                 <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-6 text-white sm:p-7">
                                     <div class="min-w-0">
-                                        <h3 class="m-0 text-2xl font-semibold tracking-tight">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
+                                        <h3 class="m-0 text-xl font-semibold leading-tight tracking-tight sm:text-2xl">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
                                         <p class="mt-1 mb-0 text-sm text-white/80">{{ __('public.teacher_role') }}</p>
                                     </div>
                                     <button class="teacher-card__more" type="button" data-teacher-open aria-label="{{ __('public.teacher_more', ['name' => Illuminate\Support\Str::of($teacher->name)->before(' ')]) }}" aria-haspopup="dialog">
@@ -179,7 +179,7 @@
                                         @endif
                                         <div class="p-6 sm:p-8">
                                             <p class="mb-2 text-xs font-extrabold tracking-[1.5px] text-primary uppercase">{{ __('public.teacher_role') }}</p>
-                                            <h3 class="mb-4 text-3xl font-semibold tracking-tight" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
+                                            <h3 class="mb-4 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
                                             <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
                                         </div>
                                     </div>
@@ -195,8 +195,8 @@
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="testimonials">
             <div class="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                 <div class="max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.testimonials_eyebrow') }}</p>
-                    <h2 class="mb-0 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.testimonials_title') }}</h2>
+                    <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.testimonials_eyebrow') }}</p>
+                    <h2 class="type-section-title mb-0" data-reveal>{{ __('public.testimonials_title') }}</h2>
                 </div>
                 @if ($testimonials->isNotEmpty())
                     <div class="flex shrink-0 items-center gap-2" data-testimonial-navigation data-reveal>
@@ -233,14 +233,14 @@
 
                 </div>
             @else
-                <p class="max-w-[620px] leading-[1.7] text-muted">{{ __('public.testimonials_empty') }}</p>
+                <p class="type-section-copy">{{ __('public.testimonials_empty') }}</p>
             @endif
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability">
             <div class="mb-8 max-w-[650px]">
-                <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.availability_eyebrow') }}</p>
-                <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.availability_title') }}</h2>
-                <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.availability_text') }}</p>
+                <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.availability_eyebrow') }}</p>
+                <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.availability_title') }}</h2>
+                <p class="type-section-copy" data-reveal>{{ __('public.availability_text') }}</p>
             </div>
             <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-book-url="{{ route('booking.create') }}" data-reveal>
@@ -267,9 +267,9 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles">
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.packages_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.packages_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.packages_text') }}</p>
+                    <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.packages_eyebrow') }}</p>
+                    <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.packages_title') }}</h2>
+                    <p class="type-section-copy" data-reveal>{{ __('public.packages_text') }}</p>
                 </div>
                 <div class="grid gap-[18px] md:grid-cols-3" data-reveal-stagger>
                     @foreach($bundles as $bundle)
@@ -302,14 +302,14 @@
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="progress-reports">
             <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[0.85fr_1.15fr] md:items-center md:gap-14">
                 <div>
-                    <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.progress_eyebrow') }}</p>
-                    <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.progress_title') }}</h2>
-                    <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.progress_text') }}</p>
+                    <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.progress_eyebrow') }}</p>
+                    <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.progress_title') }}</h2>
+                    <p class="type-section-copy" data-reveal>{{ __('public.progress_text') }}</p>
                 </div>
                 <article class="rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" aria-labelledby="public-progress-chart-title" data-reveal>
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 id="public-progress-chart-title" class="m-0 text-lg font-bold text-ink">{{ __('public.progress_chart_title') }}</h3>
+                            <h3 id="public-progress-chart-title" class="type-card-title m-0 text-ink">{{ __('public.progress_chart_title') }}</h3>
                             <p class="mt-1 mb-0 text-sm text-muted">{{ __('public.progress_chart_subtitle') }}</p>
                         </div>
                         <span class="rounded-full bg-primary-soft px-3 py-1.5 text-[10px] font-extrabold tracking-[0.08em] text-primary uppercase">{{ __('public.progress_chart_sample') }}</span>
@@ -350,9 +350,9 @@
             <section class="py-14 md:py-[82px]" id="faq" data-faq-section>
                 <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
                     <div class="order-1 md:order-2">
-                        <p class="mb-[18px] text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase" data-reveal>{{ __('public.faq_eyebrow') }}</p>
-                        <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.faq_title') }}</h2>
-                        <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.faq_text') }}</p>
+                        <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.faq_eyebrow') }}</p>
+                        <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.faq_title') }}</h2>
+                        <p class="type-section-copy" data-reveal>{{ __('public.faq_text') }}</p>
                     </div>
                     <article class="order-2 flex h-[560px] flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6 md:order-1" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
                         @foreach ($faqs as $faq)
@@ -367,12 +367,12 @@
         @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
             <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]" data-reveal-stagger data-reveal-background>
-                <h2 class="mb-0 max-w-[620px] text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="#availability" data-reveal-item>{{
+                <h2 class="type-section-title mb-0 max-w-[620px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="type-action inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="#availability" data-reveal-item>{{
                     __('public.closing_cta') }}</a>
             </div>
         </section>
     </main>
-    <footer class="mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col items-start justify-between gap-5 py-9 pb-6 text-xs text-muted md:flex-row md:items-center"><span>{{ __('public.footer_line') }}</span>
+    <footer class="type-meta mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col items-start justify-between gap-5 py-9 pb-6 text-muted md:flex-row md:items-center"><span>{{ __('public.footer_line') }}</span>
         <div class="flex flex-wrap items-center gap-x-[18px] gap-y-3"><a class="hover:text-primary" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a><a
                 class="hover:text-primary" href="{{ route('policy','terms') }}">{{ __('public.footer_terms')
                 }}</a>@if(config('easyenglish.contact_email'))<a

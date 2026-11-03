@@ -50,6 +50,109 @@
     }
 }
 
+/* Public landing-page typography roles.
+   Keep these roles semantic and stable so Blade markup shares one responsive scale. */
+@layer components {
+    .type-eyebrow {
+        color: var(--color-primary);
+        font-size: 0.6875rem;
+        font-weight: 800;
+        line-height: 1.4;
+        letter-spacing: 0.10625rem;
+        text-transform: uppercase;
+    }
+
+    .type-hero-kicker {
+        font-size: clamp(1.125rem, 1.55vw, 1.5rem);
+        font-weight: 600;
+        line-height: 1.2;
+        letter-spacing: -0.025em;
+    }
+
+    .type-hero-copy {
+        color: var(--color-muted);
+        font-size: clamp(1rem, 1.35vw, 1.2rem);
+        font-weight: 500;
+        line-height: 1.6;
+    }
+
+    .type-hero-title {
+        font-size: clamp(2.75rem, 6.4vw, 4.5rem);
+        font-weight: 700;
+        line-height: 1.04;
+        letter-spacing: -0.055em;
+        text-wrap: balance;
+    }
+
+    .type-section-title {
+        font-size: clamp(1.875rem, 3.5vw, 2.6875rem);
+        font-weight: 600;
+        line-height: 1.13;
+        letter-spacing: -0.045em;
+        text-wrap: balance;
+    }
+
+    .type-section-copy {
+        max-width: 620px;
+        color: var(--color-muted);
+        font-size: 1rem;
+        font-weight: 400;
+        line-height: 1.7;
+    }
+
+    .type-card-title {
+        font-size: clamp(1.125rem, 1.7vw, 1.25rem);
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+    }
+
+    .type-card-copy {
+        color: var(--color-muted);
+        font-size: 0.875rem;
+        line-height: 1.65;
+    }
+
+    .type-body-emphasis {
+        font-size: 1.125rem;
+        font-weight: 600;
+        line-height: 1.45;
+    }
+
+    .type-meta {
+        font-size: 0.75rem;
+        font-weight: 500;
+        line-height: 1.5;
+    }
+
+    .type-action {
+        font-size: 0.9375rem;
+        font-weight: 700;
+        line-height: 1.25;
+    }
+}
+
+@media (max-width: 639px) {
+    .type-hero-title {
+        font-size: clamp(2.5rem, 11vw, 3.75rem);
+        letter-spacing: -0.045em;
+    }
+
+    .type-section-title {
+        font-size: clamp(1.875rem, 8vw, 2.375rem);
+        letter-spacing: -0.04em;
+    }
+
+    .type-hero-copy {
+        font-size: 1rem;
+    }
+
+    .type-section-copy {
+        font-size: 0.9375rem;
+        line-height: 1.65;
+    }
+}
+
 @layer base {
 
     :where(a, button, summary):focus-visible {
