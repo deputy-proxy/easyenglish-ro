@@ -117,6 +117,29 @@ test('checkout creates a pending purchase using server-controlled tax-inclusive 
         ->and(NotificationDelivery::query()->count())->toBe(0);
 });
 
+test('active bundle discounts are charged at the calculated price and stored as the purchase price', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Ofertă de test', 'en' => 'Test offer'],
+        'start_date' => now()->subDay()->toDateString(),
+        'end_date' => now()->addDay()->toDateString(),
+        'percentage' => 25,
+    ]]]]);
+
+    $purchase = startStripePurchase($this, str_repeat('D', 48));
+    $priceData = app(FakeStripeGateway::class)->checkoutRequests[0]['parameters']['line_items'][0]['price_data'];
+
+    expect($purchase['entitlement']->paid_amount_ron)->toBe(117)
+        ->and($purchase['payment']->amount_ron)->toBe(117)
+        ->and($priceData['unit_amount'])->toBe(11700);
+
+    $paidSession = array_merge($purchase['session'], ['status' => 'complete', 'payment_status' => 'paid']);
+    postStripeTestEvent($this, stripeTestEvent('evt_discounted_bundle', 'checkout.session.completed', $paidSession))
+        ->assertOk();
+
+    expect($purchase['entitlement']->fresh()->status)->toBe('active');
+});
+
 test('all three server-configured bundle prices are sent to Stripe in RON minor units', function () {
     $expected = [156 => 15600, 390 => 39000, 780 => 78000];
     foreach ($expected as $priceRon => $minorUnits) {

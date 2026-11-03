@@ -151,7 +151,7 @@ class NotificationMessageFactory
             $entitlement->loadMissing('definition');
             $replace = ['name' => $entitlement->customer_name, 'days' => $event === NotificationEvent::BundleExpiry14Days ? '14' : '3'];
             $details = [
-                $this->detail($locale, 'bundle', (string) ($snapshot['bundle_name'] ?? $entitlement->definition->name)),
+                $this->detail($locale, 'bundle', (string) ($snapshot['bundle_name'] ?? $entitlement->definition->localizedName($entitlement->locale))),
                 $this->detail($locale, 'credits_remaining', (string) ((int) ($snapshot['credits_remaining'] ?? $entitlement->credits_remaining) + (int) ($snapshot['free_credits_remaining'] ?? $entitlement->free_credits_remaining))),
                 $this->detail($locale, 'bundle_expires', $this->date($snapshot['expires_at'] ?? $entitlement->expires_at, $locale)),
             ];

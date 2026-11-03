@@ -60,7 +60,7 @@ class NotificationOutboxService
         if (in_array($eventValue, [NotificationEvent::BundlePurchaseConfirmed->value, NotificationEvent::BundleExpiry14Days->value, NotificationEvent::BundleExpiry3Days->value], true)) {
             $entitlement->loadMissing('definition');
             $metadata = array_merge(['snapshot' => [
-                'bundle_name' => $entitlement->definition->name,
+                'bundle_name' => $entitlement->definition->localizedName($entitlement->locale),
                 'amount_ron' => $entitlement->paid_amount_ron,
                 'paid_credits' => $entitlement->paid_credits,
                 'free_credits_remaining' => $entitlement->free_credits_remaining,

@@ -48,7 +48,7 @@ class WhatsAppMessageFactory
         $parameters = match ($event) {
             NotificationEvent::BundlePurchaseConfirmed => [
                 $entitlement->customer_name ?? '',
-                $entitlement?->definition->name ?? '',
+                $entitlement?->definition->localizedName($entitlement->locale) ?? '',
                 $this->money($entitlement->paid_amount_ron ?? 0),
                 $this->date($entitlement?->expires_at),
                 $this->bundleStatus((string) ($entitlement->status ?? ''), $locale),
@@ -70,7 +70,7 @@ class WhatsAppMessageFactory
             ],
             NotificationEvent::BundleExpiry14Days, NotificationEvent::BundleExpiry3Days => [
                 $entitlement->customer_name ?? '',
-                $entitlement?->definition->name ?? '',
+                $entitlement?->definition->localizedName($entitlement->locale) ?? '',
                 (string) (($entitlement->credits_remaining ?? 0) + ($entitlement->free_credits_remaining ?? 0)),
                 $this->date($entitlement?->expires_at),
             ],

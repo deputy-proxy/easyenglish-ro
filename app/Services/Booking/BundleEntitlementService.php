@@ -29,7 +29,7 @@ class BundleEntitlementService
             if ($entitlement->status !== 'pending_payment') {
                 throw ValidationException::withMessages(['bundle' => 'Only a pending bundle purchase can be activated.']);
             }
-            if ($entitlement->paid_amount_ron !== $entitlement->definition->price_ron || $entitlement->currency !== 'RON' || $entitlement->paid_credits !== $entitlement->definition->paid_credits) {
+            if ($entitlement->paid_amount_ron < 1 || $entitlement->currency !== 'RON' || $entitlement->paid_credits !== $entitlement->definition->paid_credits) {
                 throw ValidationException::withMessages(['bundle' => 'The stored bundle amount or credit quantity does not match the configured product.']);
             }
 

@@ -59,7 +59,7 @@ class StripeCheckoutService
                     'customer_email_verified_at' => $verification !== null ? $verification->email_verified_at : ($accountContactsVerified ? now() : null),
                     'customer_phone_verified_at' => $verification !== null ? $verification->phone_verified_at : ($accountContactsVerified ? now() : null),
                     'status' => 'pending_payment',
-                    'paid_amount_ron' => $bundle->price_ron,
+                    'paid_amount_ron' => $bundle->currentPriceRon(),
                     'currency' => 'RON',
                     'paid_credits' => $bundle->paid_credits,
                     'free_credits_granted' => 0,
@@ -131,7 +131,7 @@ class StripeCheckoutService
             $payment = $entitlement->payments()->create([
                 'provider' => 'stripe',
                 'checkout_request_key' => $requestKey.':attempt:'.$attempt,
-                'amount_ron' => $bundle->price_ron,
+                'amount_ron' => $entitlement->paid_amount_ron,
                 'currency' => 'RON',
                 'status' => PaymentStatus::Pending->value,
             ]);
@@ -233,9 +233,9 @@ class StripeCheckoutService
                 'price_data' => [
                     'currency' => 'ron',
                     'tax_behavior' => 'inclusive',
-                    'unit_amount' => $bundle->price_ron * 100,
+                    'unit_amount' => $entitlement->paid_amount_ron * 100,
                     'product_data' => [
-                        'name' => $bundle->name,
+                        'name' => $bundle->localizedName($locale),
                         'description' => '15-minute English conversation sessions. All applicable taxes are included.',
                     ],
                 ],

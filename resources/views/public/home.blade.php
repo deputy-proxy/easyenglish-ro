@@ -271,19 +271,32 @@
                     <h2 class="mb-3.5 text-[clamp(30px,3.5vw,43px)] leading-[1.13] tracking-[-1.8px]" data-reveal>{{ __('public.packages_title') }}</h2>
                     <p class="max-w-[620px] leading-[1.7] text-muted" data-reveal>{{ __('public.packages_text') }}</p>
                 </div>
-                <p class="mb-6 leading-[1.7] text-muted" data-reveal>{{ __('public.shared_free_notice') }}</p>
-                <div class="grid gap-[18px] md:grid-cols-3" data-reveal-stagger>@foreach($bundles as $bundle)<article
-                        class="relative flex flex-col items-start rounded-[20px] bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-reveal-item>@if($bundle->price_ron===390)<span
-                            class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ __('public.package_popular') }}</span>@endif<span class="text-[13px] font-bold text-muted">{{
-                            __('public.bundle_label') }} {{ $loop->iteration }}</span>
-                        <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px]">{{ number_format($bundle->price_ron, 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
-                        <p class="m-0 text-sm leading-[1.65] text-muted">{{ trans_choice('public.package_free_paid', $bundle->paid_credits, ['count' => $bundle->paid_credits]) }}</p>
-                        <p class="mt-2.5 mb-[18px] font-bold text-ink">{{ trans_choice('public.package_total', $bundle->paid_credits+1,
-                            ['count' => $bundle->paid_credits+1]) }}</p>
-                        <div class="mb-6 mt-[19px] grid gap-[9px] text-[13px] text-muted"><span><span class="mr-2 font-extrabold text-success">✓</span>{{ __('public.package_duration') }}</span><span><span class="mr-2 font-extrabold text-success">✓</span>{{ __('public.package_validity') }}</span><span><span class="mr-2 font-extrabold text-success">✓</span>{{ __('public.package_tax') }}</span></div>
-                        <a class="mt-auto inline-flex w-full items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:-translate-y-px hover:bg-primary-hover "
-                            href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
-                    </article>@endforeach</div>
+                <div class="grid gap-[18px] md:grid-cols-3" data-reveal-stagger>
+                    @foreach($bundles as $bundle)
+                        @php($discount = $bundle->activeDiscount())
+                        <article class="relative flex flex-col items-start rounded-[20px] p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] {{ $bundle->featured ? 'bg-primary text-white ring-2 ring-primary' : 'bg-white' }}" data-reveal-item>
+                            @if($bundle->featured)
+                                <span class="mb-3 rounded-full bg-white/15 px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-white">{{ __('public.package_featured') }}</span>
+                            @endif
+                            @if($discount)
+                                <span class="mb-3 rounded-full {{ $bundle->featured ? 'bg-white/15 text-white' : 'bg-primary-soft text-primary' }} px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px]">{{ $bundle->localizedValue($discount['title'] ?? []) }}</span>
+                            @endif
+                            <span class="text-[13px] font-bold {{ $bundle->featured ? 'text-white/75' : 'text-muted' }}">{{ $bundle->localizedName() }}</span>
+                            @if($discount)
+                                <div class="mt-2 text-sm font-semibold line-through {{ $bundle->featured ? 'text-white/60' : 'text-muted' }}">{{ number_format($bundle->price_ron, 0, ',', '.') }} RON</div>
+                            @endif
+                            <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px]">{{ number_format($bundle->currentPriceRon(), 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
+                            <p class="m-0 text-sm leading-[1.65] {{ $bundle->featured ? 'text-white/80' : 'text-muted' }}">{{ $bundle->localizedValue($bundle->short_description) }}</p>
+                            <p class="mt-2.5 mb-[18px] font-bold {{ $bundle->featured ? 'text-white' : 'text-ink' }}">{{ $bundle->localizedValue($bundle->tagline) }}</p>
+                            <div class="mb-6 mt-[19px] grid gap-[9px] text-[13px] {{ $bundle->featured ? 'text-white/80' : 'text-muted' }}">
+                                @foreach($bundle->features ?? [] as $feature)
+                                    <span><span class="mr-2 font-extrabold {{ $bundle->featured ? 'text-white' : 'text-success' }}">✓</span>{{ $bundle->localizedValue($feature['data'] ?? $feature) }}</span>
+                                @endforeach
+                            </div>
+                            <a class="mt-auto inline-flex w-full items-center justify-center rounded-full px-[21px] py-3.5 font-bold transition hover:-translate-y-px {{ $bundle->featured ? 'bg-white text-primary hover:bg-white/90' : 'bg-primary text-white hover:bg-primary-hover' }}" href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
+                        </article>
+                    @endforeach
+                </div>
             </div>
         </section>
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="progress-reports">

@@ -33,7 +33,6 @@ class StripePaymentProcessor
             || (int) ($session['amount_total'] ?? -1) !== $payment->amount_ron * 100
             || $payment->currency !== 'RON'
             || $payment->amount_ron !== $entitlement->paid_amount_ron
-            || $payment->amount_ron !== $entitlement->definition->price_ron
             || (is_string($session['customer_email'] ?? null) && mb_strtolower($session['customer_email']) !== mb_strtolower($entitlement->customer_email))) {
             throw ValidationException::withMessages(['payment' => 'Stripe Checkout amount, currency, or metadata does not match the stored bundle purchase.']);
         }

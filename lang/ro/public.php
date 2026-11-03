@@ -230,7 +230,7 @@ return [
     'purchase_refresh_cta' => 'Verifică din nou starea plății',
     'checkout_unavailable_title' => 'Plata online nu este încă activată',
     'checkout_unavailable_text' => 'Plata securizată nu este activată încă. Nu a fost creată nicio comandă și nu s-au încasat bani. Plata va fi activată după configurarea Stripe, completarea datelor de contact și verificările de lansare.',
-    'shared_free_notice' => 'O singură sesiune introductivă gratuită per persoană. Oferta este comună între sesiunea gratuită independentă și pachet; dacă ai folosit-o deja, nu primești încă una prin pachet.',
+    'package_featured' => 'Recomandat',
     'purchase_policy_notice' => 'O singură sesiune introductivă gratuită per persoană, comună ofertei gratuite independente și pachetului. Sesiunea gratuită inclusă este adăugată doar după verificarea atât a e-mailului, cât și a numărului de telefon. Dacă ai folosit-o deja, nu se adaugă un al doilea credit gratuit. Programările trebuie să înceapă înainte de expirarea pachetului. Creditele neutilizate expiră conform termenilor publicați. Se aplică regulile de anulare, neprezentare și rambursare.',
     'checkout_unavailable_cta' => 'Înapoi la pachete',
     'no_bundle_credits' => 'Pachetul a expirat sau nu mai are credite disponibile.',
