@@ -16,6 +16,10 @@ A paid-bundle booking requires a valid active entitlement, sufficient credits, m
 
 The standalone free introduction requires the learner to verify an email code/link and a six-digit WhatsApp OTP before a booking or slot hold is created. Successful contact verification is stored on the account for subsequent sessions. The challenge expires after 30 minutes, the email link and OTP are single-use, and invalid or unverified contacts never create a booking or slot hold. The same verification flow can be completed from bundle checkout to qualify for the included free credit; bundle purchase itself remains available without verification, and the free credit is granted only after both channels are verified and the shared free offer remains unused. Live SMTP delivery, the approved WhatsApp verification template, and end-to-end production delivery remain launch gates. Likewise, bundle purchase displays an explicit not-yet-enabled checkout state until the Stripe integration is configured. Neither flow pretends that a payment or verification succeeded.
 
+## Free introductory conversation
+
+The standalone free introduction is a 15-minute, teacher-guided conversation held on WhatsApp. The teacher uses the learner's stated English level, goals, and real-life use cases to guide the discussion and explain how future conversations can be adapted. It introduces the service; it is not a formal language assessment, written report, detailed action plan, or guarantee of a learning result. Teacher-recorded progress assessments are a separate workflow and must not be implied as a deliverable of the free introduction.
+
 ## Cancellation and privacy disclosure
 
 The booking form links to public privacy and cancellation pages and displays the current cancellation summary before submission. The policy version is recorded on successful booking. The privacy page is an implementation draft; controller identity, legal bases, final retention periods, and statutory rights workflow must be reviewed and completed before launch. Prices are tax-inclusive and sessions are 15 minutes.
