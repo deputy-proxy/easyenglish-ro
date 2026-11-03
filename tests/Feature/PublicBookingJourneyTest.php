@@ -415,3 +415,13 @@ test('public teacher cards display profile biographies without exposing private 
         ->assertSee('Book a session')
         ->assertDontSee('morgan.private@example.com');
 });
+
+test('mobile hero photos retain retina resolution', function () {
+    foreach (['student-mobile-hero.webp', 'teacher-mobile-hero.webp'] as $image) {
+        $dimensions = getimagesize(public_path("images/{$image}"));
+
+        expect($dimensions)->not->toBeFalse()
+            ->and($dimensions[0])->toBeGreaterThanOrEqual(800)
+            ->and($dimensions[1])->toBeGreaterThanOrEqual(1600);
+    }
+});
