@@ -290,6 +290,10 @@
                 </div>
                 <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
             </div>
+            <div id="availability-pricing-transition" class="mt-5 flex items-start gap-2 border-t border-line pt-4" data-reveal>
+                <svg class="mt-0.5 size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                <p class="type-card-copy m-0 max-w-[760px]">{{ __('public.availability_pricing_transition') }}</p>
+            </div>
         </section>
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles" data-mobile-booking-cta-blocker>
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
