@@ -15,7 +15,6 @@ use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
-use App\Services\Booking\BundleEntitlementService;
 use App\Services\Booking\CancellationPolicyService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Progress\ProgressChartData;
@@ -580,7 +579,7 @@ class PublicSiteController extends Controller
         return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified]);
     }
 
-    public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout, BundleEntitlementService $entitlements): RedirectResponse
+    public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
     {
         $this->applyLocale($request);
         abort_unless($bundle->is_active, 404);
@@ -630,9 +629,6 @@ class PublicSiteController extends Controller
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
             ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge, $accountContactsVerified);
-            if ($verificationChallenge !== null && $payment->status === 'succeeded') {
-                $entitlements->grantIncludedFreeCreditIfEligible($payment->bundle_entitlement_id);
-            }
         } catch (\Throwable $exception) {
             Log::warning('Stripe Checkout could not be started.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
 
