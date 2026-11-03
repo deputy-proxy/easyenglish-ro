@@ -107,7 +107,6 @@ return [
     'teachers_eyebrow' => 'OAMENII CU CARE VEI VORBI',
     'teachers_title' => 'Cunoaște-ți profesorii.',
     'teachers_text' => 'Fiecare conversație este ghidată de un profesor EasyEnglish activ și adaptată obiectivelor tale.',
-    'teacher_role' => 'Profesor de conversație în limba engleză',
     'teacher_bio_fallback' => 'Te ajută să capeți încredere prin conversații practice, adaptate ție.',
     'teachers_previous' => 'Profesorul anterior',
     'teachers_next' => 'Profesorul următor',

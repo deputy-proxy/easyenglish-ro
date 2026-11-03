@@ -108,7 +108,6 @@ return [
     'teachers_eyebrow' => 'THE PEOPLE YOU WILL TALK TO',
     'teachers_title' => 'Meet your teachers.',
     'teachers_text' => 'Every conversation is guided by an active EasyEnglish teacher and shaped around your goals.',
-    'teacher_role' => 'English conversation teacher',
     'teacher_bio_fallback' => 'Helping you build confidence through practical, personal conversations.',
     'teachers_previous' => 'Previous teacher',
     'teachers_next' => 'Next teacher',
