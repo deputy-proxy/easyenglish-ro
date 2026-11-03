@@ -41,6 +41,24 @@ export function initializeHeroAnimations(gsap) {
         }, 0.1);
     }
 
+    const mobileBubbles = gsap.utils.toArray(hero.querySelectorAll('[data-mobile-conversation] .hero-conversation-mobile__message'));
+
+    if (mobileBubbles.length) {
+        timeline.fromTo(mobileBubbles, {
+            autoAlpha: 0,
+            y: 9,
+            scale: 0.98,
+        }, {
+            autoAlpha: 1,
+            y: 0,
+            scale: 1,
+            duration: 0.38,
+            stagger: 0.14,
+            ease: 'power2.out',
+            clearProps: 'opacity,visibility,transform',
+        }, 0.65);
+    }
+
     if (titleLines.length) {
         timeline.fromTo(titleLines, {
             autoAlpha: 0,

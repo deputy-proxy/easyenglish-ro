@@ -37,7 +37,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('data-mobile-conversation')
         ->assertSee('hero-visual-mobile relative z-10', false)
         ->assertSee('role="group"', false)
-        ->assertSee('hero-conversation-mobile absolute inset-x-2 top-[24%] bottom-2 z-20', false)
+        ->assertSee('hero-conversation-mobile absolute inset-x-2 bottom-2 z-20', false)
         ->assertDontSee('hero-conversation-mobile absolute inset-x-2 bottom-0 z-20', false)
         ->assertSeeInOrder([
             'What can I help you with today?',
