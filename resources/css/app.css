@@ -450,8 +450,8 @@ select:focus[data-flux-control] {
         flex-wrap: nowrap;
         justify-content: flex-start;
         overflow-x: auto;
-        overflow-y: visible;
-        padding: 0 1.25rem 1.5rem;
+        overflow-y: auto;
+        padding: 1.25rem 1.25rem 2rem;
         overscroll-behavior-x: contain;
         scroll-snap-type: x mandatory;
         scrollbar-width: none;
@@ -467,7 +467,7 @@ select:focus[data-flux-control] {
         flex: 0 0 100%;
         width: 100%;
         max-width: none;
-        scroll-snap-align: start;
+        scroll-snap-align: center;
         scroll-snap-stop: always;
     }
 
@@ -618,9 +618,13 @@ details[open] [data-faq-chevron] {
     .teacher-carousel {
         width: calc(100% + 2.5rem);
         margin-left: -1.25rem;
-        padding: 0 1.25rem 1.5rem;
+        padding: 1.25rem 1.25rem 2rem;
+        scroll-padding-inline: 1.25rem;
     }
-    .teacher-carousel .teacher-card { flex-basis: 100%; }
+    .teacher-carousel .teacher-card {
+        flex-basis: 100%;
+        scroll-snap-align: center;
+    }
 }
 
 /* Teacher profile mobile refinements */
