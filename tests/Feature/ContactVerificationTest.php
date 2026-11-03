@@ -149,12 +149,9 @@ test('verification requests are rate-limited per normalized contact', function (
 });
 
 test('provider delivery failure invalidates a partially delivered challenge', function () {
-    app()->instance(WhatsAppGateway::class, new class implements WhatsAppGateway {
-        public function sendTemplate(string $recipient, string $template, string $language, array $components, string $callbackData): array
-        {
-            throw new RuntimeException('fake provider failure');
-        }
-    });
+    $gateway = \\Mockery::mock(WhatsAppGateway::class);
+    $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('fake provider failure'));
+    app()->instance(WhatsAppGateway::class, $gateway);
 
     expect(fn () => app(ContactVerificationService::class)->start('partial@example.com', '+40722987657', 'en'))
         ->toThrow(RuntimeException::class);
