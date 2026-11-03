@@ -685,3 +685,37 @@ details[open] [data-faq-chevron] {
         aspect-ratio: 3 / 4;
     }
 }
+
+
+/* Mobile hero trust-benefit rotator */
+@media (max-width: 767px) {
+    [data-hero-trust] {
+        display: block;
+        min-height: 30px;
+        padding-inline: 8px;
+    }
+
+    .hero-trust-item {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(7px);
+        transition: opacity 420ms ease, transform 420ms ease, visibility 420ms;
+        pointer-events: none;
+    }
+
+    .hero-trust-item.is-active {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hero-trust-item { transition: none !important; }
+}

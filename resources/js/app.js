@@ -272,3 +272,47 @@ document.querySelectorAll('[data-teacher-carousel]').forEach((carousel) => {
     updateNavigation();
     window.addEventListener('pagehide', () => controller.abort(), { once: true });
 });
+
+
+const heroTrust = document.querySelector('[data-hero-trust]');
+
+if (heroTrust) {
+    const items = Array.from(heroTrust.querySelectorAll('[data-hero-trust-item]'));
+    const mobile = window.matchMedia('(max-width: 767px)');
+    let activeIndex = Math.max(0, items.findIndex((item) => item.classList.contains('is-active')));
+    let rotationTimer;
+
+    const setActiveItem = (nextIndex) => {
+        activeIndex = nextIndex;
+        items.forEach((item, index) => {
+            const active = index === activeIndex;
+            item.classList.toggle('is-active', active);
+            item.setAttribute('aria-hidden', mobile.matches && !active ? 'true' : 'false');
+        });
+    };
+
+    const stopRotation = () => {
+        if (rotationTimer) window.clearInterval(rotationTimer);
+        rotationTimer = undefined;
+    };
+
+    const syncRotation = () => {
+        stopRotation();
+        if (!mobile.matches) {
+            items.forEach((item) => item.removeAttribute('aria-hidden'));
+            items.forEach((item) => item.classList.remove('is-active'));
+            return;
+        }
+
+        setActiveItem(activeIndex);
+        rotationTimer = window.setInterval(() => {
+            setActiveItem((activeIndex + 1) % items.length);
+        }, 3200);
+    };
+
+    if (items.length > 1) {
+        syncRotation();
+        mobile.addEventListener('change', syncRotation);
+        window.addEventListener('pagehide', stopRotation, { once: true });
+    }
+}
