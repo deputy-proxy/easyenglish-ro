@@ -179,7 +179,7 @@
                                         @endif
                                         <div class="p-6 sm:p-8">
                                             <p class="mb-2 text-xs font-extrabold tracking-[1.5px] text-primary uppercase">{{ __('public.teacher_role') }}</p>
-                                            <h3 class="mb-4 text-3xl font-semibold tracking-tight" id="teacher-dialog-title-{{ $teacher->id }}">{{ $teacher->name }}</h3>
+                                            <h3 class="mb-4 text-3xl font-semibold tracking-tight" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
                                             <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
                                         </div>
                                     </div>
