@@ -32,7 +32,7 @@ class PaymentStateService
 
             if ($target === PaymentStatus::Succeeded) {
                 $entitlement = $lockedPayment->entitlement()->lockForUpdate()->firstOrFail();
-                if ($lockedPayment->amount_ron !== $entitlement->paid_amount_ron || $lockedPayment->currency !== 'RON' || $lockedPayment->amount_ron !== $entitlement->definition->price_ron) {
+                if ($lockedPayment->amount_ron !== $entitlement->paid_amount_ron || $lockedPayment->currency !== 'RON') {
                     throw ValidationException::withMessages(['payment' => 'The verified payment amount does not match the configured bundle price.']);
                 }
             }

@@ -43,7 +43,7 @@
                     <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_your_bundles') }}</p>
                     @forelse ($entitlements->where('status', 'active') as $entitlement)
                         <div class="mt-3 flex items-start justify-between gap-3">
-                            <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $entitlement->definition->name }}</p><p class="mt-1 text-sm text-zinc-500">{{ $entitlement->credits_remaining + $entitlement->free_credits_remaining }} {{ __('public.dashboard_remaining_credits') }}</p></div>
+                            <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $entitlement->definition->localizedName($entitlement->locale) }}</p><p class="mt-1 text-sm text-zinc-500">{{ $entitlement->credits_remaining + $entitlement->free_credits_remaining }} {{ __('public.dashboard_remaining_credits') }}</p></div>
                             <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ $entitlement->expires_at?->timezone('Europe/Bucharest')->format('d.m.Y') }}</span>
                         </div>
                     @empty

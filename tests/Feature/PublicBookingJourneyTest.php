@@ -82,7 +82,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('min-h-10 rounded-[7px]', false)
         ->assertSee('Pachete simple. Engleză în ritmul tău.')
         ->assertSee('Alegi pachetul potrivit și îți programezi conversațiile atunci când ai timp.')
-        ->assertSee('O singură sesiune introductivă gratuită per persoană.')
+        ->assertDontSee('O singură sesiune introductivă gratuită per persoană.')
         ->assertSee('1 sesiune gratuită + 4 sesiuni plătite')
         ->assertSee('5 sesiuni în total')
         ->assertSee('1 sesiune gratuită + 10 sesiuni plătite')
@@ -211,14 +211,14 @@ test('visitor can switch the public experience to English without an account', f
         ->assertSee('Your teacher prepares. You practise.')
         ->assertSee('Simple bundles. English at your pace.')
         ->assertSee('Choose the bundle that suits you and schedule your conversations whenever you have time.')
-        ->assertSee('One free introductory session per person.')
+        ->assertDontSee('One free introductory session per person.')
         ->assertSee('1 free session + 4 paid sessions')
         ->assertSee('5 sessions in total')
         ->assertSee('1 free session + 10 paid sessions')
         ->assertSee('11 sessions in total')
         ->assertSee('1 free session + 20 paid sessions')
         ->assertSee('21 sessions in total')
-        ->assertSee('Quickly scan the week and choose your preferred day and time.')
+        ->assertDontSee('Quickly scan the week and choose your preferred day and time.')
         ->assertSee('data-weekgrid-mobile', false)
         ->assertSee('Stop waiting to speak perfect English. Start speaking it.')
         ->assertSee('Get started for free')
@@ -229,7 +229,7 @@ test('visitor can switch the public experience to English without an account', f
         ->assertDontSee('text-green', false)
         ->assertDontSee('border-green', false)
         ->assertDontSee('bg-lime', false)
-        ->assertSee('MOST POPULAR');
+        ->assertDontSee('MOST POPULAR');
 });
 
 test('brand palette exposes semantic primary, surface, text, and success tokens', function () {

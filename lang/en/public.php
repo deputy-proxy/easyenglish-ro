@@ -231,7 +231,7 @@ return [
     'purchase_refresh_cta' => 'Check payment status again',
     'checkout_unavailable_title' => 'Online payment is not enabled yet',
     'checkout_unavailable_text' => 'Secure checkout is not enabled yet. No order was created and no money was charged. Checkout will be enabled after Stripe, contact details, and launch checks are complete.',
-    'shared_free_notice' => 'One free introductory session per person. The offer is shared between the standalone free session and the bundle; if you have already used it, the bundle will not include another free session.',
+    'package_featured' => 'Featured',
     'purchase_policy_notice' => 'One free introductory session per person, shared between the standalone free offer and the bundle. The included free session is credited only after both email and phone are verified. If you have already used it, no second free credit is added. Appointments must start before the bundle expires. Unused credits expire under the published terms. Cancellation, no-show, and refund rules apply.',
     'checkout_unavailable_cta' => 'Back to bundles',
     'no_bundle_credits' => 'This bundle has expired or has no available credits.',
