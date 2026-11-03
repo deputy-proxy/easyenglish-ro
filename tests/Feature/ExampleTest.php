@@ -55,6 +55,54 @@ test('public progress section displays an illustrative radar chart instead of me
     $response->assertDontSee(__('public.progress_metric_confidence_text'));
 });
 
+test('the four-step booking journey explains the free introduction and optional continuation in both locales', function () {
+    $expectedCopy = [
+        'ro' => [
+            'Alege o oră',
+            'Vezi intervalele disponibile pentru întreaga săptămână și alege o sesiune de 15 minute.',
+            'Spune-ne ce vrei să îmbunătățești',
+            'Împărtășește nivelul tău de engleză, obiectivele și situațiile în care o folosești.',
+            'Începe cu o conversație gratuită',
+            'Discută pe WhatsApp cu un profesor EasyEnglish într-o sesiune introductivă gratuită de 15 minute.',
+            'Continuă în ritmul tău',
+            'Dacă vrei să continui, alegi un pachet și programezi următoarele conversații. Profesorul le pregătește pentru nivelul, interesele și obiectivele tale.',
+        ],
+        'en' => [
+            'Choose a time',
+            'Browse the week’s available times and choose a 15-minute slot that works for you.',
+            'Tell us what you want to improve',
+            'Share your English level, goals and the situations where you use English.',
+            'Start with a free conversation',
+            'Meet an EasyEnglish teacher on WhatsApp for your free 15-minute introductory conversation.',
+            'Continue at your own pace',
+            'If you’d like to continue, choose a bundle and schedule your next conversations. Your teacher prepares each one around your level, interests and goals.',
+        ],
+    ];
+
+    $obsoleteCopy = [
+        'ro' => ['Începe conversația', 'Profesorul pregătește. Tu exersezi.'],
+        'en' => ['Start talking', 'Your teacher prepares. You practise.'],
+    ];
+
+    foreach ($expectedCopy as $locale => $copy) {
+        $response = $this->withSession(['locale' => $locale])->get(route('home'));
+        $content = $response->getContent();
+
+        $response->assertOk();
+
+        foreach ($copy as $line) {
+            $response->assertSee($line);
+        }
+
+        foreach ($obsoleteCopy[$locale] as $line) {
+            $response->assertDontSee($line);
+        }
+
+        expect(preg_match('/<section[^>]*id="how"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
+            ->and(substr_count($matches[1], '<article'))->toBe(4);
+    }
+});
+
 test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
     Faq::factory()->published()->create([
         'question' => 'Another backend-managed question?',
