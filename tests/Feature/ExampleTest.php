@@ -6,6 +6,9 @@ test('returns a successful response', function () {
     $response = $this->get(route('home'));
 
     $response->assertOk();
+    $response->assertSee('Autentificare');
+    $response->assertSee('images/easyenglish-symbol-blue.svg');
+    $response->assertSee('/admin/login');
     $response->assertSee('hero-teacher.png');
     $response->assertSee('hero-student.png');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session');
