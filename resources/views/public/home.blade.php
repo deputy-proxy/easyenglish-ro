@@ -11,7 +11,7 @@
 </head>
 
 <body class="bg-paper font-sans text-ink antialiased">
-    <header class="absolute inset-x-0 top-0 z-20 flex h-[76px] items-center justify-between gap-3 px-4 sm:px-6 md:h-[88px] md:px-[clamp(22px,5.5vw,96px)]">
+    <header class="public-site-header sticky inset-x-0 top-0 z-50 flex h-[calc(76px+env(safe-area-inset-top,0px))] items-center justify-between gap-3 border-b border-line/70 bg-white/95 px-4 pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_12px_rgba(20,35,75,0.06)] backdrop-blur-md sm:px-6 md:h-[calc(88px+env(safe-area-inset-top,0px))] md:px-[clamp(22px,5.5vw,96px)]">
         <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
@@ -23,7 +23,7 @@
         </nav>
     </header>
     <main>
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden rounded-b-[24px] bg-white px-5 pt-[100px] pb-5 md:rounded-b-none md:pb-[150px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[176px]" data-hero>
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden rounded-b-[24px] bg-white px-5 pt-6 pb-5 md:rounded-b-none md:pb-[150px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[88px]" data-hero>
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
                 <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high" data-hero-image>
                 <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high" data-hero-image>

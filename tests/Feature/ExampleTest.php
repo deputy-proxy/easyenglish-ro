@@ -9,6 +9,8 @@ test('returns a successful response', function () {
     $response->assertSee('Autentificare');
     $response->assertSee('images/easyenglish-symbol-blue.svg');
     $response->assertSee('/admin/login');
+    $response->assertSee('public-site-header', false);
+    $response->assertSee('sticky inset-x-0 top-0 z-50', false);
     $response->assertSee('hero-teacher.png');
     $response->assertSee('hero-student.png');
     $response->assertSee(app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session');
@@ -33,6 +35,14 @@ test('mobile booking CTA reuses the free booking anchor and localized copy', fun
         $response->assertSee('aria-hidden="true"', false);
         $response->assertSee($label);
     }
+});
+
+test('sticky public navigation reserves anchor offsets and mobile safe areas', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px))')
+        ->toContain('scroll-padding-top: calc(88px + env(safe-area-inset-top, 0px))');
 });
 
 test('mobile booking CTA respects safe areas and reduced-motion preferences', function () {
