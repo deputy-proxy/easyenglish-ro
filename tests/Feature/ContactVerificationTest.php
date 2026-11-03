@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Mockery;
 use RuntimeException;
 use Tests\Support\FakeStripeGateway;
 use Tests\Support\FakeWhatsAppGateway;
@@ -149,7 +150,7 @@ test('verification requests are rate-limited per normalized contact', function (
 });
 
 test('provider delivery failure invalidates a partially delivered challenge', function () {
-    $gateway = \Mockery::mock(WhatsAppGateway::class);
+    $gateway = Mockery::mock(WhatsAppGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('fake provider failure'));
     app()->instance(WhatsAppGateway::class, $gateway);
 
