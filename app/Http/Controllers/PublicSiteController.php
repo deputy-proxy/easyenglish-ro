@@ -38,12 +38,30 @@ class PublicSiteController extends Controller
     {
         $this->applyLocale($request);
 
+        $user = $request->user();
+        $verificationId = $request->session()->get('contact_verification_id');
+        $verification = is_string($verificationId)
+            ? ContactVerificationChallenge::query()->whereKey($verificationId)->first()
+            : null;
+
+        if ($verification && (! $verification->isUsable() || $verification->customer_email !== mb_strtolower((string) $user?->email))) {
+            $verification = null;
+        }
+
+        $oldPhone = $request->old('phone');
+        $contactsVerified = $user !== null
+            && $user->email_verified_at !== null
+            && $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($oldPhone) ? $oldPhone : (string) $user->phone);
+
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
             'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name', 'teacher_photo_path', 'teacher_bio']),
             'faqs' => Faq::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderBy('id')->get(['id', 'question', 'answer', 'category']),
             'testimonials' => Testimonial::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderByDesc('updated_at')->get(['id', 'quote', 'author_name', 'author_context']),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
+            'contactsVerified' => $contactsVerified,
+            'verification' => $verification,
         ]);
     }
 

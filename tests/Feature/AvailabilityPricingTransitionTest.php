@@ -3,13 +3,13 @@
 test('availability-to-pricing transition is localized, optional, and stays between the existing sections', function () {
     $copy = [
         'ro' => [
-            'transition' => 'Ai găsit un interval potrivit? Dacă vrei să continui, descoperă pachetele și alege pachetul potrivit.',
-            'optional' => 'Dacă vrei să continui',
+            'transition' => 'Sesiunea introductivă este gratuită și nu face parte din niciun pachet. După conversație, poți decide dacă vrei să continui cu un pachet.',
+            'optional' => 'poți decide dacă vrei să continui',
             'unsupported' => ['rezervat', 'garantat', 'obligatoriu'],
         ],
         'en' => [
-            'transition' => 'Found a time that works? If you’d like to continue, explore the bundles and choose the one that suits you.',
-            'optional' => 'If you’d like to continue',
+            'transition' => 'Your introductory session is free and independent of any bundle. After the conversation, you can decide whether a bundle is right for you.',
+            'optional' => 'you can decide whether a bundle is right for you',
             'unsupported' => ['reserved', 'guaranteed', 'required'],
         ],
     ];

@@ -269,30 +269,167 @@
                     </ul>
                 </div>
             </aside>
-            <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-availability data-week="{{ $weekStart->format('Y-m-d') }}"
-                data-book-url="{{ route('booking.create') }}" data-reveal>
-                <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
-                    <p class="min-h-5 min-w-0 whitespace-nowrap text-[10px] font-semibold leading-5 text-primary-strong sm:text-xs" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
-                    <div class="flex shrink-0 items-center gap-2" data-availability-navigation>
-                        <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
-                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
-                        </button>
-                        <button class="testimonial-arrow testimonial-arrow--next" type="button" data-next aria-label="{{ __('public.next_week') }}">
-                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
-                        </button>
+            <div
+                class="relative"
+                data-availability
+                data-week="{{ $weekStart->format('Y-m-d') }}"
+                data-locale="{{ app()->getLocale() }}"
+                data-book-url="{{ route('booking.create') }}"
+                data-initial-slot="{{ old('starts_at', '') }}"
+            >
+                <div data-availability-content>
+                    <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-reveal>
+                        <div class="mb-3 flex items-center justify-between gap-3 sm:mb-5">
+                            <p class="min-h-5 min-w-0 whitespace-nowrap text-[10px] font-semibold leading-5 text-primary-strong sm:text-xs" data-week-status aria-live="polite">{{ __('public.availability_loading') }}</p>
+                            <div class="flex shrink-0 items-center gap-2" data-availability-navigation>
+                                <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
+                                </button>
+                                <button class="testimonial-arrow testimonial-arrow--next" type="button" data-next aria-label="{{ __('public.next_week') }}">
+                                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2" data-weekgrid aria-live="polite">
+                            <p class="col-span-7">{{ __('public.availability_loading') }}</p>
+                        </div>
+                        <div class="grid gap-2 sm:hidden" data-weekgrid-mobile aria-live="polite">
+                            <p>{{ __('public.availability_loading') }}</p>
+                        </div>
+                        <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
+                    </div>
+                    <div id="availability-pricing-transition" class="mt-5 flex items-start gap-2 border-t border-line pt-4" data-reveal>
+                        <svg class="mt-0.5 size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
+                        <p class="type-card-copy m-0 max-w-[760px]">{{ __('public.availability_pricing_transition') }}</p>
                     </div>
                 </div>
-                <div class="hidden min-w-0 grid-cols-7 gap-1 sm:grid sm:gap-2" data-weekgrid aria-live="polite">
-                    <p class="col-span-7">{{ __('public.availability_loading') }}</p>
+
+                <div
+                    class="invisible pointer-events-none absolute inset-x-0 top-0 rounded-[22px] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-7"
+                    data-booking-form-panel
+                    aria-hidden="true"
+                    aria-labelledby="free-session-form-title"
+                >
+                    <div class="mb-6 flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <h3 id="free-session-form-title" class="type-card-title m-0 text-ink">{{ __('public.free_booking_details') }}</h3>
+                            <p class="mt-2 mb-0 text-sm font-semibold text-primary-strong"><span>{{ __('public.booking_selected_slot') }}:</span> <span data-booking-slot-label></span></p>
+                        </div>
+                        <button class="testimonial-arrow shrink-0" type="button" data-booking-form-close aria-label="{{ __('public.booking_close_form') }}">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    @auth
+                        <form method="post" action="{{ route('booking.submit') }}" class="space-y-5" data-free-session-form>
+                            @csrf
+                            @if($errors->any())
+                                <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
+                                    @foreach($errors->all() as $error)<p class="m-0">{{ $error }}</p>@endforeach
+                                </div>
+                            @endif
+                            @if(session('status'))
+                                <p class="rounded-xl bg-primary-soft p-4 text-sm text-primary-strong" role="status">{{ session('status') }}</p>
+                            @endif
+                            @if(! $contactsVerified)
+                                <div class="rounded-xl bg-surface-subtle p-4 text-sm leading-relaxed text-muted">
+                                    <strong class="text-ink">{{ __('public.verification_title') }}</strong>
+                                    <p class="mt-1 mb-0">{{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_explainer_email_only' : 'public.verification_explainer') }}</p>
+                                    @if($verification)
+                                        <p class="mt-2 mb-0">{{ __('public.verification_email_status') }}: <strong>{{ $verification->email_verified_at ? __('public.verification_status_verified') : __('public.verification_status_pending') }}</strong>
+                                            @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only')<br>{{ __('public.verification_phone_status') }}: <strong>{{ $verification->phone_verified_at ? __('public.verification_status_verified') : __('public.verification_status_pending') }}</strong>@endif
+                                        </p>
+                                    @endif
+                                </div>
+                            @endif
+
+                            <input type="hidden" name="name" value="{{ auth()->user()->name }}">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-semibold text-ink" for="free-session-email">{{ __('public.field_email') }}</label>
+                                    <input class="min-h-12 rounded-xl border border-line bg-surface-subtle px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-email" name="email" type="email" value="{{ auth()->user()->email }}" autocomplete="email" readonly required maxlength="254">
+                                </div>
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-semibold text-ink" for="free-session-phone">{{ __('public.field_phone') }}</label>
+                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone', $verification?->customer_phone ?? auth()->user()->phone) }}" autocomplete="tel" required maxlength="32" pattern="[+0-9 () .-]{7,32}">
+                                </div>
+                            </div>
+                            @if(! auth()->user()->english_level)
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-semibold text-ink" for="free-session-level">{{ __('public.field_level') }}</label>
+                                    <select class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-level" name="english_level" required>
+                                        <option value="">{{ __('public.field_level_placeholder') }}</option>
+                                        @foreach(['A1','A2','B1','B2','C1','C2'] as $level)
+                                            <option value="{{ $level }}" @selected(old('english_level') === $level)>{{ __('public.level_'.strtolower($level)) }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @else
+                                <input type="hidden" name="english_level" value="{{ auth()->user()->english_level }}">
+                            @endif
+                            @if(! auth()->user()->session_goal)
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-semibold text-ink" for="free-session-goal">{{ __('public.field_goal') }}</label>
+                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-goal" name="session_goal" value="{{ old('session_goal') }}" placeholder="{{ __('public.field_goal_placeholder') }}" required maxlength="500">
+                                </div>
+                            @else
+                                <input type="hidden" name="session_goal" value="{{ auth()->user()->session_goal }}">
+                            @endif
+                            @if(! auth()->user()->english_level)
+                                <div class="grid gap-2">
+                                    <label class="text-sm font-semibold text-ink" for="free-session-notes">{{ __('public.field_notes') }}</label>
+                                    <textarea class="min-h-28 rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-notes" name="notes" maxlength="5000" placeholder="{{ __('public.field_notes_placeholder') }}">{{ old('notes') }}</textarea>
+                                </div>
+                            @else
+                                <input type="hidden" name="notes" value="{{ auth()->user()->session_notes }}">
+                            @endif
+                            <div class="rounded-xl bg-surface-subtle p-4 text-xs leading-relaxed text-muted">
+                                {{ __('public.policy_summary') }} <a class="font-semibold text-primary underline" href="{{ route('policy','terms') }}">{{ __('public.footer_terms') }}</a> · <a class="font-semibold text-primary underline" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a>
+                            </div>
+                            <label class="flex items-start gap-3 text-sm leading-relaxed text-muted">
+                                <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="accepted_policy" value="1" required @checked(old('accepted_policy'))>
+                                <span>{{ __('public.policy_accept') }}</span>
+                            </label>
+                            @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only')
+                                <label class="flex items-start gap-3 text-sm leading-relaxed text-muted">
+                                    <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="whatsapp_service_consent" value="1" required @checked(old('whatsapp_service_consent'))>
+                                    <span>{{ __('public.whatsapp_service_consent') }}</span>
+                                </label>
+                            @endif
+                            <input type="hidden" name="type" value="intro">
+                            <input type="hidden" name="return_to" value="booking">
+                            <input type="hidden" name="starts_at" value="{{ old('starts_at', '') }}" data-booking-starts-at required>
+                            @if($verification)<input type="hidden" name="verification_id" value="{{ $verification->id }}">@endif
+                            @if(! $contactsVerified)
+                                <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start') }}" formmethod="post" formnovalidate>
+                                    {{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_send_button_email_only' : 'public.verification_send_button') }}
+                                </button>
+                                @if($verification && ! $verification->email_verified_at)
+                                    <div class="grid gap-2">
+                                        <label class="text-sm font-semibold text-ink" for="free-session-email-code">{{ __('public.verification_email_code_label') }}</label>
+                                        <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-email-code" name="email_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
+                                    </div>
+                                    <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.email-code.confirm') }}" formmethod="post" formnovalidate>{{ __('public.verification_confirm_email_button') }}</button>
+                                @endif
+                                @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only' && $verification && ! $verification->phone_verified_at)
+                                    <div class="grid gap-2">
+                                        <label class="text-sm font-semibold text-ink" for="free-session-phone-code">{{ __('public.verification_code_label') }}</label>
+                                        <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-phone-code" name="phone_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
+                                    </div>
+                                    <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.phone.confirm') }}" formmethod="post" formnovalidate>{{ __('public.verification_confirm_phone_button') }}</button>
+                                @endif
+                            @endif
+                            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.booking_submit_intro') }}</button>
+                            <p class="m-0 text-xs leading-relaxed text-muted">{{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_required_email_only' : 'public.verification_required') }}</p>
+                        </form>
+                    @else
+                        <input type="hidden" value="{{ old('starts_at', '') }}" data-booking-starts-at>
+                        <div class="rounded-xl bg-surface-subtle p-5">
+                            <p class="type-card-copy mt-0">{{ __('public.booking_sign_in_text') }}</p>
+                            <a class="inline-flex min-h-12 items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" href="{{ route('booking.create', ['type' => 'intro']) }}" data-booking-login-link>{{ __('public.booking_sign_in') }}</a>
+                        </div>
+                    @endauth
                 </div>
-                <div class="grid gap-2 sm:hidden" data-weekgrid-mobile aria-live="polite">
-                    <p>{{ __('public.availability_loading') }}</p>
-                </div>
-                <p class="mt-3 text-[11px] leading-relaxed text-muted sm:mt-3.5 sm:text-xs">{{ __('public.timezone_note') }}</p>
-            </div>
-            <div id="availability-pricing-transition" class="mt-5 flex items-start gap-2 border-t border-line pt-4" data-reveal>
-                <svg class="mt-0.5 size-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
-                <p class="type-card-copy m-0 max-w-[760px]">{{ __('public.availability_pricing_transition') }}</p>
             </div>
         </section>
         <section class="bg-surface-subtle py-14 md:py-[82px]" id="bundles" data-mobile-booking-cta-blocker>
@@ -434,7 +571,6 @@
             const status = root.querySelector('[data-week-status]');
             let week = root.dataset.week;
             let navigationDirection = 0;
-            const base = root.dataset.bookUrl;
             const previous = root.querySelector('[data-prev]');
             const next = root.querySelector('[data-next]');
             const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
@@ -446,6 +582,11 @@
             const moreTimesMessage = @json(__('public.availability_more_times'));
             const fewerTimesMessage = @json(__('public.availability_fewer_times'));
             const loadError = @json(__('public.availability_error'));
+            const formatSlotDate = date => new Intl.DateTimeFormat(root.dataset.locale === 'ro' ? 'ro-RO' : 'en-GB', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+            }).format(new Date(date + 'T12:00:00'));
             const monday = date => {
                 const value = new Date(date + 'T12:00:00');
                 value.setDate(value.getDate() - ((value.getDay() + 6) % 7));
@@ -463,7 +604,9 @@
                 button.textContent = slot.time;
                 button.setAttribute('aria-label', day.date + ' ' + slot.time);
                 button.addEventListener('click', () => {
-                    location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking';
+                    document.dispatchEvent(new CustomEvent('easyenglish:availability-slot-selected', {
+                        detail: { startsAt: slot.starts_at, label: formatSlotDate(day.date) + ' · ' + slot.time, trigger: button },
+                    }));
                 });
                 return button;
             };
@@ -558,7 +701,9 @@
                             button.textContent = slot.time;
                             button.setAttribute('aria-label', day.date + ' ' + slot.time);
                             button.addEventListener('click', () => {
-                                location.href = base + '?type=intro&slot=' + encodeURIComponent(slot.starts_at) + '#booking';
+                                document.dispatchEvent(new CustomEvent('easyenglish:availability-slot-selected', {
+                                    detail: { startsAt: slot.starts_at, label: formatSlotDate(day.date) + ' · ' + slot.time, trigger: button },
+                                }));
                             });
                             slots.append(button);
                         });
@@ -593,7 +738,19 @@
                         if (!response.ok) throw new Error('Availability request failed');
                         return response.json();
                     })
-                    .then(data => render(data.days))
+                    .then(data => {
+                        render(data.days);
+                        const initialSlot = root.dataset.initialSlot;
+                        if (initialSlot) {
+                            const matchingDay = data.days.find(day => day.slots.some(slot => slot.starts_at === initialSlot));
+                            const matchingSlot = matchingDay?.slots.find(slot => slot.starts_at === initialSlot);
+                            if (matchingSlot) {
+                                document.dispatchEvent(new CustomEvent('easyenglish:availability-slot-selected', {
+                                    detail: { startsAt: matchingSlot.starts_at, label: formatSlotDate(matchingDay.date) + ' · ' + matchingSlot.time },
+                                }));
+                            }
+                        }
+                    })
                     .catch(() => {
                         status.textContent = loadError;
                         grid.innerHTML = '';
