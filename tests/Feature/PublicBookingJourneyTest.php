@@ -535,6 +535,20 @@ test('mobile hero photos retain retina resolution', function () {
     }
 });
 
+test('desktop hero chat bubbles reuse the frosted-glass surface without changing the conversation hooks', function () {
+    $response = $this->get('/')->assertOk();
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect(substr_count($response->getContent(), 'class="hero-conversation__bubble"'))->toBe(14)
+        ->and($styles)->toContain('--hero-glass-surface: rgb(255 255 255 / 82%)')
+        ->and($styles)->toContain('--hero-glass-border: rgb(255 255 255 / 82%)')
+        ->and($styles)->toContain('--hero-glass-shadow: 0 8px 28px rgb(20 35 75 / 14%)')
+        ->and($styles)->toContain('--hero-glass-blur: 10px')
+        ->and($styles)->toContain('background: var(--hero-glass-surface)')
+        ->and($styles)->toContain('backdrop-filter: blur(var(--hero-glass-blur))')
+        ->and($styles)->toContain('.hero-conversation__side--learner .hero-conversation__bubble');
+});
+
 test('mobile hero contains the complete fourteen-message conversation', function () {
     $response = $this->get('/')->assertOk();
 

@@ -8,6 +8,13 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+    --hero-glass-surface: rgb(255 255 255 / 82%);
+    --hero-glass-border: rgb(255 255 255 / 82%);
+    --hero-glass-shadow: 0 8px 28px rgb(20 35 75 / 14%);
+    --hero-glass-blur: 10px;
+}
+
 /* Keep in-page destinations clear of the persistent public navigation. */
 html {
     scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px));
@@ -263,12 +270,14 @@ select:focus[data-flux-control] {
     inset: 0 auto auto 0;
     width: 100%;
     margin: 0;
-    border: 1px solid var(--color-primary-border);
+    border: 1px solid var(--hero-glass-border);
     border-radius: 17px 17px 17px 5px;
-    background: rgb(255 255 255 / 96%);
+    background: var(--hero-glass-surface);
     padding: 13px 16px;
     color: var(--color-ink);
-    box-shadow: 0 8px 28px rgb(20 35 75 / 10%);
+    box-shadow: var(--hero-glass-shadow);
+    -webkit-backdrop-filter: blur(var(--hero-glass-blur));
+    backdrop-filter: blur(var(--hero-glass-blur));
     font-size: clamp(12px, 0.95vw, 14px);
     font-weight: 600;
     line-height: 1.4;
@@ -278,9 +287,7 @@ select:focus[data-flux-control] {
 }
 
 .hero-conversation__side--learner .hero-conversation__bubble {
-    border-color: var(--color-primary-border);
     border-radius: 17px 17px 5px 17px;
-    background: var(--color-primary-soft);
 }
 
 @media (max-width: 767px) {
@@ -297,13 +304,14 @@ select:focus[data-flux-control] {
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid rgb(255 255 255 / 82%);
+        border: 1px solid var(--hero-glass-border);
         border-radius: 22px;
-        background: rgb(255 255 255 / 82%);
+        background: var(--hero-glass-surface);
         padding: 9px 10px;
         text-align: left;
-        box-shadow: 0 8px 28px rgb(20 35 75 / 14%);
-        backdrop-filter: blur(10px);
+        box-shadow: var(--hero-glass-shadow);
+        -webkit-backdrop-filter: blur(var(--hero-glass-blur));
+        backdrop-filter: blur(var(--hero-glass-blur));
     }
 
     .hero-conversation-mobile__viewport {
