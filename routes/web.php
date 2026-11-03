@@ -11,6 +11,8 @@ Route::get('/', [PublicSiteController::class, 'home'])->name('home');
 Route::post('/language', [PublicSiteController::class, 'setLocale'])->middleware('throttle:20,1')->name('locale.set');
 Route::get('/availability', [PublicSiteController::class, 'availability'])->middleware('throttle:60,1')->name('availability');
 Route::get('/book', [PublicSiteController::class, 'bookingForm'])->name('booking.create');
+Route::post('/book/register', [PublicSiteController::class, 'registerForFreeBooking'])->middleware(['guest', 'throttle:10,1'])->name('booking.register');
+Route::post('/book/login', [PublicSiteController::class, 'loginForFreeBooking'])->middleware(['guest', 'throttle:10,1'])->name('booking.login');
 Route::post('/book', [PublicSiteController::class, 'submitBooking'])->middleware(['auth', 'throttle:10,1'])->name('booking.submit');
 Route::post('/verification/start', [PublicSiteController::class, 'startContactVerification'])->middleware('throttle:10,1')->name('verification.start');
 Route::post('/verification/email-code', [PublicSiteController::class, 'confirmEmailCodeVerification'])->middleware('throttle:10,1')->name('verification.email-code.confirm');

@@ -3,9 +3,13 @@ export function initializeAvailabilityBookingTransition(gsap) {
     const content = root?.querySelector('[data-availability-content]');
     const formPanel = root?.querySelector('[data-booking-form-panel]');
     const closeButton = formPanel?.querySelector('[data-booking-form-close]');
-    const selectedSlot = formPanel?.querySelector('[data-booking-starts-at]');
+    const selectedSlots = formPanel?.querySelectorAll('[data-booking-starts-at]');
+    const selectedSlot = selectedSlots?.[0];
     const slotLabel = formPanel?.querySelector('[data-booking-slot-label]');
     const loginLink = formPanel?.querySelector('[data-booking-login-link]');
+    const registerBranch = formPanel?.querySelector('[data-booking-register-branch]');
+    const loginBranch = formPanel?.querySelector('[data-booking-login-branch]');
+    const branchToggles = formPanel?.querySelectorAll('[data-booking-branch-toggle]');
 
     if (!root || !content || !formPanel || !closeButton || !selectedSlot || !slotLabel) {
         return () => {};
@@ -31,7 +35,7 @@ export function initializeAvailabilityBookingTransition(gsap) {
             return;
         }
 
-        selectedSlot.value = startsAt;
+        selectedSlots.forEach((input) => { input.value = startsAt; });
         slotLabel.textContent = label || startsAt;
         lastTrigger = trigger;
 
@@ -77,7 +81,7 @@ export function initializeAvailabilityBookingTransition(gsap) {
         }
 
         isOpen = false;
-        selectedSlot.value = '';
+        selectedSlots.forEach((input) => { input.value = ''; });
         root.dataset.initialSlot = '';
         const contentHeight = content.getBoundingClientRect().height;
         const intervalCards = [
@@ -117,6 +121,18 @@ export function initializeAvailabilityBookingTransition(gsap) {
 
     document.addEventListener('easyenglish:availability-slot-selected', (event) => open(event.detail || {}), options);
     closeButton.addEventListener('click', close, options);
+
+    branchToggles?.forEach((toggle) => {
+        toggle.addEventListener('click', () => {
+            const showLogin = toggle.dataset.bookingBranchToggle === 'login';
+            registerBranch?.classList.toggle('hidden', showLogin);
+            loginBranch?.classList.toggle('hidden', !showLogin);
+            branchToggles.forEach((branchToggle) => {
+                branchToggle.classList.toggle('hidden', branchToggle.dataset.bookingBranchToggle === (showLogin ? 'login' : 'register'));
+            });
+            (showLogin ? loginBranch : registerBranch)?.querySelector('input:not([type="hidden"])')?.focus();
+        }, options);
+    });
 
     if (root.dataset.initialSlot) {
         const initialSlot = root.dataset.initialSlot;

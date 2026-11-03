@@ -114,12 +114,78 @@ test('free session availability reveals the booking form for authenticated learn
         ->assertSee('name="accepted_policy"', false);
 });
 
-test('free session availability asks guests to sign in while preserving the selected slot', function () {
+test('free session availability offers account creation first and an existing-account login branch', function () {
     $this->withSession(['locale' => 'en'])->get('/')
         ->assertSee('data-booking-form-panel', false)
-        ->assertSee('Sign in to complete your free session booking.', false)
-        ->assertSee('data-booking-login-link', false)
+        ->assertSee('Do you already have an account?', false)
+        ->assertSee('data-booking-register-branch', false)
+        ->assertSee('data-booking-login-branch', false)
+        ->assertSee('data-booking-branch-toggle="login"', false)
+        ->assertSee('name="password_confirmation"', false)
         ->assertSee('easyenglish:availability-slot-selected', false);
+});
+
+test('guest can create an account from the free booking form and is logged in with the selected slot retained', function () {
+    $slot = '2026-10-27T09:00:00+03:00';
+
+    $this->withSession(['locale' => 'en'])->post(route('booking.register'), [
+        'name' => 'New Learner',
+        'email' => 'new-learner@example.com',
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently at work',
+        'session_notes' => 'A little nervous about calls.',
+        'password' => 'StrongPassword123!',
+        'password_confirmation' => 'StrongPassword123!',
+        'starts_at' => $slot,
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect(route('home'));
+
+    $user = User::query()->where('email', 'new-learner@example.com')->firstOrFail();
+
+    expect(auth()->id())->toBe($user->id)
+        ->and($user->phone)->toBe('+40722123456')
+        ->and($user->english_level)->toBe('B1')
+        ->and($user->session_goal)->toBe('Speak more confidently at work');
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-initial-slot="'.$slot.'"', false)
+        ->assertSee('Your account is ready.', false)
+        ->assertSee('action="'.route('booking.submit').'"', false);
+});
+
+test('guest can sign in from the free booking form and keep the selected slot', function () {
+    $user = User::factory()->create(['email' => 'existing-learner@example.com']);
+    $slot = '2026-10-27T09:00:00+03:00';
+
+    $this->withSession(['locale' => 'en'])->post(route('booking.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'starts_at' => $slot,
+    ])->assertRedirect(route('home'));
+
+    expect(auth()->id())->toBe($user->id);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-initial-slot="'.$slot.'"', false)
+        ->assertSee('action="'.route('booking.submit').'"', false);
+});
+
+test('existing account login preserves Fortify two-factor authentication', function () {
+    $user = User::factory()->withTwoFactor()->create(['email' => 'two-factor-learner@example.com']);
+    $slot = '2026-10-27T09:00:00+03:00';
+
+    $this->withSession(['locale' => 'en'])->post(route('booking.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'starts_at' => $slot,
+    ])->assertRedirect(route('login'));
+
+    expect(auth()->check())->toBeFalse()
+        ->and(session('url.intended'))->toBe(route('home', ['slot' => $slot]));
 });
 
 test('public landing page exposes progressive enhancement hooks for its animation system', function () {
