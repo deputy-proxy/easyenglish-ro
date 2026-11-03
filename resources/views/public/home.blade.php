@@ -11,7 +11,7 @@
 </head>
 
 <body class="bg-paper font-sans text-ink antialiased">
-    <header class="public-site-header sticky inset-x-0 top-0 z-50 flex h-[calc(76px+env(safe-area-inset-top,0px))] items-center justify-between gap-3 border-b border-line/70 bg-white/95 px-4 pt-[env(safe-area-inset-top,0px)] shadow-[0_1px_12px_rgba(20,35,75,0.06)] backdrop-blur-md sm:px-6 md:h-[calc(88px+env(safe-area-inset-top,0px))] md:px-[clamp(22px,5.5vw,96px)]">
+    <header class="public-site-header sticky inset-x-0 top-0 z-50 flex h-[calc(76px+env(safe-area-inset-top,0px))] items-center justify-between gap-3 bg-white/55 px-4 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md sm:px-6 md:h-[calc(88px+env(safe-area-inset-top,0px))] md:px-[clamp(22px,5.5vw,96px)]">
         <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
