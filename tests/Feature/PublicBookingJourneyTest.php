@@ -405,7 +405,7 @@ test('selecting a bundle sends guests to login and returns them to the chosen bu
         ->get(route('purchase', $bundle))->assertOk()->assertSee('156 RON');
 });
 
-test('public teacher cards display profile biographies without exposing private contact details', function () {
+test('public teacher cards open accessible profile dialogs without exposing private contact details', function () {
     User::factory()->create([
         'name' => 'Morgan Lee',
         'email' => 'morgan.private@example.com',
@@ -418,8 +418,11 @@ test('public teacher cards display profile biographies without exposing private 
         ->assertOk()
         ->assertSee('teacher-card', false)
         ->assertSee('Morgan')
+        ->assertSee('data-teacher-open', false)
+        ->assertSee('data-teacher-dialog', false)
         ->assertSee('I help adults speak with confidence at work and while travelling.')
-        ->assertSee('Book a session')
+        ->assertSee('More about Morgan')
+        ->assertDontSee('Book a session')
         ->assertDontSee('morgan.private@example.com');
 });
 

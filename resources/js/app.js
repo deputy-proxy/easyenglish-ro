@@ -191,3 +191,49 @@ document.querySelectorAll('[data-testimonials-carousel]').forEach((carousel) => 
         animationContext.revert();
     });
 });
+
+document.querySelectorAll('[data-teacher-carousel]').forEach((carousel) => {
+    const section = carousel.closest('#teachers');
+    const previous = section?.querySelector('[data-teacher-previous]');
+    const next = section?.querySelector('[data-teacher-next]');
+    const cards = Array.from(carousel.querySelectorAll('[data-teacher-card]'));
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+
+    if (cards.length === 0) return;
+
+    const updateNavigation = () => {
+        const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+        previous && (previous.disabled = carousel.scrollLeft <= 2);
+        next && (next.disabled = carousel.scrollLeft >= maxScroll - 2);
+    };
+
+    const scrollByCard = (direction) => {
+        const card = cards[0];
+        const styles = window.getComputedStyle(carousel);
+        const gap = Number.parseFloat(styles.columnGap || styles.gap) || 0;
+        carousel.scrollBy({ left: direction * (card.getBoundingClientRect().width + gap), behavior: 'smooth' });
+    };
+
+    previous?.addEventListener('click', () => scrollByCard(-1), options);
+    next?.addEventListener('click', () => scrollByCard(1), options);
+    carousel.addEventListener('scroll', updateNavigation, { passive: true, signal: controller.signal });
+    window.addEventListener('resize', updateNavigation, { passive: true, signal: controller.signal });
+
+    cards.forEach((card) => {
+        const dialog = card.querySelector('[data-teacher-dialog]');
+        const open = card.querySelector('[data-teacher-open]');
+        const close = card.querySelector('[data-teacher-close]');
+
+        if (!dialog || !open || typeof dialog.showModal !== 'function') return;
+
+        open.addEventListener('click', () => dialog.showModal(), options);
+        close?.addEventListener('click', () => dialog.close(), options);
+        dialog.addEventListener('click', (event) => {
+            if (event.target === dialog) dialog.close();
+        }, options);
+    });
+
+    updateNavigation();
+    window.addEventListener('pagehide', () => controller.abort(), { once: true });
+});
