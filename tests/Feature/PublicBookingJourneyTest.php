@@ -61,7 +61,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
-        ->assertSee('h-[20.87px] items-center justify-center rounded-[6px] border border-ink', false)
+        ->assertSee('min-h-9 items-center justify-center gap-2 rounded-[6px] border border-ink', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
         ->assertSee('Continuă în ritmul tău')
         ->assertSee('156')
