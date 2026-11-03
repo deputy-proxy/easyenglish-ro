@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Fortify\CreateNewUser;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
@@ -25,10 +26,12 @@ use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -355,6 +358,60 @@ class PublicSiteController extends Controller
         return redirect()->route('booking.create', $bookingParameters)
             ->withInput(is_array($formData) ? $formData : [])
             ->with('status', __('public.verification_email_success'));
+    }
+
+    public function registerForFreeBooking(Request $request, CreateNewUser $users): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'max:32', 'regex:/^\\+?[0-9\\s().-]{7,32}$/'],
+            'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
+            'session_goal' => ['required', 'string', 'max:500'],
+            'session_notes' => ['nullable', 'string', 'max:5000'],
+            'password' => ['required', 'string', Password::default(), 'confirmed'],
+            'starts_at' => ['required', 'date'],
+            'accepted_policy' => ['accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
+        ]);
+
+        $validated['password_confirmation'] = $request->input('password_confirmation');
+        $user = $users->create($validated);
+        unset($validated['password'], $validated['password_confirmation']);
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return redirect()->route('home')->withInput($validated)->with('status', __('public.account_created_continue_booking'));
+    }
+
+    public function loginForFreeBooking(Request $request): RedirectResponse
+    {
+        $this->applyLocale($request);
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:254'],
+            'password' => ['required', 'string'],
+            'starts_at' => ['required', 'date'],
+        ]);
+
+        $email = mb_strtolower(trim($validated['email']));
+        $existingUser = User::query()->where('email', $email)->first();
+
+        if ($existingUser?->two_factor_secret !== null) {
+            $request->session()->put('url.intended', route('home', ['slot' => $validated['starts_at']]));
+
+            return redirect()->route('login')
+                ->withInput(['email' => $email])
+                ->with('status', __('public.booking_two_factor_login_redirect'));
+        }
+
+        if (! Auth::attempt(['email' => $email, 'password' => $validated['password']], true)) {
+            throw ValidationException::withMessages(['email' => __('auth.failed')]);
+        }
+
+        $request->session()->regenerate();
+
+        return redirect()->route('home')->withInput(['starts_at' => $validated['starts_at']]);
     }
 
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
