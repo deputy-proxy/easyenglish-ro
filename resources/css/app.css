@@ -622,3 +622,66 @@ details[open] [data-faq-chevron] {
     }
     .teacher-carousel .teacher-card { flex-basis: 100%; }
 }
+
+/* Teacher profile mobile refinements */
+.teacher-card > img {
+    object-position: center center;
+}
+
+.teacher-dialog[open] {
+    position: fixed;
+    inset: auto;
+    top: calc(50% + (env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 2);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+}
+
+.teacher-dialog {
+    width: min(560px, calc(100vw - 32px));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+    overscroll-behavior: contain;
+}
+
+.teacher-dialog__photo {
+    width: 100%;
+    height: min(48dvh, 520px);
+    max-height: none;
+    aspect-ratio: 3 / 4;
+    object-fit: contain;
+    object-position: center;
+    background: #e9edf2;
+}
+
+.teacher-dialog__close {
+    outline: none;
+    box-shadow: 0 2px 12px rgb(0 0 0 / 14%);
+}
+
+.teacher-dialog__close:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.teacher-dialog__close:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 5px rgb(255 255 255 / 85%);
+}
+
+@media (max-width: 640px) {
+    #teachers {
+        padding-block-start: max(calc(5.5rem + env(safe-area-inset-top)), 5.5rem);
+    }
+
+    .teacher-dialog[open] {
+        top: calc(50% + (env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 2);
+        width: calc(100vw - 32px);
+        max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+        border-radius: 24px;
+    }
+
+    .teacher-dialog__photo {
+        height: min(44dvh, 440px);
+        aspect-ratio: 3 / 4;
+    }
+}
