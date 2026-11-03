@@ -53,6 +53,7 @@ return [
     'hero_eyebrow' => 'CONVERSAȚII DE 15 MINUTE PE WHATSAPP',
     'hero_text' => 'Exersezi câte 15 minute pe WhatsApp, cu un profesor care pregătește fiecare conversație pentru tine.',
     'hero_cta' => 'Programează o sesiune gratuită',
+    'mobile_booking_cta' => 'Programează gratuit',
     'hero_secondary' => 'Vezi pachetele',
     'hero_note' => '15 minute · online prin WhatsApp · nu este necesară cumpărarea unui pachet',
     'hero_card_label' => 'PRIMA TA CONVERSAȚIE',

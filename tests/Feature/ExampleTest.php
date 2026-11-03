@@ -18,6 +18,30 @@ test('returns a successful response', function () {
     $response->assertSee('rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full', false);
 });
 
+test('mobile booking CTA reuses the free booking anchor and localized copy', function () {
+    foreach (['ro' => 'Programează gratuit', 'en' => 'Book for free'] as $locale => $label) {
+        $response = $this->withSession(['locale' => $locale])->get(route('home'));
+
+        $response->assertOk();
+        $response->assertSee('data-mobile-booking-cta', false);
+        $response->assertSee('href="#availability"', false);
+        $response->assertSee('hidden', false);
+        $response->assertSee('inert', false);
+        $response->assertSee('aria-hidden="true"', false);
+        $response->assertSee($label);
+    }
+});
+
+test('mobile booking CTA respects safe areas and reduced-motion preferences', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('env(safe-area-inset-bottom, 0px)')
+        ->toContain('env(safe-area-inset-right, 0px)')
+        ->toContain('@media (prefers-reduced-motion: reduce)')
+        ->toContain('[data-mobile-booking-cta][hidden]');
+});
+
 test('public progress section displays an illustrative radar chart instead of metric cards', function () {
     $response = $this->get(route('home'));
 

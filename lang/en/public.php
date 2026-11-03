@@ -54,6 +54,7 @@ return [
     'hero_eyebrow' => '15-MINUTE CONVERSATIONS ON WHATSAPP',
     'hero_text' => 'You have ideas to share, things to say and opportunities to pursue. Practise for 15 minutes on WhatsApp with a teacher who prepares each conversation for you.',
     'hero_cta' => 'Book a free introduction',
+    'mobile_booking_cta' => 'Book for free',
     'hero_secondary' => 'Explore bundles',
     'hero_note' => '15 minutes · online via WhatsApp · no purchase required',
     'hero_card_label' => 'YOUR FIRST CONVERSATION',

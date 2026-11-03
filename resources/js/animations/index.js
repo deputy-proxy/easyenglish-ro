@@ -1,5 +1,6 @@
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { initializeBookingCta } from './booking-cta';
 import { initializeCalendarAnimations } from './calendar';
 import { initializeFaqAnimations } from './faq';
 import { initializeHeroAnimations } from './hero';
@@ -10,6 +11,8 @@ gsap.registerPlugin(ScrollTrigger);
 
 export function initializeAnimations() {
     const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    initializeBookingCta(gsap, ScrollTrigger);
 
     if (motionPreference.matches) {
         return;
