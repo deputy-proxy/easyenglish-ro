@@ -6,7 +6,6 @@ use App\Enums\NotificationEvent;
 use App\Models\BookingAudit;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
-use App\Models\FreeSessionClaim;
 use App\Services\Notifications\NotificationOutboxService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -35,11 +34,7 @@ class BundleEntitlementService
 
             $activatedAt = CarbonImmutable::now(AvailabilityService::TIMEZONE);
             $expiresAt = $activatedAt->addMonthsNoOverflow(3);
-            $hasUsedFreeOffer = FreeSessionClaim::query()->where(function ($query) use ($entitlement): void {
-                $query->where('customer_email', mb_strtolower($entitlement->customer_email))->orWhere('customer_phone', $entitlement->customer_phone);
-            })->exists();
-            $contactsVerified = $entitlement->customer_email_verified_at !== null && $entitlement->customer_phone_verified_at !== null;
-            $freeCredits = ($hasUsedFreeOffer || ! $contactsVerified) ? 0 : $entitlement->definition->included_free_credits;
+            $freeCredits = 0;
 
             $entitlement->update([
                 'status' => 'active',
@@ -59,76 +54,13 @@ class BundleEntitlementService
                 'reason' => 'Paid credits granted after verified payment.',
                 'idempotency_key' => 'bundle-paid-grant:'.$entitlement->id,
             ]);
-            if ($freeCredits > 0) {
-                FreeSessionClaim::query()->create([
-                    'customer_email' => mb_strtolower($entitlement->customer_email),
-                    'customer_phone' => $entitlement->customer_phone,
-                    'status' => 'bundle_credit_granted',
-                    'bundle_entitlement_id' => $entitlement->id,
-                    'verified_at' => now(),
-                ]);
-                CreditTransaction::query()->create([
-                    'bundle_entitlement_id' => $entitlement->id,
-                    'type' => 'granted',
-                    'credit_type' => 'free',
-                    'quantity' => $freeCredits,
-                    'balance_after' => $freeCredits,
-                    'reason' => 'Included free session granted because the shared free offer was unused.',
-                    'idempotency_key' => 'bundle-free-grant:'.$entitlement->id,
-                ]);
-            }
+
             BookingAudit::query()->create([
                 'bundle_entitlement_id' => $entitlement->id,
                 'action' => 'bundle.activated',
                 'metadata' => ['expires_at' => $expiresAt->utc()->toIso8601String(), 'free_credits_granted' => $freeCredits],
             ]);
             $this->notifications->enqueueEntitlementEvent($entitlement->refresh(), NotificationEvent::BundlePurchaseConfirmed);
-
-            return $entitlement->refresh();
-        }, attempts: 3);
-    }
-
-    /** Grant the shared included free session after both contact channels have been verified. */
-    public function grantIncludedFreeCreditIfEligible(int $entitlementId): BundleEntitlement
-    {
-        return DB::transaction(function () use ($entitlementId): BundleEntitlement {
-            DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
-            $entitlement = BundleEntitlement::query()->with('definition')->lockForUpdate()->findOrFail($entitlementId);
-            if ($entitlement->status !== 'active'
-                || $entitlement->customer_email_verified_at === null
-                || $entitlement->customer_phone_verified_at === null
-                || $entitlement->free_credits_granted >= $entitlement->definition->included_free_credits) {
-                return $entitlement;
-            }
-            $claimed = FreeSessionClaim::query()->where(function ($query) use ($entitlement): void {
-                $query->where('customer_email', mb_strtolower($entitlement->customer_email))->orWhere('customer_phone', $entitlement->customer_phone);
-            })->exists();
-            if ($claimed) {
-                return $entitlement;
-            }
-
-            $entitlement->increment('free_credits_remaining');
-            $entitlement->increment('free_credits_granted');
-            FreeSessionClaim::query()->create([
-                'customer_email' => mb_strtolower($entitlement->customer_email),
-                'customer_phone' => $entitlement->customer_phone,
-                'status' => 'bundle_credit_granted',
-                'bundle_entitlement_id' => $entitlement->id,
-                'verified_at' => now(),
-            ]);
-            CreditTransaction::query()->create([
-                'bundle_entitlement_id' => $entitlement->id,
-                'type' => 'granted',
-                'credit_type' => 'free',
-                'quantity' => 1,
-                'balance_after' => $entitlement->refresh()->free_credits_remaining,
-                'reason' => 'Included free credit granted after email and phone verification.',
-                'idempotency_key' => 'bundle-free-grant:'.$entitlement->id,
-            ]);
-            BookingAudit::query()->create([
-                'bundle_entitlement_id' => $entitlement->id,
-                'action' => 'bundle.free_credit_granted_after_verification',
-            ]);
 
             return $entitlement->refresh();
         }, attempts: 3);
