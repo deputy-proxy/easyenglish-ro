@@ -41,11 +41,12 @@ test('mobile booking CTA reuses the free booking anchor and localized copy', fun
     }
 });
 
-test('sticky public navigation overlays the hero without reserving layout space and preserves anchor offsets', function () {
+test('mobile public navigation reserves its own row while desktop navigation overlays the hero', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 
     expect($styles)
-        ->toContain('margin-bottom: calc(-76px - env(safe-area-inset-top, 0px))')
+        ->not->toContain('margin-bottom: calc(-76px - env(safe-area-inset-top, 0px))')
+        ->toContain('@media (min-width: 768px)')
         ->toContain('margin-bottom: calc(-88px - env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(88px + env(safe-area-inset-top, 0px))');
