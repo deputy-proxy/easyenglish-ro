@@ -12,6 +12,7 @@ export function initializeHeroShellNavigation() {
     const controller = new AbortController();
     const options = { signal: controller.signal };
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const desktopViewport = window.matchMedia('(min-width: 768px)');
     let frame = null;
 
     const update = () => {
@@ -21,7 +22,7 @@ export function initializeHeroShellNavigation() {
             ? (window.scrollY >= TRANSITION_DISTANCE ? 1 : 0)
             : Math.min(1, Math.max(0, window.scrollY / TRANSITION_DISTANCE));
         const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-        const gutter = viewportWidth * 0.05 * progress;
+        const gutter = desktopViewport.matches ? viewportWidth * 0.05 * progress : 0;
         const width = viewportWidth - gutter * 2;
         const radius = MAX_RADIUS * progress;
 
@@ -41,6 +42,7 @@ export function initializeHeroShellNavigation() {
     window.addEventListener('scroll', scheduleUpdate, { passive: true, ...options });
     window.addEventListener('resize', scheduleUpdate, { passive: true, ...options });
     reducedMotion.addEventListener('change', scheduleUpdate, options);
+    desktopViewport.addEventListener('change', scheduleUpdate, options);
     window.addEventListener('pagehide', (event) => {
         if (!event.persisted) {
             controller.abort();

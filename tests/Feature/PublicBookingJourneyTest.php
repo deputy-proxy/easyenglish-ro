@@ -234,7 +234,9 @@ test('landing hero and navigation transform into a floating sticky header on scr
         ->and($script)->toContain('MAX_RADIUS = 24')
         ->and($script)->toContain('window.requestAnimationFrame(update)')
         ->and($script)->toContain("header.classList.toggle('is-floating', progress >= 1)")
-        ->and($script)->toContain("window.matchMedia('(prefers-reduced-motion: reduce)')");
+        ->and($script)->toContain("window.matchMedia('(prefers-reduced-motion: reduce)')")
+        ->and($script)->toContain("window.matchMedia('(min-width: 768px)')")
+        ->and($script)->toContain('desktopViewport.matches ? viewportWidth * 0.05 * progress : 0');
 });
 
 test('landing page shows only active teachers by first name and never exposes their private details', function () {
