@@ -29,7 +29,9 @@ class CustomerResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('is_staff', false);
+        return parent::getEloquentQuery()
+            ->where('is_staff', false)
+            ->where('is_teacher', false);
     }
 
     public static function form(Schema $schema): Schema
