@@ -139,3 +139,30 @@ Use these as starting copy for Meta's template review. The `{{1}}` notation is t
 | Bundle expiry (3 days) | `Hi {{1}}, your {{2}} bundle has {{3}} sessions remaining and expires on {{4}}. It expires in about 3 days, so schedule any remaining sessions soon. Reply STOP to opt out.` | `Bună, {{1}}! Pachetul {{2}} mai are {{3}} sesiuni și expiră la {{4}}. Expiră în aproximativ 3 zile, așa că programează sesiunile rămase cât mai curând. Răspunde STOP pentru dezabonare.` |
 
 The provider adapter always sends the named approved template with the configured language and positional body parameters. Do not append ad-hoc text outside the approved template. The templates must be reviewed and approved in Meta before enabling sends.
+
+
+## Scheduled call-link templates
+
+Scheduled-call events are created by the isolated OpenWA service, but all participant notifications continue through the existing Laravel transactional outbox and Meta WhatsApp Cloud API. Keep the two integrations independently disabled until their own rollout checks pass.
+
+The following approved Meta templates are required before enabling WhatsApp call-link delivery:
+
+- `easyenglish_teacher_booking_confirmation` (assigned teacher, 12 body parameters)
+- `easyenglish_teacher_booking_rescheduled` (assigned teacher, 11 body parameters)
+- `easyenglish_call_link_ready` (customer, 7 body parameters)
+- `easyenglish_teacher_call_link_ready` (assigned teacher, 13 body parameters)
+- `easyenglish_teacher_booking_cancelled` (teacher cancellation/reassignment, 4 body parameters)
+
+Template names can be overridden using `WHATSAPP_TEMPLATE_TEACHER_BOOKING_CONFIRMED`, `WHATSAPP_TEMPLATE_TEACHER_BOOKING_RESCHEDULED`, `WHATSAPP_TEMPLATE_CUSTOMER_CALL_LINK_READY`, `WHATSAPP_TEMPLATE_TEACHER_CALL_LINK_READY`, and `WHATSAPP_TEMPLATE_TEACHER_BOOKING_CANCELLED`. Parameter order and meaning are documented in `docs/integrations/openwa.md`. Customer messages use the booking locale; teacher confirmation, reschedule, call-link, and cancellation messages are in English. Teachers receive booking confirmation independently of OpenWA readiness, so an OpenWA outage cannot suppress the initial assignment notification. Each recipient/channel is stored as an independent notification delivery. The customer and teacher receive the same call URL, except when they share a phone number: in that case the teacher-only WhatsApp message is suppressed to prevent exposing internal preparation details to the customer, while teacher email remains available.
+
+The call URL is read from the encrypted `booking_call_events` record when a delivery is built. It is never copied into outbox metadata. Failed deliveries are retried independently from provider event creation in Admin → Operations → Notification delivery.
+
+Suggested teacher/call-link template copy (teacher templates are English-only; customer templates need both `en` and `ro` variants):
+
+- `easyenglish_teacher_booking_confirmation`: `Hi {{1}}, a session is assigned to you. Learner: {{2}} ({{3}}, {{4}}). Level: {{5}}. Goal: {{6}}. Notes: {{7}}. Appointment: {{8}} at {{9}} ({{11}}). Duration: {{10}} minutes. Details and feedback: {{12}}.`
+- `easyenglish_teacher_booking_rescheduled`: `Hi {{1}}, {{2}}'s session has moved from {{5}} at {{6}} to {{7}} at {{8}} ({{10}}). Duration: {{9}} minutes. Learner contact: {{3}}, {{4}}. Details: {{11}}.`
+- `easyenglish_call_link_ready`: `Hi {{1}}, your Easy English session is scheduled for {{2}} at {{3}} ({{5}}). Duration: {{4}} minutes. Join your WhatsApp call here: {{6}}. {{7}}`
+- `easyenglish_teacher_call_link_ready`: `Hi {{1}}, your session with {{2}} is scheduled for {{8}} at {{9}} ({{11}}). Duration: {{10}} minutes. Learner contact: {{3}}, {{4}}. Level: {{5}}. Goal: {{6}}. Notes: {{7}}. Call link: {{12}}. Booking and feedback: {{13}}.`
+- `easyenglish_teacher_booking_cancelled`: `Hi {{1}}, {{2}}'s appointment on {{3}} has been cancelled or reassigned. Update: {{4}}.`
+
+These are positional examples matching the application payload. Submit them to Meta for Utility-template review and adjust copy to meet Meta's current policy before setting `WHATSAPP_ENABLED=true`.

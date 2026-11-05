@@ -243,7 +243,9 @@ test('confirmation revalidates assignment and moves a hold to another eligible t
         ->and($confirmed->teacher_id)->toBe($second->id)
         ->and($confirmationAudit->metadata['previous_teacher_id'])->toBe($first->id)
         ->and($confirmationAudit->metadata['teacher_id'])->toBe($second->id)
-        ->and($confirmationAudit->metadata['teacher_reassigned_at_confirmation'])->toBeTrue();
+        ->and($confirmationAudit->metadata['teacher_reassigned_at_confirmation'])->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_cancelled')->where('recipient_user_id', $first->id)->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_confirmed')->where('recipient_user_id', $second->id)->exists())->toBeTrue();
 });
 
 test('confirmation fails safely when no teacher remains eligible', function () {
@@ -284,7 +286,9 @@ test('rescheduling keeps the current teacher when possible and reassigns when th
     $reassigned = $service->rescheduleByStaff($booking->id, CarbonImmutable::parse('2026-11-04 10:00:00', 'Europe/Bucharest'), $staff->id, 'Reassign due to calendar conflict');
 
     expect($reassigned->teacher_id)->toBe($second->id)
-        ->and($reassigned->teacher_assigned_at)->not->toBeNull();
+        ->and($reassigned->teacher_assigned_at)->not->toBeNull()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_cancelled')->where('recipient_user_id', $first->id)->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_rescheduled')->where('recipient_user_id', $second->id)->exists())->toBeTrue();
 });
 
 test('teacher portal is authenticated and isolated to teacher accounts', function () {

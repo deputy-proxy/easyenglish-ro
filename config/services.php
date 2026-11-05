@@ -8,6 +8,7 @@ $openWaRetryDelays = array_values(array_filter(
 return [
     'openwa' => [
         'enabled' => (bool) env('OPENWA_ENABLED', false),
+        'apply_to_paid_sessions' => (bool) env('OPENWA_APPLY_TO_PAID_SESSIONS', false),
         'base_url' => env('OPENWA_BASE_URL'),
         'service_token' => env('OPENWA_SERVICE_TOKEN'),
         'connect_timeout' => (int) env('OPENWA_CONNECT_TIMEOUT', 5),
@@ -58,6 +59,11 @@ return [
             'booking_cancelled' => env('WHATSAPP_TEMPLATE_BOOKING_CANCELLED', 'easyenglish_booking_cancelled'),
             'booking_rescheduled' => env('WHATSAPP_TEMPLATE_BOOKING_RESCHEDULED', 'easyenglish_booking_rescheduled'),
             'teacher_cancellation' => env('WHATSAPP_TEMPLATE_TEACHER_CANCELLATION', 'easyenglish_teacher_cancellation'),
+            'teacher_booking_confirmed' => env('WHATSAPP_TEMPLATE_TEACHER_BOOKING_CONFIRMED', 'easyenglish_teacher_booking_confirmation'),
+            'teacher_booking_rescheduled' => env('WHATSAPP_TEMPLATE_TEACHER_BOOKING_RESCHEDULED', 'easyenglish_teacher_booking_rescheduled'),
+            'customer_call_link_ready' => env('WHATSAPP_TEMPLATE_CUSTOMER_CALL_LINK_READY', 'easyenglish_call_link_ready'),
+            'teacher_call_link_ready' => env('WHATSAPP_TEMPLATE_TEACHER_CALL_LINK_READY', 'easyenglish_teacher_call_link_ready'),
+            'teacher_booking_cancelled' => env('WHATSAPP_TEMPLATE_TEACHER_BOOKING_CANCELLED', 'easyenglish_teacher_booking_cancelled'),
             'booking_no_show' => env('WHATSAPP_TEMPLATE_BOOKING_NO_SHOW', 'easyenglish_booking_no_show'),
             'refund_succeeded' => env('WHATSAPP_TEMPLATE_REFUND_SUCCEEDED', 'easyenglish_refund_succeeded'),
             'refund_failed' => env('WHATSAPP_TEMPLATE_REFUND_FAILED', 'easyenglish_refund_failed'),

@@ -60,4 +60,10 @@ class BookingCallEvent extends Model
     {
         return $this->belongsTo(Booking::class);
     }
+
+    /** @return BelongsTo<User, $this> */
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
+    }
 }

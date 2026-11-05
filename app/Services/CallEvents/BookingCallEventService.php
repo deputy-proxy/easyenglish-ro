@@ -6,7 +6,11 @@ use App\Contracts\CallEvents\CallEventProvider;
 use App\Data\CallEvents\CallEventResult;
 use App\Exceptions\CallEvents\CallEventProviderException;
 use App\Models\Booking;
+use App\Models\BookingAudit;
 use App\Models\BookingCallEvent;
+use App\Models\User;
+use App\Services\Notifications\NotificationOutboxService;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -16,6 +20,7 @@ class BookingCallEventService
     public function __construct(
         private readonly CallEventProvider $provider,
         private readonly OpenWaConfig $config,
+        private readonly NotificationOutboxService $notifications,
     ) {}
 
     public function createForBooking(int $bookingId, int $revision): ?BookingCallEvent
@@ -36,10 +41,12 @@ class BookingCallEventService
                 ->lockForUpdate()
                 ->first();
 
-            $eligibleBooking = $booking->status === 'confirmed' && $booking->teacher_id !== null;
+            $eligibleBooking = $booking->status === 'confirmed'
+                && $booking->teacher_id !== null
+                && $revision === $booking->reschedule_count + 1;
             if ($event === null) {
                 if (! $eligibleBooking) {
-                    throw new \DomainException('A call event can only be created for a confirmed booking assigned to a teacher.');
+                    return ['event' => null, 'claimed' => false];
                 }
 
                 $idempotencyKey = 'booking_call_event_'.substr(hash('sha256', $this->provider->name().':'.$booking->public_reference.':'.$revision), 0, 64);
@@ -305,22 +312,38 @@ class BookingCallEventService
         }
 
         $resultState = DB::transaction(function () use ($event, $result): array {
+            $booking = Booking::query()->lockForUpdate()->findOrFail($event->booking_id);
             $lockedEvent = BookingCallEvent::query()->lockForUpdate()->findOrFail($event->id);
             if (in_array($lockedEvent->status, ['cancelled', 'cancelling'], true)) {
                 return ['cancel' => false];
             }
 
             $cancelRequested = $lockedEvent->cancel_requested_at !== null;
+            $isCurrent = $booking->status === 'confirmed'
+                && $booking->teacher_id !== null
+                && $lockedEvent->revision === $booking->reschedule_count + 1
+                && $lockedEvent->teacher_id === $booking->teacher_id
+                && $lockedEvent->scheduled_start_at->equalTo($booking->starts_at)
+                && $lockedEvent->scheduled_end_at->equalTo($booking->ends_at);
+            if (! $isCurrent) {
+                $cancelRequested = true;
+            }
+
             $lockedEvent->update([
                 'provider_event_id' => $result->providerEventId,
                 'join_url' => $cancelRequested ? null : $result->joinUrl,
                 'status' => $cancelRequested ? 'cancel_pending' : 'scheduled',
                 'provider_created_at' => $result->createdAt ?? now(),
                 'scheduled_at' => $cancelRequested ? null : now(),
+                'cancel_requested_at' => $cancelRequested ? ($lockedEvent->cancel_requested_at ?? now()) : null,
                 'next_attempt_at' => $cancelRequested ? now() : null,
                 'last_error_category' => null,
                 'last_error_message' => null,
             ]);
+
+            if (! $cancelRequested) {
+                $this->notifications->enqueueCallLinkReady($booking, $lockedEvent->fresh());
+            }
 
             return ['cancel' => $cancelRequested];
         }, attempts: 3);
@@ -355,6 +378,7 @@ class BookingCallEventService
                 $retryStatus = 'cancel_pending';
             }
             $attempts = $lockedEvent->attempts;
+            $wasFailed = $lockedEvent->status === 'failed';
             $canRetry = $retryable && $attempts < $this->config->maxAttempts;
             $delayIndex = min(max($attempts - 1, 0), count($this->config->retryDelaysSeconds) - 1);
             $lockedEvent->update([
@@ -363,6 +387,24 @@ class BookingCallEventService
                 'last_error_category' => mb_substr($category, 0, 64),
                 'last_error_message' => mb_substr($message, 0, 255),
             ]);
+
+            if (! $canRetry && ! $wasFailed && $lockedEvent->status === 'failed') {
+                BookingAudit::query()->create([
+                    'booking_id' => $lockedEvent->booking_id,
+                    'subject_type' => 'booking_call_event',
+                    'subject_id' => $lockedEvent->id,
+                    'action' => 'call_event.failed',
+                    'reason' => $this->safeErrorMessage($category),
+                    'metadata' => ['revision' => $lockedEvent->revision, 'category' => $category],
+                ]);
+                User::query()->where('is_staff', true)->get()->each(static function (User $staff): void {
+                    FilamentNotification::make()
+                        ->title('WhatsApp call setup needs attention')
+                        ->body('A scheduled call could not be prepared after automatic retries. Review the Call events page and retry or resolve the provider issue.')
+                        ->danger()
+                        ->sendToDatabase($staff);
+                });
+            }
 
             return $lockedEvent->fresh();
         }, attempts: 3);

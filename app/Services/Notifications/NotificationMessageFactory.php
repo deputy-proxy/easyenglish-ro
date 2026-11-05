@@ -4,6 +4,8 @@ namespace App\Services\Notifications;
 
 use App\Enums\NotificationEvent;
 use App\Exceptions\NotificationNoLongerEligibleException;
+use App\Models\Booking;
+use App\Models\BookingCallEvent;
 use App\Models\NotificationDelivery;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Lang;
@@ -20,7 +22,17 @@ class NotificationMessageFactory
             'booking.teacher',
             'entitlement.definition',
             'refund.payment.entitlement.definition',
+            'recipientUser',
+            'bookingCallEvent',
         ]);
+
+        $event = NotificationEvent::tryFrom($delivery->event);
+        if ($event === null) {
+            throw new RuntimeException('Unsupported transactional email event.');
+        }
+        if (in_array($event, [NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled, NotificationEvent::CustomerCallLinkReady, NotificationEvent::TeacherCallLinkReady, NotificationEvent::TeacherBookingCancelled], true)) {
+            return $this->makeCallEventMessage($delivery, $event);
+        }
 
         $locale = in_array($delivery->booking->locale ?? $delivery->entitlement->locale ?? $delivery->refund->payment->entitlement->locale, ['ro', 'en'], true)
             ? ($delivery->booking->locale ?? $delivery->entitlement->locale ?? $delivery->refund->payment->entitlement->locale)
@@ -175,6 +187,170 @@ class NotificationMessageFactory
             'ctaLabel' => $ctaLabel,
             'footer' => $this->t($locale, 'footer'),
         ];
+    }
+
+    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string} */
+    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): array
+    {
+        $booking = $delivery->booking;
+        $teacher = $delivery->recipientUser;
+        $callEvent = $delivery->bookingCallEvent;
+        $metadata = $delivery->metadata ?? [];
+        $snapshot = is_array($metadata['snapshot'] ?? null) ? $metadata['snapshot'] : [];
+        $locale = $event === NotificationEvent::CustomerCallLinkReady
+            ? (in_array($booking?->locale, ['ro', 'en'], true) ? (string) $booking->locale : 'ro')
+            : 'en';
+        $replace = [];
+        $details = [];
+        $ctaUrl = null;
+        $ctaLabel = null;
+
+        if ($booking === null) {
+            throw new RuntimeException('Call-event email requires a booking record.');
+        }
+
+        if (in_array($event, [NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)) {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher()
+                || $teacher->id !== $booking->teacher_id || $booking->status !== 'confirmed') {
+                throw new NotificationNoLongerEligibleException('The teacher booking notification is no longer eligible.');
+            }
+            if ($event === NotificationEvent::TeacherBookingConfirmed) {
+                if (! isset($snapshot['starts_at'], $snapshot['ends_at'])
+                    || Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()
+                    || Carbon::parse((string) $snapshot['ends_at'])->getTimestamp() !== $booking->ends_at->getTimestamp()) {
+                    throw new NotificationNoLongerEligibleException('The appointment changed after the teacher confirmation was queued.');
+                }
+                $prefix = 'events.'.$event->value;
+                $replace = ['name' => $teacher->name];
+                $bookingUrl = route('teacher.bookings.show', $booking->public_reference);
+                $details = [
+                    $this->detail($locale, 'customer_name', $booking->customer_name),
+                    $this->detail($locale, 'customer_email', $booking->customer_email),
+                    $this->detail($locale, 'customer_phone', $booking->customer_phone),
+                    $this->detail($locale, 'english_level', $booking->english_level ?: $this->t($locale, 'values.not_provided')),
+                    $this->detail($locale, 'session_goal', $booking->session_goal ?: $this->t($locale, 'values.not_provided')),
+                    $this->detail($locale, 'session_notes', $booking->notes ?: $this->t($locale, 'values.none')),
+                    $this->detail($locale, 'appointment_date', $this->date($booking->starts_at, $locale)),
+                    $this->detail($locale, 'duration', (string) $booking->starts_at->diffInMinutes($booking->ends_at).' '.$this->t($locale, 'labels.minutes')),
+                    $this->detail($locale, 'timezone', 'Europe/Bucharest'),
+                ];
+            } else {
+                if ((int) ($snapshot['revision'] ?? 0) !== $booking->reschedule_count + 1
+                    || ! isset($snapshot['starts_at'], $snapshot['ends_at'], $snapshot['previous_starts_at'])
+                    || Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()
+                    || Carbon::parse((string) $snapshot['ends_at'])->getTimestamp() !== $booking->ends_at->getTimestamp()) {
+                    throw new NotificationNoLongerEligibleException('The appointment changed after the teacher reschedule notification was queued.');
+                }
+                $prefix = 'events.'.$event->value;
+                $replace = ['name' => $teacher->name];
+                $bookingUrl = route('teacher.bookings.show', $booking->public_reference);
+                $details = [
+                    $this->detail($locale, 'customer_name', $booking->customer_name),
+                    $this->detail($locale, 'customer_email', $booking->customer_email),
+                    $this->detail($locale, 'customer_phone', $booking->customer_phone),
+                    $this->detail($locale, 'previous_appointment_date', $this->date($snapshot['previous_starts_at'], $locale)),
+                    $this->detail($locale, 'appointment_date', $this->date($booking->starts_at, $locale)),
+                    $this->detail($locale, 'duration', (string) $booking->starts_at->diffInMinutes($booking->ends_at).' '.$this->t($locale, 'labels.minutes')),
+                    $this->detail($locale, 'timezone', 'Europe/Bucharest'),
+                ];
+            }
+            $recipient = $teacher->email;
+            $ctaUrl = $bookingUrl;
+            $ctaLabel = $this->t($locale, 'actions.open_booking_feedback');
+        } elseif ($event === NotificationEvent::CustomerCallLinkReady) {
+            if ($delivery->recipient_type !== 'customer' || ! $this->isCurrentCallEvent($booking, $callEvent)) {
+                throw new NotificationNoLongerEligibleException('The customer call-link email is no longer eligible.');
+            }
+            $recipient = $booking->customer_email;
+            $replace = ['name' => $booking->customer_name];
+            $details = [
+                $this->detail($locale, 'appointment_date', $this->date($booking->starts_at, $locale)),
+                $this->detail($locale, 'duration', (string) $booking->starts_at->diffInMinutes($booking->ends_at).' '.$this->t($locale, 'labels.minutes')),
+                $this->detail($locale, 'timezone', 'Europe/Bucharest'),
+                $this->detail($locale, 'join_instructions', $this->t($locale, 'values.join_whatsapp_instructions')),
+            ];
+            $ctaUrl = $callEvent->join_url;
+            $ctaLabel = $this->t($locale, 'actions.join_whatsapp_call');
+        } elseif ($event === NotificationEvent::TeacherCallLinkReady) {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher()
+                || $teacher->id !== $booking->teacher_id || ! $this->isCurrentCallEvent($booking, $callEvent)) {
+                throw new NotificationNoLongerEligibleException('The teacher call-link email is no longer eligible.');
+            }
+            $recipient = $teacher->email;
+            $replace = ['name' => $teacher->name];
+            $bookingUrl = route('teacher.bookings.show', $booking->public_reference);
+            $details = [
+                $this->detail($locale, 'customer_name', $booking->customer_name),
+                $this->detail($locale, 'customer_email', $booking->customer_email),
+                $this->detail($locale, 'customer_phone', $booking->customer_phone),
+                $this->detail($locale, 'english_level', $booking->english_level ?: $this->t($locale, 'values.not_provided')),
+                $this->detail($locale, 'session_goal', $booking->session_goal ?: $this->t($locale, 'values.not_provided')),
+                $this->detail($locale, 'session_notes', $booking->notes ?: $this->t($locale, 'values.none')),
+                $this->detail($locale, 'appointment_date', $this->date($booking->starts_at, $locale)),
+                $this->detail($locale, 'duration', (string) $booking->starts_at->diffInMinutes($booking->ends_at).' '.$this->t($locale, 'labels.minutes')),
+                $this->detail($locale, 'timezone', 'Europe/Bucharest'),
+                $this->detail($locale, 'call_link', $callEvent->join_url),
+                $this->detail($locale, 'booking_feedback_link', $bookingUrl),
+            ];
+            $ctaUrl = $bookingUrl;
+            $ctaLabel = $this->t($locale, 'actions.open_booking_feedback');
+        } else {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher()) {
+                throw new NotificationNoLongerEligibleException('The teacher cancellation email is no longer eligible.');
+            }
+            $recipient = $teacher->email;
+            $replace = ['name' => $teacher->name];
+            $startsAt = isset($snapshot['starts_at']) ? Carbon::parse((string) $snapshot['starts_at']) : $booking->starts_at;
+            $reason = (string) ($metadata['reason'] ?? 'cancelled');
+            $reasonText = match ($reason) {
+                'reassigned' => $this->t($locale, 'values.booking_reassigned'),
+                'teacher_cancelled' => $this->t($locale, 'values.teacher_cancelled'),
+                default => $this->t($locale, 'values.booking_cancelled'),
+            };
+            $details = [
+                $this->detail($locale, 'customer_name', $booking->customer_name),
+                $this->detail($locale, 'appointment_date', $this->date($startsAt, $locale)),
+                $this->detail($locale, 'cancellation_reason', $reasonText),
+            ];
+            if ($booking->teacher_id === $teacher->id) {
+                $ctaUrl = route('teacher.bookings.show', $booking->public_reference);
+                $ctaLabel = $this->t($locale, 'actions.open_booking_feedback');
+            }
+        }
+
+        if (filter_var((string) $recipient, FILTER_VALIDATE_EMAIL) === false) {
+            throw new RuntimeException('Call-event email has no valid recipient.');
+        }
+
+        $prefix = 'events.'.$event->value;
+
+        return [
+            'recipient' => $recipient,
+            'locale' => $locale,
+            'subject' => $this->t($locale, $prefix.'.subject', $replace),
+            'heading' => $this->t($locale, $prefix.'.heading', $replace),
+            'greeting' => $this->t($locale, 'greeting', $replace),
+            'intro' => $this->t($locale, $prefix.'.intro', $replace),
+            'details' => $details,
+            'ctaUrl' => $ctaUrl,
+            'ctaLabel' => $ctaLabel,
+            'footer' => $this->t($locale, 'footer'),
+        ];
+    }
+
+    private function isCurrentCallEvent(Booking $booking, ?BookingCallEvent $event): bool
+    {
+        return $booking->status === 'confirmed'
+            && $booking->teacher_id !== null
+            && $event !== null
+            && $event->booking_id === $booking->id
+            && $event->provider === 'openwa'
+            && $event->status === 'scheduled'
+            && $event->join_url !== null
+            && $event->revision === $booking->reschedule_count + 1
+            && $event->teacher_id === $booking->teacher_id
+            && $event->scheduled_start_at->equalTo($booking->starts_at)
+            && $event->scheduled_end_at->equalTo($booking->ends_at);
     }
 
     /** @return array{label:string,value:string} */

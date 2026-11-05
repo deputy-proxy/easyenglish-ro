@@ -5,9 +5,11 @@ use App\Enums\NotificationEvent;
 use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
 use App\Models\Booking;
+use App\Models\BookingCallEvent;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\NotificationDelivery;
+use App\Models\User;
 use App\Services\Booking\BookingService;
 use App\Services\Notifications\NotificationMessageFactory;
 use App\Services\Notifications\NotificationOutboxService;
@@ -169,4 +171,61 @@ test('refund and bundle expiry emails use their persisted locale and avoid ineli
 
     expect($outbox->enqueueEntitlementEvent($entitlement, NotificationEvent::BundleExpiry3Days))->toBeNull()
         ->and(NotificationDelivery::query()->count())->toBe(0);
+});
+
+test('booking confirmation queues the teacher assignment notice independently of the call-event provider', function () {
+    config(['easyenglish.teacher_availability_enabled' => false, 'services.openwa.enabled' => false]);
+    Queue::fake();
+    $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+    $booking = makeNotificationTestBooking('en');
+    $booking->update([
+        'status' => 'pending',
+        'confirmed_at' => null,
+        'hold_expires_at' => now()->addMinutes(5),
+        'teacher_id' => $teacher->id,
+        'teacher_assigned_at' => now(),
+    ]);
+    $service = app(BookingService::class);
+
+    $service->confirm($booking->id);
+    $service->confirm($booking->id);
+
+    $teacherDelivery = NotificationDelivery::query()
+        ->where('booking_id', $booking->id)
+        ->where('event', 'teacher_booking_confirmed')
+        ->firstOrFail();
+
+    expect($teacherDelivery->recipient_type)->toBe('teacher')
+        ->and($teacherDelivery->recipient_user_id)->toBe($teacher->id)
+        ->and($teacherDelivery->channel)->toBe('email')
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_confirmed')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'intro_booking_confirmed')->count())->toBe(1)
+        ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(0);
+});
+
+test('customer cancellation notifies both the customer and the assigned teacher', function () {
+    config(['easyenglish.teacher_availability_enabled' => false, 'services.openwa.enabled' => false]);
+    Queue::fake();
+    $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+    $booking = makeNotificationTestBooking('en');
+    $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
+
+    app(BookingService::class)->cancelByCustomer($booking->id, 'Customer requested cancellation.');
+
+    expect(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_cancelled')->where('recipient_type', 'customer')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_cancelled')->where('recipient_type', 'teacher')->where('recipient_user_id', $teacher->id)->exists())->toBeTrue();
+});
+
+test('teacher cancellation notifies both the customer and the assigned teacher', function () {
+    config(['easyenglish.teacher_availability_enabled' => false, 'services.openwa.enabled' => false]);
+    Queue::fake();
+    $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+    $staff = User::factory()->create(['is_staff' => true]);
+    $booking = makeNotificationTestBooking('en');
+    $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
+
+    app(BookingService::class)->cancelByTeacher($booking->id, $staff->id, 'Teacher is unexpectedly unavailable.');
+
+    expect(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_cancellation')->where('recipient_type', 'customer')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_cancelled')->where('recipient_type', 'teacher')->where('recipient_user_id', $teacher->id)->exists())->toBeTrue();
 });

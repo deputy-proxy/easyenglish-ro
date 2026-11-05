@@ -35,7 +35,7 @@ class NotificationDeliveryResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['booking', 'entitlement', 'refund.payment.entitlement']);
+        return parent::getEloquentQuery()->with(['booking', 'entitlement', 'refund.payment.entitlement', 'recipientUser']);
     }
 
     public static function table(Table $table): Table
@@ -44,9 +44,18 @@ class NotificationDeliveryResource extends Resource
             TextColumn::make('created_at')->label('Created')->dateTime('d M Y H:i:s')->sortable(),
             TextColumn::make('event')->badge()->searchable(),
             TextColumn::make('channel')->badge(),
-            TextColumn::make('recipient')->state(fn (NotificationDelivery $record): string => $record->channel === 'whatsapp'
-                ? ($record->booking->customer_phone ?? $record->entitlement->customer_phone ?? $record->refund->payment->entitlement->customer_phone ?? 'Recipient unavailable')
-                : ($record->booking->customer_email ?? $record->entitlement->customer_email ?? $record->refund->payment->entitlement->customer_email ?? 'Recipient unavailable')),
+            TextColumn::make('recipient')->state(function (NotificationDelivery $record): string {
+                if ($record->recipient_type === 'teacher') {
+                    return $record->channel === 'whatsapp'
+                        ? ($record->recipientUser->phone ?? 'Recipient unavailable')
+                        : ($record->recipientUser->email ?? 'Recipient unavailable');
+                }
+
+                return $record->channel === 'whatsapp'
+                    ? ($record->booking->customer_phone ?? $record->entitlement->customer_phone ?? $record->refund->payment->entitlement->customer_phone ?? 'Recipient unavailable')
+                    : ($record->booking->customer_email ?? $record->entitlement->customer_email ?? $record->refund->payment->entitlement->customer_email ?? 'Recipient unavailable');
+            }),
+            TextColumn::make('recipient_type')->label('Recipient type')->badge(),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
                 'sent', 'delivered', 'read' => 'success', 'failed' => 'danger', 'sending', 'queued' => 'warning', 'skipped' => 'gray', default => 'gray',
             })->sortable(),

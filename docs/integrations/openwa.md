@@ -213,6 +213,7 @@ The Laravel application uses a provider-neutral `CallEventProvider` contract. `O
 The Laravel integration is disabled by default. Configure the following values only in the application environment, never in source control:
 
 - `OPENWA_ENABLED=false` (leave false until the rollout gate approves it)
+- `OPENWA_APPLY_TO_PAID_SESSIONS=false` (paid bundle-credit sessions are excluded by default; free introductions and bundle-included free credits are included)
 - `OPENWA_BASE_URL=https://...` or the private Railway hostname, for example `http://openwa-poc.railway.internal:8080`
 - `OPENWA_SERVICE_TOKEN` (the same high-entropy token configured as `OPENWA_SERVICE_TOKEN` in the Node service; at least 32 characters)
 - `OPENWA_CONNECT_TIMEOUT=5`
@@ -224,7 +225,7 @@ The typed `OpenWaConfig` validates the URL scheme, private Railway hostname, tok
 
 The Node service exposes separate `/health/live` and `/health/ready` endpoints. Hosting-platform process health checks must use `/health/live`, which stays successful while the service is safely unpaired. Laravel and operational monitoring use `/health/ready`; it remains unavailable until the WhatsApp session is authenticated and the provider is initialized. Do not treat an unpaired service as ready, and do not use readiness as the container liveness check.
 
-`OPENWA_ENABLED` is the Laravel feature flag. It is separate from the Node service's `OPENWA_ALLOW_LIVE_TEST` runtime guard. Both must be explicitly enabled before live event operations can occur. With the Laravel feature flag disabled, event jobs do not create records or make HTTP requests.
+`OPENWA_ENABLED` is the Laravel feature flag. It is separate from the Node service's `OPENWA_ALLOW_LIVE_TEST` runtime guard. Both must be explicitly enabled before live event operations can occur. With the Laravel feature flag disabled, event jobs do not create records or make HTTP requests. Booking confirmation always remains authoritative. Free introductory sessions, including the free credit included in a bundle, are eligible. Paid bundle-credit sessions are excluded unless `OPENWA_APPLY_TO_PAID_SESSIONS=true` is explicitly configured.
 
 ### Persistence and idempotency
 
@@ -256,8 +257,28 @@ The authenticated `GET /booking/{reference}/call-link` route is the only applica
 
 The route requires the booking to remain confirmed, and verifies that the latest event revision still matches the booking's assigned teacher and current UTC start/end. It returns a link only when that revision is scheduled with a non-empty URL. It never falls back to an older revision while a reschedule is pending or has failed. It requires authentication, is rate-limited, and sends `Cache-Control: private, no-store` and `Referrer-Policy: no-referrer`. The public confirmation page and signed booking-management URL do not expose the join URL. The link is not returned by general booking model serialization.
 
-### Booking lifecycle boundary
+### Booking lifecycle and recipient notifications
 
-This integration issue deliberately does not add an automatic event-creation hook to booking confirmation. The booking lifecycle remains unchanged until #215 wires the queued create job to the post-commit confirmed-and-assigned transition, and wires cancellation/rescheduling to the corresponding jobs. The service itself rejects a create request unless the booking is confirmed and has an assigned teacher.
+BookingService queues `CreateBookingCallEvent` only after the booking transaction commits and only when the booking is confirmed and assigned to a teacher. Pending holds, unverified registrations, bookings without an eligible teacher, and paid bundle-credit sessions when `OPENWA_APPLY_TO_PAID_SESSIONS=false` do not create call events. Free introductions and bundle-included free credits use the same lifecycle. A provider outage never rolls back the booking confirmation.
 
-Keep `OPENWA_ENABLED=false` until the assembled booking and notification flow passes #220 and the product owner explicitly approves rollout. No customer traffic or real WhatsApp account is enabled by this integration change.
+The event is associated with `reschedule_count + 1`. On reschedule, the previous revision is cancelled and the replacement revision is created with a new deterministic idempotency key. If the teacher changes, the previous teacher receives a reassignment/cancellation notice and the new teacher receives the replacement call details. Customer cancellation and teacher cancellation queue provider cancellation; both participants receive the appropriate existing customer notification and teacher-only cancellation notification. A creation already in flight records cancellation intent and is cancelled as soon as the provider event is recovered. Old revisions never remain accessible through the application link endpoints.
+
+When the provider confirms a valid event, Laravel creates separate notification outbox records for the customer and assigned teacher. Email and WhatsApp are separate channels and each recipient/channel has an independent idempotency key and retry state. The same verified join URL is read from the encrypted call-event record at send time; it is not copied into notification metadata. Customer messages use the booking locale (`ro` or `en`) and include Bucharest date/time, duration, timezone, and join instructions. Teachers receive a confirmation message when assigned, a reschedule message whenever the time changes, and a separate call-link message when the provider is ready. Teacher messages are in English and include customer contact details, English level, session goal, optional notes, appointment time, and the authenticated internal booking/feedback page; the call-link message additionally includes the join URL. If teacher and customer share a phone number, teacher-only WhatsApp content is not sent to that number; the teacher receives email instead.
+
+The following Meta templates must exist and be approved before enabling WhatsApp call-link notifications. Laravel sends one body component with text parameters in this exact order:
+
+| Template key | Default Meta template name | Body parameters |
+|---|---|---:|
+| `teacher_booking_confirmed` | `easyenglish_teacher_booking_confirmation` | 12 |
+| `teacher_booking_rescheduled` | `easyenglish_teacher_booking_rescheduled` | 11 |
+| `customer_call_link_ready` | `easyenglish_call_link_ready` | 7 |
+| `teacher_call_link_ready` | `easyenglish_teacher_call_link_ready` | 13 |
+| `teacher_booking_cancelled` | `easyenglish_teacher_booking_cancelled` | 4 |
+
+Teacher booking-confirmation parameters are teacher name, customer name/email/phone, English level, session goal, notes, local date, local time, duration, timezone, and internal booking URL. Teacher reschedule parameters are teacher name, customer name/email/phone, previous local date/time, new local date/time, duration, timezone, and internal booking URL. The customer template parameters are name, local date, local time, duration, timezone, join URL, and join instructions. Teacher call-ready parameters are teacher name, customer name/email/phone, English level, session goal, notes, local date/time, duration, timezone, join URL, and internal booking URL. Teacher cancellation parameters are teacher name, customer name, original appointment time, and cancellation/reassignment reason. Configure alternate names with the corresponding `WHATSAPP_TEMPLATE_*` environment variables. The application feature flag does not create or approve Meta templates.
+
+`/teacher/bookings/{reference}` is protected by authentication and the teacher middleware and returns a booking only to the currently assigned teacher. It provides session details and a feedback form after the confirmed session has ended. Feedback is saved per metric and as an overall record. The teacher page checks the latest event revision, teacher assignment, and UTC schedule before showing a call link.
+
+Staff can inspect event state, retry exhausted event setup, and review sanitized errors at **Admin → Scheduling → Call events**. Exhausted automatic retries create a staff database notification and a booking audit record. Customer/teacher message delivery is tracked separately at **Admin → Operations → Notification delivery**; a failed recipient delivery can be retried without creating another provider event. The call-event retry action reuses the original idempotency key and chooses create, retrieve, or cancel according to the persisted provider state.
+
+`OPENWA_ENABLED` is a hard stop for all provider operations, including cancellation and reconciliation. Do not disable it while provider events are still active; cancel or resolve active events first. Keep `OPENWA_ENABLED=false` until the assembled booking and notification flow passes #220 and the product owner explicitly approves rollout. No customer traffic or real WhatsApp account is enabled by this integration change.
