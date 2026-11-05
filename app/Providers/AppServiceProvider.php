@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+use App\Contracts\CallEvents\CallEventProvider;
 use App\Contracts\Notifications\WhatsAppGateway;
 use App\Contracts\Payments\StripeGateway;
+use App\Services\CallEvents\OpenWaCallEventProvider;
+use App\Services\CallEvents\OpenWaConfig;
+use App\Services\CallEvents\OpenWaHttpClient;
 use App\Services\Notifications\MetaWhatsAppCloudApiGateway;
 use App\Services\Payments\StripeSdkGateway;
 use Carbon\CarbonImmutable;
@@ -21,6 +25,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(WhatsAppGateway::class, MetaWhatsAppCloudApiGateway::class);
+        $this->app->singleton(OpenWaConfig::class, fn (): OpenWaConfig => OpenWaConfig::fromArray(config('services.openwa', [])));
+        $this->app->singleton(OpenWaHttpClient::class);
+        $this->app->singleton(CallEventProvider::class, OpenWaCallEventProvider::class);
         $this->app->singleton(StripeGateway::class, function (): StripeGateway {
             $secret = config('services.stripe.secret');
 

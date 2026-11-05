@@ -1,6 +1,21 @@
 <?php
 
+$openWaRetryDelays = array_values(array_filter(
+    array_map('intval', explode(',', (string) env('OPENWA_RETRY_DELAYS', '60,300,900,3600,14400'))),
+    static fn (int $delay): bool => $delay > 0,
+)) ?: [60, 300, 900, 3600, 14400];
+
 return [
+    'openwa' => [
+        'enabled' => (bool) env('OPENWA_ENABLED', false),
+        'base_url' => env('OPENWA_BASE_URL'),
+        'service_token' => env('OPENWA_SERVICE_TOKEN'),
+        'connect_timeout' => (int) env('OPENWA_CONNECT_TIMEOUT', 5),
+        'timeout' => (int) env('OPENWA_TIMEOUT', 30),
+        'max_attempts' => (int) env('OPENWA_MAX_ATTEMPTS', 5),
+        'retry_delays_seconds' => $openWaRetryDelays,
+    ],
+
     'google_calendar' => [
         'client_id' => env('GOOGLE_CALENDAR_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CALENDAR_CLIENT_SECRET'),

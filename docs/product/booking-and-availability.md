@@ -44,6 +44,18 @@ The current integration uses periodic full reconciliation rather than push chann
 
 Confirmed bookings create a deterministic Google event on the assigned teacher's calendar. The booking stores the event ID, calendar owner, and calendar ID. Reschedules update the event; cancellation deletes it. Reassignment removes the event from the former teacher's calendar before writing it to the new teacher's calendar. Calendar API failures do not roll back the booking; `SyncBookingCalendarEvent` retries and records terminal failures on the booking for Filament review. Administrators can retry failed event writes. Teachers cannot disconnect a calendar while future confirmed sessions or outstanding event removals depend on it.
 
+## WhatsApp scheduled-call event lifecycle (OpenWA)
+
+OpenWA is a separate provider used only to create a scheduled WhatsApp call event and return its join URL. It does not replace Meta WhatsApp Cloud API messaging, send transactional templates, or become authoritative for booking state. Laravel remains authoritative for the booking; the existing Cloud API/outbox remains the approved channel for confirmation and reminder messages.
+
+The Laravel integration persists one `booking_call_events` record per booking/provider/revision. A call event may be created only for a confirmed booking with an assigned teacher. Start/end values come from the booking's UTC instants; `Europe/Bucharest` is supplied as the product timezone metadata. Rescheduling increments the event revision and must cancel the previous provider event. Create, reconcile, and cancel operations run asynchronously; provider timeouts or outages never roll back a confirmed booking.
+
+Create retries reuse a deterministic idempotency key derived from provider, booking public reference, and event revision. An uncertain create response is reconciled or retried with that same key; it must never create a second event for the same revision. A provider event is marked `scheduled` only after a valid provider event ID and HTTPS `call.whatsapp.com` join URL are validated. Cancellation clears the encrypted join URL after provider confirmation. A failed provider operation remains visible on the event record for operational follow-up.
+
+The call-event row snapshots the assigned teacher ID and UTC start/end so reassignment or rescheduling immediately invalidates access to the previous revision. The join URL is encrypted at rest and hidden from general model serialization. It is returned only by the authenticated, rate-limited call-link endpoint to the verified customer whose email matches the booking or the verified teacher currently assigned to it. The endpoint serves only the latest revision and never falls back to an older link while a reschedule is pending or failed. The URL must not appear in public booking references, public confirmation data, unsigned URLs, logs, or publicly cacheable responses.
+
+The Laravel OpenWA feature flag is `OPENWA_ENABLED=false` by default. No booking lifecycle hook is introduced by the provider integration itself; the post-commit confirmation/assignment and cancellation/reschedule triggers are wired separately. The join URL is personal data and follows the booking's retention/deletion policy; deleting a booking cascades to its call-event metadata. Cancel an active provider event before any operational purge.
+
 ## Booking and credit lifecycle
 
 ### Booking states

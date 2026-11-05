@@ -203,3 +203,61 @@ The existing Railway PoC deployment was previously observed running, but its dep
 This issue implements the isolated service, API contract, fake-provider tests, authentication, encrypted persistence, idempotency, lifecycle/readiness handling, and operational documentation. It does not establish that real WhatsApp accounts can reliably join the same scheduled event on Android/iOS or that the assembled Laravel booking flow is ready.
 
 Real-account pairing, restart/reconnect acceptance against an authenticated account, customer/teacher join testing, assembled booking-to-notification validation, final GO/NO-GO, and production enablement remain deferred to issue #220. Keep `OPENWA_ALLOW_LIVE_TEST=false` and do not send production traffic before #220 passes and the product owner explicitly approves rollout.
+
+## Laravel integration
+
+The Laravel application uses a provider-neutral `CallEventProvider` contract. `OpenWaCallEventProvider` is the production adapter and `OpenWaHttpClient` is the only class that knows the Node service's HTTP contract. Booking orchestration and queued jobs depend on the provider contract, not on OpenWA request/response details. Tests replace the provider with a fake implementation and use Laravel's HTTP fake for transport-level contract tests.
+
+### Application configuration
+
+The Laravel integration is disabled by default. Configure the following values only in the application environment, never in source control:
+
+- `OPENWA_ENABLED=false` (leave false until the rollout gate approves it)
+- `OPENWA_BASE_URL=https://...` or the private Railway hostname, for example `http://openwa-poc.railway.internal:8080`
+- `OPENWA_SERVICE_TOKEN` (the same high-entropy token configured as `OPENWA_SERVICE_TOKEN` in the Node service; at least 32 characters)
+- `OPENWA_CONNECT_TIMEOUT=5`
+- `OPENWA_TIMEOUT=30` (must exceed the Node create-operation timeout)
+- `OPENWA_MAX_ATTEMPTS=5`
+- `OPENWA_RETRY_DELAYS=60,300,900,3600,14400` (seconds)
+
+The typed `OpenWaConfig` validates the URL scheme, private Railway hostname, token length, timeout bounds, retry count, and retry schedule at container resolution. Public endpoints must use HTTPS. Plain HTTP is accepted only for a `.railway.internal` host. URL credentials, query strings, and fragments are rejected. The service token is sent only in the Bearer authorization header and is never logged.
+
+The Node service exposes separate `/health/live` and `/health/ready` endpoints. Hosting-platform process health checks must use `/health/live`, which stays successful while the service is safely unpaired. Laravel and operational monitoring use `/health/ready`; it remains unavailable until the WhatsApp session is authenticated and the provider is initialized. Do not treat an unpaired service as ready, and do not use readiness as the container liveness check.
+
+`OPENWA_ENABLED` is the Laravel feature flag. It is separate from the Node service's `OPENWA_ALLOW_LIVE_TEST` runtime guard. Both must be explicitly enabled before live event operations can occur. With the Laravel feature flag disabled, event jobs do not create records or make HTTP requests.
+
+### Persistence and idempotency
+
+`booking_call_events` stores one provider event per booking/provider/revision. Database unique constraints enforce the booking/provider/revision tuple, provider event ID, and idempotency key. The key is deterministic from the booking public reference and revision, so retries and duplicate queue delivery reuse the same provider operation.
+
+The record stores provider event ID, call type, UTC start/end, normalized status, attempt timestamps, retry scheduling, sanitized error category/message, and provider lifecycle timestamps. The join URL uses Laravel's encrypted cast and is hidden from model serialization. Do not add it to general booking API resources, logs, audit metadata, or notification-delivery payloads. A cancellation clears the stored join URL after the provider confirms cancellation.
+
+The event row snapshots the assigned teacher ID so a reassignment invalidates the previous revision's call-link endpoint access. The event row is deleted when its booking is deleted. Otherwise it follows the booking record's retention policy; this integration does not introduce a separate retention period. Do not manually purge an event while its provider call may still be active. Cancel it first. The encrypted URL remains personal data and must be covered by the same access, backup, and deletion controls as booking data.
+
+### Queued operations and retry behavior
+
+- `CreateBookingCallEvent` creates the provider event for a confirmed, teacher-assigned booking and a specific revision.
+- `RetrieveBookingCallEvent` reconciles an event when the provider has accepted a create request but has not yet returned a usable join URL.
+- `CancelBookingCallEvent` cancels an existing provider event and removes the stored join URL after confirmation.
+- `call-events:dispatch` queues due retries and reconciliations. It is scheduled every minute and uses a database operation lease so overlapping scheduler runs do not queue the same row repeatedly.
+- Create retries always reuse the original idempotency key. An HTTP timeout is treated as an uncertain outcome, not proof that no event was created. The same key is retried or reconciled; a new key is never generated for a retry.
+- Retryable transport/provider failures use the configured bounded backoff. Authentication, invalid request, invalid response, and provider-not-found failures are terminal and visible on the event record for staff follow-up.
+- A stale in-progress operation is returned to the appropriate pending/reconciliation state after its lease expires. Cancellation requested while creation is in flight is preserved and applied as soon as the provider event is recovered.
+
+Run the dispatcher with the normal Laravel scheduler and queue worker. The command can be run manually with `php artisan call-events:dispatch`; it is a no-op while `OPENWA_ENABLED=false`.
+
+### Authorized call-link retrieval
+
+The authenticated `GET /booking/{reference}/call-link` route is the only application endpoint that returns the join URL. Access is authorized by `BookingPolicy::viewCallLink`:
+
+- The customer account email must be verified and match the booking's customer email, case-insensitively.
+- The teacher must have a verified email, be the currently assigned teacher on the booking, and have the teacher role.
+- Staff accounts do not receive call-link access through this customer/teacher endpoint.
+
+The route requires the booking to remain confirmed, and verifies that the latest event revision still matches the booking's assigned teacher and current UTC start/end. It returns a link only when that revision is scheduled with a non-empty URL. It never falls back to an older revision while a reschedule is pending or has failed. It requires authentication, is rate-limited, and sends `Cache-Control: private, no-store` and `Referrer-Policy: no-referrer`. The public confirmation page and signed booking-management URL do not expose the join URL. The link is not returned by general booking model serialization.
+
+### Booking lifecycle boundary
+
+This integration issue deliberately does not add an automatic event-creation hook to booking confirmation. The booking lifecycle remains unchanged until #215 wires the queued create job to the post-commit confirmed-and-assigned transition, and wires cancellation/rescheduling to the corresponding jobs. The service itself rejects a create request unless the booking is confirmed and has an assigned teacher.
+
+Keep `OPENWA_ENABLED=false` until the assembled booking and notification flow passes #220 and the product owner explicitly approves rollout. No customer traffic or real WhatsApp account is enabled by this integration change.

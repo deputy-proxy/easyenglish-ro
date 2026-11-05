@@ -1,8 +1,8 @@
 # WhatsApp Business Platform: setup and operations
 
-Easy English uses the Meta WhatsApp Business Platform Cloud API for transactional service messages only. It does **not** automate or place voice/video calls. The teacher and customer use the WhatsApp application for the 15-minute speaking session. Email remains a separate notification channel.
+Easy English uses the Meta WhatsApp Business Platform Cloud API for approved transactional service messages only. The Cloud API adapter does not create or place voice/video calls. A separate, isolated OpenWA service is used only to create scheduled WhatsApp call events and return a join link; the teacher and customer conduct the 15-minute speaking session in the WhatsApp application. OpenWA does not send messages and does not replace the Cloud API or its notification outbox. Email remains a separate notification channel.
 
-Production sending is disabled by default. Keep `WHATSAPP_ENABLED=false` until the Meta business assets, templates, secrets, webhook, consent flow, and live end-to-end tests have been completed. CI uses a fake gateway and does not require Meta credentials.
+Production sending is disabled by default. Keep `WHATSAPP_ENABLED=false` until the Meta business assets, templates, secrets, webhook, consent flow, and live end-to-end tests have been completed. CI uses a fake gateway and does not require Meta credentials. The OpenWA call-event integration has a separate `OPENWA_ENABLED=false` feature flag and a separate service token; enabling one integration does not enable the other. Laravel stores the OpenWA join URL encrypted and only the authenticated, verified customer and assigned teacher may retrieve it through the authorized booking call-link endpoint. The approved Cloud API template/outbox remains responsible for distributing call details; OpenWA session credentials and QR data never enter Laravel.
 
 ## 1. Meta assets and access
 

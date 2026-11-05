@@ -12,6 +12,7 @@ Artisan::command('inspire', function () {
 Schedule::command('bookings:expire-holds')->everyMinute()->withoutOverlapping();
 Schedule::command('stripe:reconcile')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('notifications:dispatch')->everyMinute()->withoutOverlapping();
+Schedule::command('call-events:dispatch')->everyMinute()->withoutOverlapping();
 Schedule::command('teachers:sync-calendars')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('bookings:reconcile-calendar-events')->everyFiveMinutes()->withoutOverlapping();
 

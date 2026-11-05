@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Booking\BookingCallEventController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TeacherAvailabilityController;
@@ -18,6 +19,7 @@ Route::post('/verification/start', [PublicSiteController::class, 'startContactVe
 Route::post('/verification/email-code', [PublicSiteController::class, 'confirmEmailCodeVerification'])->middleware('throttle:10,1')->name('verification.email-code.confirm');
 Route::post('/verification/phone', [PublicSiteController::class, 'confirmPhoneVerification'])->middleware('throttle:10,1')->name('verification.phone.confirm');
 Route::get('/verification/email/{challenge}/{token}', [PublicSiteController::class, 'confirmEmailVerification'])->middleware('throttle:10,1')->name('verification.email.confirm');
+Route::get('/booking/{reference}/call-link', [BookingCallEventController::class, 'show'])->middleware(['auth', 'throttle:20,1'])->name('booking.call-link');
 Route::get('/booking/{reference}/manage', [PublicSiteController::class, 'manageBooking'])->middleware(['signed', 'throttle:60,1'])->name('booking.manage');
 Route::post('/booking/{reference}/cancel', [PublicSiteController::class, 'cancelBooking'])->middleware(['signed', 'throttle:20,1'])->name('booking.cancel');
 Route::get('/booking/{reference}/reschedule', [PublicSiteController::class, 'rescheduleForm'])->middleware(['signed', 'throttle:30,1'])->name('booking.reschedule.form');
