@@ -23,6 +23,7 @@ use App\Services\Verification\ContactVerificationService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Closure;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -360,13 +361,13 @@ class PublicSiteController extends Controller
             ->with('status', __('public.verification_email_success'));
     }
 
-    public function registerForFreeBooking(Request $request, CreateNewUser $users): RedirectResponse
+    public function registerForFreeBooking(Request $request, CreateNewUser $users): RedirectResponse|JsonResponse
     {
         $this->applyLocale($request);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['required', 'string', 'max:32', 'regex:/^\\+?[0-9\\s().-]{7,32}$/'],
+            'phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9\s().-]{7,32}$/'],
             'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
             'session_goal' => ['required', 'string', 'max:500'],
             'session_notes' => ['nullable', 'string', 'max:5000'],
@@ -377,15 +378,36 @@ class PublicSiteController extends Controller
         ]);
 
         $validated['password_confirmation'] = $request->input('password_confirmation');
-        $user = $users->create($validated);
-        unset($validated['password'], $validated['password_confirmation']);
+
+        try {
+            $user = $users->create($validated);
+        } catch (QueryException $exception) {
+            $email = mb_strtolower(trim($validated['email']));
+            if (! User::query()->whereRaw('LOWER(email) = ?', [$email])->exists()) {
+                throw $exception;
+            }
+
+            throw ValidationException::withMessages(['email' => __('validation.unique', ['attribute' => 'email'])]);
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
+
+        if ($request->expectsJson()) {
+            return $this->authenticatedBookingStepResponse(
+                $request,
+                $validated['starts_at'],
+                __('public.account_created_continue_booking'),
+                201,
+            );
+        }
+
+        unset($validated['password'], $validated['password_confirmation']);
 
         return redirect()->route('home')->withInput($validated)->with('status', __('public.account_created_continue_booking'));
     }
 
-    public function loginForFreeBooking(Request $request): RedirectResponse
+    public function loginForFreeBooking(Request $request): RedirectResponse|JsonResponse
     {
         $this->applyLocale($request);
         $validated = $request->validate([
@@ -398,7 +420,15 @@ class PublicSiteController extends Controller
         $existingUser = User::query()->where('email', $email)->first();
 
         if ($existingUser?->two_factor_secret !== null) {
-            $request->session()->put('url.intended', route('home', ['slot' => $validated['starts_at']]));
+            $request->session()->put('url.intended', route('home').'?'.http_build_query(['slot' => $validated['starts_at']], '', '&', PHP_QUERY_RFC3986));
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'two_factor_required',
+                    'message' => __('public.booking_two_factor_login_redirect'),
+                    'redirect_url' => route('login'),
+                ], 409);
+            }
 
             return redirect()->route('login')
                 ->withInput(['email' => $email])
@@ -406,10 +436,26 @@ class PublicSiteController extends Controller
         }
 
         if (! Auth::attempt(['email' => $email, 'password' => $validated['password']], true)) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'authentication_failed',
+                    'errors' => ['email' => [__('auth.failed')]],
+                    'message' => __('auth.failed'),
+                ], 422);
+            }
+
             throw ValidationException::withMessages(['email' => __('auth.failed')]);
         }
 
         $request->session()->regenerate();
+
+        if ($request->expectsJson()) {
+            return $this->authenticatedBookingStepResponse(
+                $request,
+                $validated['starts_at'],
+                __('public.booking_signed_in_continue_booking'),
+            );
+        }
 
         return redirect()->route('home')->withInput(['starts_at' => $validated['starts_at']]);
     }
@@ -863,8 +909,46 @@ class PublicSiteController extends Controller
         return view('public.policy', ['page' => $page]);
     }
 
+    private function authenticatedBookingStepResponse(Request $request, string $startsAt, string $message, int $statusCode = 200): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
+        $verificationId = $request->session()->get('contact_verification_id');
+        $verification = is_string($verificationId)
+            ? ContactVerificationChallenge::query()->whereKey($verificationId)->first()
+            : null;
+        if ($verification && (! $verification->isUsable() || $verification->customer_email !== mb_strtolower($user->email))) {
+            $verification = null;
+        }
+
+        $oldPhone = $request->old('phone');
+        $contactsVerified = $user->email_verified_at !== null
+            && $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($oldPhone) ? $oldPhone : (string) $user->phone);
+        $html = view('public.partials.booking-authenticated-form', [
+            'contactsVerified' => $contactsVerified,
+            'verification' => $verification,
+            'bookingSlot' => $startsAt,
+        ])->render();
+
+        return response()->json([
+            'status' => 'authenticated',
+            'next_step' => $contactsVerified ? 'booking' : 'contact_verification',
+            'slot' => $startsAt,
+            'locale' => app()->getLocale(),
+            'message' => $message,
+            'html' => $html,
+        ], $statusCode);
+    }
+
     private function applyLocale(Request $request): void
     {
+        $locale = $request->input('locale');
+        if (is_string($locale) && in_array($locale, ['ro', 'en'], true)) {
+            $request->session()->put('locale', $locale);
+        }
+
         app()->setLocale($request->session()->get('locale', 'ro'));
     }
 }

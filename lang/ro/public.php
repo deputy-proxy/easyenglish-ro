@@ -330,4 +330,11 @@ return [
     'booking_confirmed_dashboard' => 'Sesiunea introductivă este confirmată și apare acum în calendar.',
     'bundle_payment_confirmed_dashboard' => 'Plata a fost confirmată. Sesiunile din pachet sunt disponibile în contul tău.',
     'checkout_pending' => 'Plata este încă în curs de procesare de către furnizor. Creditele pachetului nu sunt disponibile încă; această pagină va afișa starea confirmată când Stripe o raportează.',
+    'booking_auth_submitting' => 'Te rugăm să aștepți cât timp te autentificăm și pregătim pasul următor.',
+    'booking_auth_network_error' => 'Nu am putut contacta serverul. Verifică conexiunea și încearcă din nou. Intervalul ales a rămas selectat.',
+    'booking_auth_server_error' => 'A apărut o eroare. Intervalul ales a rămas selectat. Încearcă din nou.',
+    'booking_auth_session_expired' => 'Sesiunea a expirat. Reîncarcă pagina pentru a continua. Intervalul ales va fi restaurat.',
+    'booking_auth_rate_limited' => 'Au fost prea multe încercări. Așteaptă puțin și încearcă din nou.',
+    'booking_auth_two_factor_message' => 'Acest cont folosește autentificarea în doi pași. Continuă prin pasul securizat de autentificare.',
+    'booking_signed_in_continue_booking' => 'Te-ai autentificat. Continuă cu verificarea datelor de contact sau finalizează programarea.',
 ];

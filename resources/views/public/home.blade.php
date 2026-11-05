@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="{{ __('public.hero_text') }}">
     <title>Easy English · {{ __('public.hero_title') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -258,7 +259,7 @@
                 data-week="{{ $weekStart->format('Y-m-d') }}"
                 data-locale="{{ app()->getLocale() }}"
                 data-book-url="{{ route('booking.create') }}"
-                data-initial-slot="{{ old('starts_at', '') }}"
+                data-initial-slot="{{ request('slot', old('starts_at', '')) }}"
             >
                 <div data-availability-content>
                     <div class="overflow-hidden rounded-[22px] bg-white p-3 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6" data-reveal>
@@ -287,6 +288,12 @@
                 <div
                     class="invisible pointer-events-none absolute inset-x-0 top-0 rounded-[22px] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-7"
                     data-booking-form-panel
+                    data-booking-submitting-message="{{ __('public.booking_auth_submitting') }}"
+                    data-booking-network-error="{{ __('public.booking_auth_network_error') }}"
+                    data-booking-server-error="{{ __('public.booking_auth_server_error') }}"
+                    data-booking-session-expired="{{ __('public.booking_auth_session_expired') }}"
+                    data-booking-rate-limited="{{ __('public.booking_auth_rate_limited') }}"
+                    data-booking-two-factor-message="{{ __('public.booking_auth_two_factor_message') }}"
                     aria-hidden="true"
                     aria-labelledby="free-session-form-title"
                 >
@@ -300,108 +307,10 @@
                         </button>
                     </div>
 
+                    <div data-booking-feedback class="mb-4 rounded-xl bg-surface-subtle p-4 text-sm text-muted" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+                    <div data-booking-step-content>
                     @auth
-                        <form method="post" action="{{ route('booking.submit') }}" class="space-y-5" data-free-session-form>
-                            @csrf
-                            @if($errors->any())
-                                <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
-                                    @foreach($errors->all() as $error)<p class="m-0">{{ $error }}</p>@endforeach
-                                </div>
-                            @endif
-                            @if(session('status'))
-                                <p class="rounded-xl bg-primary-soft p-4 text-sm text-primary-strong" role="status">{{ session('status') }}</p>
-                            @endif
-                            @if(! $contactsVerified)
-                                <div class="rounded-xl bg-surface-subtle p-4 text-sm leading-relaxed text-muted">
-                                    <strong class="text-ink">{{ __('public.verification_title') }}</strong>
-                                    <p class="mt-1 mb-0">{{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_explainer_email_only' : 'public.verification_explainer') }}</p>
-                                    @if($verification)
-                                        <p class="mt-2 mb-0">{{ __('public.verification_email_status') }}: <strong>{{ $verification->email_verified_at ? __('public.verification_status_verified') : __('public.verification_status_pending') }}</strong>
-                                            @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only')<br>{{ __('public.verification_phone_status') }}: <strong>{{ $verification->phone_verified_at ? __('public.verification_status_verified') : __('public.verification_status_pending') }}</strong>@endif
-                                        </p>
-                                    @endif
-                                </div>
-                            @endif
-
-                            <input type="hidden" name="name" value="{{ auth()->user()->name }}">
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-semibold text-ink" for="free-session-email">{{ __('public.field_email') }}</label>
-                                    <input class="min-h-12 rounded-xl border border-line bg-surface-subtle px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-email" name="email" type="email" value="{{ auth()->user()->email }}" autocomplete="email" readonly required maxlength="254">
-                                </div>
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-semibold text-ink" for="free-session-phone">{{ __('public.field_phone') }}</label>
-                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone', $verification?->customer_phone ?? auth()->user()->phone) }}" autocomplete="tel" required maxlength="32" pattern="[+0-9 () .-]{7,32}">
-                                </div>
-                            </div>
-                            @if(! auth()->user()->english_level)
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-semibold text-ink" for="free-session-level">{{ __('public.field_level') }}</label>
-                                    <select class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-level" name="english_level" required>
-                                        <option value="">{{ __('public.field_level_placeholder') }}</option>
-                                        @foreach(['A1','A2','B1','B2','C1','C2'] as $level)
-                                            <option value="{{ $level }}" @selected(old('english_level') === $level)>{{ __('public.level_'.strtolower($level)) }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @else
-                                <input type="hidden" name="english_level" value="{{ auth()->user()->english_level }}">
-                            @endif
-                            @if(! auth()->user()->session_goal)
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-semibold text-ink" for="free-session-goal">{{ __('public.field_goal') }}</label>
-                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-goal" name="session_goal" value="{{ old('session_goal') }}" placeholder="{{ __('public.field_goal_placeholder') }}" required maxlength="500">
-                                </div>
-                            @else
-                                <input type="hidden" name="session_goal" value="{{ auth()->user()->session_goal }}">
-                            @endif
-                            @if(! auth()->user()->english_level)
-                                <div class="grid gap-2">
-                                    <label class="text-sm font-semibold text-ink" for="free-session-notes">{{ __('public.field_notes') }}</label>
-                                    <textarea class="min-h-28 rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-notes" name="notes" maxlength="5000" placeholder="{{ __('public.field_notes_placeholder') }}">{{ old('notes') }}</textarea>
-                                </div>
-                            @else
-                                <input type="hidden" name="notes" value="{{ auth()->user()->session_notes }}">
-                            @endif
-                            <div class="rounded-xl bg-surface-subtle p-4 text-xs leading-relaxed text-muted">
-                                {{ __('public.policy_summary') }} <a class="font-semibold text-primary underline" href="{{ route('policy','terms') }}">{{ __('public.footer_terms') }}</a> · <a class="font-semibold text-primary underline" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a>
-                            </div>
-                            <label class="flex items-start gap-3 text-sm leading-relaxed text-muted">
-                                <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="accepted_policy" value="1" required @checked(old('accepted_policy'))>
-                                <span>{{ __('public.policy_accept') }}</span>
-                            </label>
-                            @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only')
-                                <label class="flex items-start gap-3 text-sm leading-relaxed text-muted">
-                                    <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="whatsapp_service_consent" value="1" required @checked(old('whatsapp_service_consent'))>
-                                    <span>{{ __('public.whatsapp_service_consent') }}</span>
-                                </label>
-                            @endif
-                            <input type="hidden" name="type" value="intro">
-                            <input type="hidden" name="return_to" value="booking">
-                            <input type="hidden" name="starts_at" value="{{ old('starts_at', '') }}" data-booking-starts-at required>
-                            @if($verification)<input type="hidden" name="verification_id" value="{{ $verification->id }}">@endif
-                            @if(! $contactsVerified)
-                                <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start') }}" formmethod="post" formnovalidate>
-                                    {{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_send_button_email_only' : 'public.verification_send_button') }}
-                                </button>
-                                @if($verification && ! $verification->email_verified_at)
-                                    <div class="grid gap-2">
-                                        <label class="text-sm font-semibold text-ink" for="free-session-email-code">{{ __('public.verification_email_code_label') }}</label>
-                                        <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-email-code" name="email_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
-                                    </div>
-                                    <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.email-code.confirm') }}" formmethod="post" formnovalidate>{{ __('public.verification_confirm_email_button') }}</button>
-                                @endif
-                                @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only' && $verification && ! $verification->phone_verified_at)
-                                    <div class="grid gap-2">
-                                        <label class="text-sm font-semibold text-ink" for="free-session-phone-code">{{ __('public.verification_code_label') }}</label>
-                                        <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-phone-code" name="phone_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
-                                    </div>
-                                    <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.phone.confirm') }}" formmethod="post" formnovalidate>{{ __('public.verification_confirm_phone_button') }}</button>
-                                @endif
-                            @endif
-                            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.booking_submit_intro') }}</button>
-                            <p class="m-0 text-xs leading-relaxed text-muted">{{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_required_email_only' : 'public.verification_required') }}</p>
-                        </form>
+                        @include('public.partials.booking-authenticated-form', ['bookingSlot' => request('slot', old('starts_at', ''))])
                     @else
                         @if($errors->any())
                             <div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
@@ -416,8 +325,10 @@
                             <button class="font-bold text-primary underline" type="button" data-booking-branch-toggle="login">{{ __('public.booking_existing_account') }}</button>
                             <button class="hidden font-bold text-primary underline" type="button" data-booking-branch-toggle="register">{{ __('public.booking_new_account') }}</button>
                         </div>
-                        <form method="post" action="{{ route('booking.register') }}" class="space-y-5" data-booking-register-branch>
+                        <form method="post" action="{{ route('booking.register') }}" class="space-y-5" data-booking-register-branch data-booking-async-form>
                             @csrf
+                            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
+                            <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="grid gap-2">
                                     <label class="text-sm font-semibold text-ink" for="free-session-name">{{ __('public.field_name') }}</label>
@@ -472,11 +383,13 @@
                                     <span>{{ __('public.whatsapp_service_consent') }}</span>
                                 </label>
                             @endif
-                            <input type="hidden" name="starts_at" value="{{ old('starts_at', request('slot', '')) }}" data-booking-starts-at required>
+                            <input type="hidden" name="starts_at" value="{{ request('slot', old('starts_at', '')) }}" data-booking-starts-at required>
                             <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.booking_create_account_continue') }}</button>
                         </form>
-                        <form method="post" action="{{ route('booking.login') }}" class="hidden space-y-5" data-booking-login-branch>
+                        <form method="post" action="{{ route('booking.login') }}" class="hidden space-y-5" data-booking-login-branch data-booking-async-form>
                             @csrf
+                            <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
+                            <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
                             <p class="type-card-copy mt-0">{{ __('public.booking_sign_in_text') }}</p>
                             <div class="grid gap-2">
                                 <label class="text-sm font-semibold text-ink" for="free-session-login-email">{{ __('public.field_email') }}</label>
@@ -486,10 +399,11 @@
                                 <label class="text-sm font-semibold text-ink" for="free-session-login-password">{{ __('public.field_password') }}</label>
                                 <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-login-password" name="password" type="password" autocomplete="current-password" required>
                             </div>
-                            <input type="hidden" name="starts_at" value="{{ old('starts_at', request('slot', '')) }}" data-booking-starts-at required>
+                            <input type="hidden" name="starts_at" value="{{ request('slot', old('starts_at', '')) }}" data-booking-starts-at required>
                             <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.booking_sign_in') }}</button>
                         </form>
                     @endauth
+                    </div>
                 </div>
             </div>
         </section>

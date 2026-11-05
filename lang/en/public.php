@@ -331,4 +331,11 @@ return [
     'booking_confirmed_dashboard' => 'Your introductory session is confirmed. It is now on your calendar.',
     'bundle_payment_confirmed_dashboard' => 'Payment confirmed. Your bundle sessions are available in your dashboard.',
     'checkout_pending' => 'Payment is still being processed by the provider. No bundle credits are available yet; this page will show the confirmed state once Stripe reports it.',
+    'booking_auth_submitting' => 'Please wait while we sign you in and prepare the next step.',
+    'booking_auth_network_error' => 'We could not reach the server. Check your connection and try again. Your selected time is still here.',
+    'booking_auth_server_error' => 'Something went wrong. Your selected time is still here. Please try again.',
+    'booking_auth_session_expired' => 'Your session expired. Refresh the page to continue. Your selected time will be restored.',
+    'booking_auth_rate_limited' => 'There have been too many attempts. Wait a moment and try again.',
+    'booking_auth_two_factor_message' => 'This account uses two-factor authentication. Continue through the secure sign-in step.',
+    'booking_signed_in_continue_booking' => 'You are signed in. Continue with contact verification or complete your booking.',
 ];
