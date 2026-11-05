@@ -14,9 +14,44 @@
         <div class="rounded-xl p-4 text-sm leading-relaxed {{ $eligibility['eligible'] ? 'bg-surface-subtle text-muted' : 'border border-amber-200 bg-amber-50 text-amber-900' }}" role="status" aria-live="polite" data-free-session-eligibility="{{ $eligibility['status'] }}">
             {{ __($eligibility['eligible'] ? 'public.verification_eligible' : 'public.verification_already_used') }}
             @if(! $eligibility['eligible'])
-                <a class="ml-1 font-semibold underline" href="#bundles">{{ __('public.verification_bundle_cta') }}</a>
+                <button class="ml-1 font-semibold underline" type="button" data-open-used-free-bundle-modal>{{ __('public.verification_bundle_cta') }}</button>
             @endif
         </div>
+        @if(! $eligibility['eligible'])
+            <div class="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-ink/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="used-free-bundle-title" data-used-free-bundle-modal>
+                <div class="my-auto max-h-[min(90vh,850px)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl sm:p-8">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="mb-2 text-[11px] font-extrabold tracking-[1.5px] text-primary uppercase">{{ __('public.bundle_label') }}</p>
+                            <h2 class="m-0 text-2xl font-semibold tracking-tight text-ink sm:text-3xl" id="used-free-bundle-title">{{ __('public.used_free_bundle_title') }}</h2>
+                            <p class="mt-3 max-w-2xl text-sm leading-6 text-muted">{{ __('public.used_free_bundle_text') }}</p>
+                        </div>
+                        <button class="grid size-10 shrink-0 place-items-center rounded-full border border-line text-xl text-muted hover:bg-surface-subtle" type="button" aria-label="{{ __('public.used_free_bundle_close') }}" data-close-used-free-bundle-modal>×</button>
+                    </div>
+                    <p class="mt-5 rounded-xl bg-surface-subtle p-4 text-sm leading-6 text-muted">{{ __('public.used_free_bundle_no_reservation') }}</p>
+                    <div class="mt-5 grid gap-4 md:grid-cols-3">
+                        @forelse($bundles as $bundle)
+                            <article class="flex flex-col rounded-2xl border border-line p-5 {{ $bundle->featured ? 'ring-2 ring-primary' : '' }}">
+                                @if($bundle->featured)<span class="mb-3 text-[10px] font-extrabold tracking-wider text-primary uppercase">{{ __('public.package_featured') }}</span>@endif
+                                <h3 class="m-0 text-lg font-bold text-ink">{{ $bundle->localizedName() }}</h3>
+                                <p class="mt-2 mb-0 text-sm leading-5 text-muted">{{ $bundle->localizedValue($bundle->short_description) }}</p>
+                                <p class="mt-4 mb-1 text-3xl font-extrabold tracking-tight text-ink">{{ number_format($bundle->currentPriceRon(), 0, ',', '.') }} <span class="text-sm font-semibold">RON</span></p>
+                                <p class="m-0 text-xs text-muted">{{ __('public.package_tax') }}</p>
+                                <div class="mt-4 grid gap-2 text-sm text-muted">
+                                    <p class="m-0">{{ __('public.used_free_bundle_sessions', ['count' => $bundle->paid_credits + $bundle->included_free_credits]) }}</p>
+                                    <p class="m-0">{{ __('public.package_validity') }}</p>
+                                </div>
+                                <a class="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-4 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" href="{{ route('purchase', $bundle) }}">{{ __('public.used_free_bundle_choose') }}</a>
+                            </article>
+                        @empty
+                            <p class="m-0 rounded-xl bg-surface-subtle p-4 text-sm text-muted md:col-span-3">{{ __('public.used_free_bundle_none_available') }}</p>
+                        @endforelse
+                    </div>
+                    <p class="mt-5 text-xs leading-5 text-muted">{{ __('public.purchase_policy_notice') }} <a class="font-semibold text-primary underline" href="{{ route('terms') }}">{{ __('public.footer_terms') }}</a> · <a class="font-semibold text-primary underline" href="{{ route('privacy') }}">{{ __('public.footer_privacy') }}</a></p>
+                    <button class="mt-2 text-sm font-semibold text-muted underline" type="button" data-close-used-free-bundle-modal>{{ __('public.used_free_bundle_back') }}</button>
+                </div>
+            </div>
+        @endif
     @endif
     @if(! $contactsVerified)
         <div class="rounded-xl bg-surface-subtle p-4 text-sm leading-relaxed text-muted">
