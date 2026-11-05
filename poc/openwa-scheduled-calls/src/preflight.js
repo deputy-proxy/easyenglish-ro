@@ -47,6 +47,7 @@ async function main() {
   try {
     config = readConfig();
     console.log('HTTPS pairing URL: configured');
+    console.log('Service-to-service authentication token: ' + (config.serviceToken ? 'configured' : 'not configured; API remains disabled'));
     console.log('Session encryption key: valid 32-byte base64 key');
   } catch (error) {
     failures.push(error.message);

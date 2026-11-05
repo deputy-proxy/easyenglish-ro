@@ -2,6 +2,7 @@ FROM node:22.21.1-bookworm-slim
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0 \
+    PORT=8080 \
     OPENWA_CHROME_EXECUTABLE=/usr/bin/chromium \
     OPENWA_SESSION_DIR=/data/session \
     OPENWA_SESSION_KEY_DIR=/data/keys

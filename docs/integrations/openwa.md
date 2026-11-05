@@ -1,114 +1,205 @@
-# OpenWA scheduled-call proof of concept
+# OpenWA scheduled-call service
 
-## Purpose and boundary
+## Purpose and architecture
 
-This is a disposable, isolated proof of concept for testing native scheduled WhatsApp video-call events. It is not part of Laravel, does not handle bookings, and must not receive production customer data or production WhatsApp credentials. The existing Meta WhatsApp Business Platform integration remains the approved transactional messaging channel.
+OpenWA is isolated in a standalone Node.js service. Laravel remains the system of record for users, bookings, teacher assignment, payment state, and notification delivery. Laravel calls this service over a private service-to-service API; it must never connect to the OpenWA browser or raw client directly.
 
-The PoC runs as a separate Railway service, independent from the EasyEnglish website. The confirmed EasyEnglish plan is Hostinger Cloud Startup, which supports ordinary Node.js web applications but explicitly does not support always-running background workers/bots, Docker, or additional services. OpenWA requires a persistent WhatsApp Web session and a Chromium process, so Cloud Startup is not a supported runtime. Keep Laravel and the public website on Cloud Startup; run OpenWA in a dedicated Railway project with a persistent volume. The PoC uses its own service lifecycle, separate private session-data and encryption-key directories on the volume, and an authenticated HTTPS pairing interface. It must not share Laravel's document root or connect to Laravel booking traffic.
+The existing Meta WhatsApp Business Platform integration remains the approved channel for transactional messages. OpenWA is an unofficial WhatsApp Web automation package used only to create, retrieve, and cancel scheduled WhatsApp video-call events. It is not an approved replacement for Meta messaging. Its use may conflict with WhatsApp terms and may result in account restrictions. Use a dedicated disposable non-production WhatsApp account only.
 
-The eventual real-device acceptance requires three distinct non-production WhatsApp accounts:
+The service owns one OpenWA session and one durable encrypted event store. Run exactly one replica. Do not embed OpenWA, Chromium, or browser automation in the Laravel runtime. The service is deployed separately from the EasyEnglish website because the confirmed Hostinger Cloud Startup plan does not support the persistent browser process and separate services required by OpenWA.
 
-1. OpenWA creator/sender, paired to the service.
-2. Customer test recipient, receiving the native event invitation.
-3. Teacher test participant, receiving the same join URL in a separate message.
+## Provider contract
 
-Never use a personal or primary business WhatsApp account.
+- Package: `@open-wa/wa-automate@5.10.0` (pinned)
+- Node.js: `22.21.1` or newer
+- Create: `client.sendEvent(chatId, event)`
+- Retrieve: `client.getEvent(providerEventId)`
+- Cancel: `client.cancelEvent(providerEventId)`
+- Event timestamps: Unix seconds
+- Supported event type: scheduled video call
 
-## Version and API contract
+The installed v5.10.0 declarations and PoC verify that `sendEvent` returns a serialized WhatsApp message ID accepted by `getEvent`; a retrieved event can expose `joinLink` and `isCanceled`. Event creation and URL availability are separate operations. The adapter polls retrieval for up to six attempts. If creation or retrieval has an uncertain outcome, the service records that state and refuses automatic resubmission.
 
-- Package: `@open-wa/wa-automate`
-- Pinned version: `5.10.0`
-- Node.js minimum: `22.21.1`
-- Event creation: `client.sendEvent(to, event)`
-- Event retrieval: `client.getEvent(eventId)`
-- Cancellation: `client.cancelEvent(eventId)`
-- Teacher link delivery: `client.sendText(to, joinLink)`
+The provider receives a destination E.164 phone number, which is converted to the OpenWA chat ID. The same returned join URL is then available to Laravel so Laravel can deliver it to the teacher using the approved messaging workflow. The service does not send teacher/customer message content.
 
-The installed v5.10.0 declarations confirm that `sendEvent` returns a serialized WhatsApp message ID, and `getEvent` accepts that ID as `eventId`. The event input accepts `name`, `startTime`, `endTime`, `callType: "video"`, `isScheduledCall`, and `extraGuestsAllowed`. The event response can include `joinLink` and `isCanceled`. The start and end times are Unix seconds.
+## HTTP API v1
 
-The implementation does not assume event creation implies immediate link availability. It polls `getEvent` for up to six seconds. If the event was submitted but no link appears, it records an uncertain result and explicitly refuses to submit a second event automatically.
+All `/v1/*` endpoints require `Authorization: Bearer <OPENWA_SERVICE_TOKEN>`. The token must contain at least 32 characters and is compared using a constant-time comparison. Do not put it in URLs, browser code, logs, source control, or the public Laravel frontend. Health endpoints are intentionally unauthenticated and disclose only a generic status. The separate pairing interface uses HTTP Basic authentication over HTTPS.
 
-## Local development and tests
+### Health
 
-From this directory:
+- `GET /health/live`: process liveness; returns `200 {"status":"ok"}`.
+- `GET /health/ready`: provider readiness; returns `200 {"status":"ready"}` only when the OpenWA session is connected and authenticated, otherwise `503 {"status":"not_ready"}`.
+
+Use `/health/live` for the Railway process health check. Laravel and deployment monitoring should use `/health/ready` before attempting call-event operations.
+
+### Create event
+
+`POST /v1/call-events`
+
+Headers:
+
+```http
+Authorization: Bearer <service-token>
+Idempotency-Key: <16-128 characters: letters, numbers, underscore, hyphen>
+Content-Type: application/json
+```
+
+Body:
+
+```json
+{
+  "externalBookingReference": "booking_123",
+  "destinationPhone": "+40712345678",
+  "startAt": "2026-11-06T12:00:00+02:00",
+  "endAt": "2026-11-06T12:15:00+02:00",
+  "timezone": "Europe/Bucharest",
+  "title": "EasyEnglish introductory session",
+  "callType": "video"
+}
+```
+
+Rules:
+
+- Booking reference: 1-100 letters, numbers, underscores, or hyphens.
+- Destination: E.164 phone number including country code.
+- Start/end: ISO-8601 timestamps with an explicit UTC offset; start must be at least five minutes in the future and end must follow start.
+- Maximum event duration: four hours. The application supplies the actual session duration.
+- Timezone: valid IANA timezone. It is retained as event metadata; the provider API receives Unix timestamps.
+- Title: 1-120 characters.
+- Only `video` call events are supported.
+- An idempotency key is mandatory. Reusing a key with the same payload replays the original result. Reusing it with a different payload returns `409`.
+- A second active event for the same external booking reference returns `409`, even if a different idempotency key is supplied.
+
+Successful response (`201`):
+
+```json
+{
+  "providerEventId": "<provider-message-id>",
+  "joinUrl": "https://call.whatsapp.com/...",
+  "status": "scheduled",
+  "createdAt": "2026-11-05T10:00:00.000Z"
+}
+```
+
+A replay returns `200` and adds `"replayed": true`. An uncertain provider result returns `202` with `retryable: false`; do not generate a new key or retry automatically. A provider rejection returns `502`. Invalid input returns `400`, authentication failure `401`, duplicate/conflicting state `409`, and unavailable provider/persistence `503`.
+
+### Retrieve event
+
+`GET /v1/call-events/{providerEventId}` returns the normalized provider ID, join URL, status, and creation timestamp for an event known to this service. Unknown local IDs return `404`; provider failures return `502`.
+
+### Cancel event
+
+`DELETE /v1/call-events/{providerEventId}` returns the normalized cancelled status only after provider cancellation is confirmed. Repeating cancellation for an already cancelled local event is idempotent. Unknown IDs return `404`; unconfirmed/provider failures return `502`.
+
+### Metrics
+
+`GET /v1/metrics` requires the service token and returns aggregate counters only: successfully created events, provider errors, reconnect recoveries, and current connection state. It does not return booking references, phone numbers, event IDs, or join URLs.
+
+## Reliability and storage
+
+- Session data and event metadata are stored on the persistent Railway volume, outside the application directory and public web root.
+- Session data and the encryption-key directory are separate and have private directory permissions. The session encryption key is supplied as a Railway secret and written with file mode `0600`; directories use `0700`.
+- Event metadata, including provider IDs and join URLs needed for idempotency/recovery, is encrypted with AES-256-GCM and written atomically. A corrupt/unreadable encrypted store causes startup to fail closed.
+- A `creating` record is persisted before the provider call. If the process restarts during an uncertain submission, the same idempotency key returns a non-retryable pending result instead of creating another event.
+- Event creation is serialized in-process and the service must run one replica. Multiple writers are not supported.
+- Create calls have a 25-second timeout; retrieve/cancel calls have 10-second timeouts. A create timeout is treated as uncertain and is never retried automatically.
+- OpenWA connection-state changes are observed. Readiness drops while disconnected and returns only after the client reports `READY`. Reconnect recovery is counted and logged.
+- Logs are structured and exclude phone numbers, booking references, message content, QR values, join URLs, session data, and secrets.
+- No provider/browser debugging endpoint is exposed. Do not log raw request bodies or provider objects.
+
+## Configuration
+
+Copy `.env.example` and provide secrets through the deployment platform, not a committed file. Required variables:
+
+- `OPENWA_SESSION_DIR`
+- `OPENWA_SESSION_KEY_DIR`
+- `OPENWA_SESSION_ENCRYPTION_KEY` (base64-encoded 32-byte key)
+- `OPENWA_PAIRING_USERNAME`
+- `OPENWA_PAIRING_PASSWORD` (at least 32 random characters)
+- `OPENWA_PUBLIC_BASE_URL` (HTTPS URL used by the protected pairing interface)
+- `OPENWA_SERVICE_TOKEN` (at least 32 random characters, shared only with Laravel; required before live provider startup or API access)
+- `OPENWA_ALLOW_LIVE_TEST` (keep `false` until the final acceptance gate)
+
+`OPENWA_CHROME_EXECUTABLE` and `OPENWA_CHROME_NO_SANDBOX` must match the container runtime. Railway currently requires Chromium's no-sandbox flags in this isolated PoC; the process still runs as the unprivileged `node` user. This weakens browser isolation and is not production approval.
+
+Generate secrets with a cryptographically secure generator, for example:
+
+```sh
+openssl rand -base64 32   # session encryption key bytes, then base64 encode exactly once
+openssl rand -hex 32      # service token / pairing password material
+```
+
+Do not reuse the session encryption key as the service token or pairing password.
+
+## Local development and validation
+
+From `poc/openwa-scheduled-calls`:
 
 ```sh
 npm ci
 npm test
-npm audit
+npm audit --audit-level=high
 ```
 
-The tests use Node's built-in test runner and a fake OpenWA client. They cover Basic authentication and rate limiting, configuration validation, HTTPS-only pairing, separate private storage paths, AES-256-GCM result encryption, E.164 validation, 15-minute duration, distinct creator/customer/teacher accounts, event retrieval, teacher link delivery, uncertain event creation, cancellation, and duplicate-request decisions.
+The Node built-in test suite uses a fake provider and covers API authentication, health/readiness, request validation, E.164 normalization, timestamps/timezones, create/retrieve/cancel, idempotency conflicts and replay, duplicate booking protection, concurrent duplicate requests, provider errors/timeouts, reconnect readiness transitions, and encrypted persistence/recovery. No WhatsApp credentials or paired account are required for automated tests.
 
-The package lock includes two reviewed npm overrides:
+The dependency audit currently reports seven low-severity findings and zero high/critical findings. The remaining prototype-poisoning advisory is in `deepmerge` through `puppeteer-extra`. Do not run `npm audit fix --force`: it proposes downgrading OpenWA to v4.76.0 and invalidates the pinned v5 API validation. Reassess the residual finding before any live account is enabled.
 
-- `basic-ftp@6.2.6` addresses the upstream high-severity directory-listing denial-of-service advisory in the version range used by the OpenWA dependency tree.
-- `image-size@2.0.4` addresses the upstream high-severity ICNS parser denial-of-service advisory in the version range used by the OpenWA dependency tree.
+## Deployment and network boundary
 
-After those overrides, `npm audit --audit-level=high` passes with zero high/critical findings and seven low findings. The remaining low finding is prototype poisoning in `deepmerge` (pulled in through `puppeteer-extra`). No user-supplied objects are passed to that merge path in this PoC, but the residual finding must remain documented and reviewed before enabling the service. Do not run `npm audit fix --force`: it proposes a major downgrade of OpenWA to v4.76.0 and would invalidate the v5 API validation.
+Deploy the container from `poc/openwa-scheduled-calls/Dockerfile` as a dedicated Railway service in the separate `easyenglish-openwa` project. Attach a persistent volume at `/data`; configure one replica only. Set the service root directory to `/poc/openwa-scheduled-calls` when using the repository root. The image installs Chromium, `zstd`, and runs Node as the unprivileged `node` user.
 
-OpenWA is an unofficial WhatsApp Web automation package. Its use can violate or conflict with WhatsApp's terms and can result in account restrictions. A dedicated disposable account is mandatory. The dependency audit is not a guarantee that the package is safe.
+Use Railway private networking for Laravel-to-OpenWA API traffic. A public HTTPS domain may be enabled temporarily for the protected pairing interface; because the service API shares the same listener, the bearer token remains mandatory during this window. Remove the public domain/ingress after pairing and use the private Railway hostname for Laravel-to-OpenWA traffic. Never expose raw OpenWA or browser debugging ports. The bearer token remains mandatory even on the private network.
 
-## Railway deployment
+Deployment steps:
 
-Deploy this PoC as a dedicated Railway service in a separate project named `easyenglish-openwa`. Do not add it to the Laravel/website deployment. The service uses the Dockerfile in this directory, which installs Chromium and zstd and runs the Node process as an unprivileged user. The container entrypoint prepares the persistent volume directories with private permissions.
+1. Create the dedicated Railway project/environment and a single `openwa-service` service using this Dockerfile.
+2. Attach a persistent volume at `/data` in the same region.
+3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, service token, Chromium settings, and `OPENWA_ALLOW_LIVE_TEST=false`.
+4. Configure the Railway health check to `GET /health/live`; use restart policy `ALWAYS`; do not enable serverless sleep or multiple replicas.
+5. Run `npm run preflight` inside the deployed container as the unprivileged `node` user. Verify Node, Chromium headless launch, `zstd`, HTTPS configuration, token/key validation, and volume write permissions.
+6. Keep `OPENWA_ALLOW_LIVE_TEST=false` until the final acceptance issue explicitly authorizes pairing. In this mode the process and liveness endpoint work, while readiness correctly remains `503`. If the service token is not configured, all `/v1` requests return `503` and no API operation is available. Configure the token before Laravel integration or enabling the live provider.
+7. Configure Laravel with the private service base URL and the matching service token. Do not expose either value in client-side code.
+8. Pair only the dedicated non-production account when authorized by final acceptance. Confirm readiness before exercising the API.
 
-1. Create a Railway project named `easyenglish-openwa` in the existing Proxy Applications workspace, with a `production` environment.
-2. Create an empty service named `openwa-poc` and set its root directory to `/poc/openwa-scheduled-calls` in the repository. Use the included `Dockerfile`.
-3. Attach a Railway volume at `/data` (1 GB is sufficient for this PoC's session and encrypted result record). The volume must be in the same region as the service. Do not run multiple replicas: the WhatsApp session is single-writer state.
-4. Configure these variables on the service: `NODE_ENV=production`, `HOST=0.0.0.0`, `OPENWA_SESSION_ID=easyenglish-openwa-poc`, `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, `OPENWA_CHROME_EXECUTABLE=/usr/bin/chromium`, `OPENWA_CHROME_NO_SANDBOX=true` (Railway container runtime requires this; see security note below), `OPENWA_SESSION_ENCRYPTION_KEY` (fresh base64-encoded 32-byte random key), `OPENWA_PAIRING_USERNAME`, `OPENWA_PAIRING_PASSWORD` (at least 32 random characters), `OPENWA_PUBLIC_BASE_URL` (the generated Railway HTTPS domain), and `OPENWA_ALLOW_LIVE_TEST=false`.
-5. Generate a Railway HTTPS domain for the service and set that exact URL as `OPENWA_PUBLIC_BASE_URL`. Route the domain to the service's `PORT`; Railway injects this variable at runtime.
-6. Configure `/health/live` as the Railway healthcheck path and set restart policy to `ALWAYS`. Keep replicas at one. Do not enable serverless sleep for this persistent-session service.
-7. Run `npm run preflight` in the deployed container after variables and volume are configured. Confirm Node version, Chromium headless launch, zstd, HTTPS configuration, encryption key, and volume write permissions.
-8. Keep `OPENWA_ALLOW_LIVE_TEST=false` during initial deployment. In this mode the service starts its protected status page and health endpoint but does not launch OpenWA or display a QR. Review the current `npm audit` result; do not enable pairing while high/critical findings remain.
-9. Only after all checks pass, explicitly set `OPENWA_ALLOW_LIVE_TEST=true` and restart the service. Open the HTTPS domain in a browser. Basic authentication prompts for the configured pairing username/password. The QR code is only available behind authentication and is returned with no-cache headers.
-10. On the dedicated OpenWA test phone, open WhatsApp → Linked devices → Link a device and scan the QR displayed in the protected page.
-11. Once authenticated, enter the separate customer and teacher test numbers and a future Bucharest-local time. The service creates the event for the customer and sends the same retrieved join URL to the teacher.
-12. After testing, set `OPENWA_ALLOW_LIVE_TEST=false`, restart the service, revoke/unlink the dedicated OpenWA device from WhatsApp, and securely delete the Railway volume if the test data is no longer needed.
+The existing Railway PoC deployment was previously observed running, but its deployed-container preflight output was not verified. The service API implementation in this issue must not be described as deployed or production-ready until a separate deployment check confirms the new image, environment variables, health checks, and durable volume.
 
-### Railway runtime notes
+## Operations runbook
 
-- The service is intentionally single-replica because one WhatsApp Web session and its persisted browser state must have one active writer.
-- `/data/session` and `/data/keys` are separate private directories on the same Railway volume. The encryption key remains in Railway service variables and is written to the volume with mode 0600; the session and key directories are mode 0700.
-- The Docker image installs Debian Chromium and `zstd`; `OPENWA_CHROME_EXECUTABLE` points to `/usr/bin/chromium`. The service listens on Railway's injected `PORT` (8080 in this deployment), and the generated domain must target that same port.
-- The service must remain continuously running. Do not configure a Railway cron schedule or serverless sleep.
-- Railway's container runtime blocks the Linux namespaces Chromium needs for its normal sandbox. The deployed PoC therefore uses `OPENWA_CHROME_NO_SANDBOX=true`, which passes Chromium's `--no-sandbox` and `--disable-setuid-sandbox` flags. The process still runs as the unprivileged `node` user, not root. This weakens browser isolation and is accepted only for this disposable, authenticated PoC. Do not expose browser debugging ports, do not use production WhatsApp/customer data, and do not treat this configuration as approved for a production integration. Reassess the browser isolation model before any production use.
-- A successful local or sandbox preflight does not prove Railway compatibility. The preflight must pass in the deployed Railway container, under the unprivileged `node` user, before pairing. The Railway service is currently deployed successfully, but available runtime logs do not show explicit preflight output, so deployed-container preflight remains unverified.
+### Bootstrap and pairing
 
-## Security controls
+1. Confirm the correct Railway service, persistent volume, and secret values.
+2. Temporarily enable the protected pairing interface and explicitly set `OPENWA_ALLOW_LIVE_TEST=true` only for the dedicated non-production account.
+3. Open the HTTPS pairing page with Basic authentication and scan the QR using WhatsApp Linked Devices.
+4. Confirm `/health/ready` returns `200`; never copy QR contents into tickets or logs.
+5. Disable public pairing access when no longer needed. Do not pair personal or primary business accounts.
 
-- The pairing interface and all operations except `/health/live` require HTTP Basic authentication over HTTPS.
-- The pairing password must be at least 32 characters. Authentication failures are rate-limited per source IP.
-- QR images and responses use no-store/no-cache headers. QR values are never logged.
-- Session data is encrypted by OpenWA using a dedicated 32-byte key file. The key is sourced from the protected VPS environment configuration and written with 0600 permissions into a 0700 private key directory that is separate from the encrypted session-data directory. The event-result record is also encrypted with AES-256-GCM. The browser profile is ephemeral.
-- Session files, event records, encryption keys, and logs remain outside the public web root and outside source control.
-- The service binds to its own Node process and does not expose OpenWA's raw API, browser debugging port, or Laravel routes.
-- Phone numbers are not written to routine logs or persisted in the PoC result record; only truncated SHA-256 references are recorded.
-- Event creation requires an idempotency key. Repeating the same key returns the original result; a different key is rejected while an earlier event remains active. The event ID and join URL are persisted privately to prevent duplicate submissions after restart.
-- An uncertain provider result is not retried automatically.
-- The PoC contains no production booking integration and no production customer messaging.
+### Restart and recovery
 
-## Test matrix
+1. Keep the same `/data` volume attached and preserve the encryption key.
+2. Restart one service replica only.
+3. Wait for OpenWA to restore the session and `/health/ready` to return `200`.
+4. If readiness does not recover, inspect restricted service logs and the connection-state metric. Do not delete session files or rotate the encryption key as a first response.
+5. If the encrypted event store cannot be decrypted, keep event creation disabled and restore the matching key/volume backup. Do not create a new empty store over the old one.
 
-| Test | Expected result | Status |
-|---|---|---|
-| Railway runtime preflight | Node, zstd, Chromium headless launch with documented container sandbox setting, HTTPS, encrypted key, and persistent volume storage pass | Pending deployed-container preflight |
-| Pair dedicated creator account | QR is displayed only behind authenticated HTTPS page | Pending |
-| Restore session after restart | Authenticated state returns without re-pairing | Pending |
-| Create future 15-minute video event | Native event invitation appears in customer chat | Pending |
-| Retrieve event metadata | Event ID and join URL are returned | Pending |
-| Share URL with teacher | Teacher receives the exact same URL | Pending |
-| Android customer joins | Customer joins the scheduled event | Pending |
-| Android/iOS teacher joins | Teacher joins the same call | Pending |
-| Creator/customer/teacher separation | All three accounts are distinct | Automated guard implemented; real account check pending |
-| Duplicate idempotency key | Original event is returned; no second event is created | Automated guard implemented; live verification pending |
-| Different key while event active | Request rejected with conflict | Automated guard implemented; live verification pending |
-| Invalid participant numbers | Request rejected before provider call | Automated test passed |
-| Event retrieval delay/failure | Uncertain result retained; no automatic resubmission | Automated test passed |
-| Event cancellation | Existing event is cancelled | Pending live verification |
-| Creator disconnected at event time | Record whether event remains joinable | Pending |
-| Account restriction/operational risk | Document observations; do not use primary account | Pending |
+### Backup, restore, and key rotation
 
-## Decision status
+- Back up the persistent volume and session encryption secret together, using encrypted access-controlled storage.
+- Test restore in an isolated non-production service before relying on a backup.
+- A session-key rotation requires a controlled migration/re-encryption of session data and event records. Do not simply replace `OPENWA_SESSION_ENCRYPTION_KEY`; doing so makes existing encrypted data unreadable.
+- Keep backup retention aligned with the EasyEnglish privacy and retention policies. The event store contains personal data and join URLs.
 
-**Technical discovery complete; final GO/NO-GO remains pending.** Automated tests and package API inspection support downstream implementation behind a provider adapter, fake provider, and disabled feature flag. Real-device and assembled booking-journey validation is deferred to issue #220. Do not enable real customer traffic or treat this PoC as production-approved before #220 passes and the product owner explicitly approves rollout.
+### Emergency disable and account disconnect
+
+1. Set `OPENWA_ALLOW_LIVE_TEST=false` and restart the service. Readiness must become `503` and event operations must return `503`.
+2. Revoke the linked device from the dedicated WhatsApp account.
+3. Remove public pairing ingress and rotate the service token if compromise is suspected.
+4. Preserve encrypted records for incident investigation only as required by the retention policy; otherwise securely delete the volume and secrets.
+5. Do not re-enable the service without explicit approval after the incident is reviewed.
+
+## Final acceptance boundary
+
+This issue implements the isolated service, API contract, fake-provider tests, authentication, encrypted persistence, idempotency, lifecycle/readiness handling, and operational documentation. It does not establish that real WhatsApp accounts can reliably join the same scheduled event on Android/iOS or that the assembled Laravel booking flow is ready.
+
+Real-account pairing, restart/reconnect acceptance against an authenticated account, customer/teacher join testing, assembled booking-to-notification validation, final GO/NO-GO, and production enablement remain deferred to issue #220. Keep `OPENWA_ALLOW_LIVE_TEST=false` and do not send production traffic before #220 passes and the product owner explicitly approves rollout.

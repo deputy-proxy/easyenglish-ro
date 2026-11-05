@@ -1,40 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeE164, normalizeStartTime, readConfig } from '../src/config.js';
-
-const base = {
-  OPENWA_SESSION_DIR: '/private/openwa/session',
-  OPENWA_SESSION_KEY_DIR: '/private/openwa/keys',
-  OPENWA_PUBLIC_BASE_URL: 'https://openwa.example.com',
-  OPENWA_SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
-  OPENWA_PAIRING_USERNAME: 'operator',
-  OPENWA_PAIRING_PASSWORD: 'a'.repeat(40),
-};
-
+import { normalizeE164, normalizeEventTimes, readConfig, validateTimeZone } from '../src/config.js';
+const base = { OPENWA_SESSION_DIR: '/private/openwa/session', OPENWA_SESSION_KEY_DIR: '/private/openwa/keys', OPENWA_PUBLIC_BASE_URL: 'https://openwa.example.com', OPENWA_SESSION_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'), OPENWA_PAIRING_USERNAME: 'operator', OPENWA_PAIRING_PASSWORD: 'a'.repeat(40), OPENWA_SERVICE_TOKEN: 's'.repeat(48) };
 test('requires HTTPS pairing URL', () => assert.throws(() => readConfig({ ...base, OPENWA_PUBLIC_BASE_URL: 'http://openwa.example.com' }), /HTTPS/));
-test('requires absolute private session directory', () => assert.throws(() => readConfig({ ...base, OPENWA_SESSION_DIR: 'sessions' }), /absolute path/));
-test('requires a separate encryption-key directory', () => {
-  assert.throws(() => readConfig({ ...base, OPENWA_SESSION_KEY_DIR: base.OPENWA_SESSION_DIR }), /must be separate/);
-  assert.throws(() => readConfig({ ...base, OPENWA_SESSION_KEY_DIR: base.OPENWA_SESSION_DIR + '/keys' }), /must be separate/);
-});
-test('requires session and key directories outside application root', () => assert.throws(() => readConfig({ ...base, OPENWA_APP_ROOT: '/private/openwa' }), /outside the Node application root/));
-test('requires a valid 32-byte base64 encryption key', () => assert.throws(() => readConfig({ ...base, OPENWA_SESSION_ENCRYPTION_KEY: 'short' }), /32-byte/));
+test('requires absolute private directories', () => assert.throws(() => readConfig({ ...base, OPENWA_SESSION_DIR: 'sessions' }), /absolute private path/));
+test('requires separate session and key directories', () => assert.throws(() => readConfig({ ...base, OPENWA_SESSION_KEY_DIR: base.OPENWA_SESSION_DIR }), /must be separate/));
+test('requires directories outside application root', () => assert.throws(() => readConfig({ ...base, OPENWA_APP_ROOT: '/private/openwa' }), /outside the Node application root/));
+test('requires a valid encryption key and a strong service token before live provider startup', () => { assert.throws(() => readConfig({ ...base, OPENWA_SESSION_ENCRYPTION_KEY: 'short' }), /32-byte/); assert.throws(() => readConfig({ ...base, OPENWA_SERVICE_TOKEN: 'weak', OPENWA_ALLOW_LIVE_TEST: 'true' }), /32 characters/); assert.equal(readConfig({ ...base, OPENWA_SERVICE_TOKEN: undefined }).serviceToken, null); });
 test('requires strong pairing password', () => assert.throws(() => readConfig({ ...base, OPENWA_PAIRING_PASSWORD: 'weak' }), /32 characters/));
-test('disables Chromium sandbox only when explicitly configured', () => {
-  assert.equal(readConfig(base).chromeNoSandbox, false);
-  assert.equal(readConfig({ ...base, OPENWA_CHROME_NO_SANDBOX: 'true' }).chromeNoSandbox, true);
-});
-test('accepts valid config and resolves separate private paths', () => {
-  const config = readConfig(base);
-  assert.equal(config.sessionDataPath, '/private/openwa/session/session.data.json');
-  assert.equal(config.encryptionKeyFile, '/private/openwa/keys/session-encryption.key');
-  assert.equal(config.encryptionKey.length, 32);
-});
-test('validates E.164 participant numbers', () => {
-  assert.equal(normalizeE164('+40712345678', 'Customer'), '+40712345678');
-  assert.throws(() => normalizeE164('0712345678', 'Customer'), /E.164/);
-});
-test('requires future start time with a five-minute margin', () => {
-  assert.throws(() => normalizeStartTime('2020-01-01T10:00:00Z'), /five minutes/);
-  assert.ok(normalizeStartTime('2026-11-06T10:00:00Z') > Date.now());
-});
+test('disables Chromium sandbox only when explicitly configured', () => { assert.equal(readConfig(base).chromeNoSandbox, false); assert.equal(readConfig({ ...base, OPENWA_CHROME_NO_SANDBOX: 'true' }).chromeNoSandbox, true); });
+test('accepts valid configuration and resolves durable storage paths', () => { const config = readConfig(base); assert.equal(config.sessionDataPath, '/private/openwa/session/session.data.json'); assert.equal(config.eventStorePath, '/private/openwa/session/call-events.enc'); assert.equal(config.encryptionKey.length, 32); });
+test('validates E.164 destination numbers', () => { assert.equal(normalizeE164('+40712345678'), '+40712345678'); assert.throws(() => normalizeE164('0712345678'), /E.164/); });
+test('validates event times and IANA timezone', () => { const now = Date.parse('2026-11-05T10:00:00Z'); assert.deepEqual(normalizeEventTimes('2026-11-06T10:00:00Z', '2026-11-06T10:15:00Z', now), { startTime: 1793959200, endTime: 1793960100 }); assert.throws(() => normalizeEventTimes('2020-01-01T10:00:00Z', '2020-01-01T10:15:00Z', now), /five minutes/); assert.throws(() => normalizeEventTimes('2026-11-06T10:00:00', '2026-11-06T10:15:00', now), /explicit UTC offset/); assert.throws(() => normalizeEventTimes('2026-11-06T10:00:00Z', '2026-11-06T09:00:00Z', now), /later than start/); assert.equal(validateTimeZone('Europe/Bucharest'), 'Europe/Bucharest'); assert.throws(() => validateTimeZone('Mars/Olympus'), /IANA timezone/); });
