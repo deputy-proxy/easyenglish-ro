@@ -101,6 +101,10 @@ export function initializeAvailabilityBookingTransition(gsap) {
         }
 
         root.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest' });
+        const usedBundleModal = formPanel.querySelector('[data-used-free-bundle-modal]');
+        if (usedBundleModal && !usedBundleModal.hidden) {
+            requestAnimationFrame(() => usedBundleModal.querySelector('[data-close-used-free-bundle-modal]')?.focus());
+        }
     };
 
     const close = () => {
@@ -147,6 +151,46 @@ export function initializeAvailabilityBookingTransition(gsap) {
         }
         lastTrigger = null;
     };
+
+    formPanel.addEventListener('click', (event) => {
+        const openButton = event.target.closest('[data-open-used-free-bundle-modal]');
+        const closeButton = event.target.closest('[data-close-used-free-bundle-modal]');
+        const modal = formPanel.querySelector('[data-used-free-bundle-modal]');
+
+        if (openButton && modal) {
+            modal.hidden = false;
+            modal.querySelector('[data-close-used-free-bundle-modal]')?.focus();
+        } else if (closeButton && modal) {
+            modal.hidden = true;
+            formPanel.querySelector('[data-open-used-free-bundle-modal]')?.focus();
+        }
+    }, options);
+
+    formPanel.addEventListener('keydown', (event) => {
+        const modal = formPanel.querySelector('[data-used-free-bundle-modal]');
+        if (!modal || modal.hidden) return;
+
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            modal.hidden = true;
+            formPanel.querySelector('[data-open-used-free-bundle-modal]')?.focus();
+            return;
+        }
+
+        if (event.key !== 'Tab') return;
+        const focusable = Array.from(modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }, options);
 
     formPanel.addEventListener('input', (event) => {
         const phoneInput = event.target.closest('input[name="phone"]');

@@ -531,6 +531,7 @@ class PublicSiteController extends Controller
             'verification' => $verification,
             'bookingSlot' => $slot,
             'eligibility' => $eligibility,
+            'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
             'phoneAlreadyVerified' => $phoneAlreadyVerified,
             'whatsappConsent' => $whatsappConsent,
             'bookingFormData' => $form,

@@ -2,7 +2,7 @@
 
 ## Current purchase model
 
-Customers purchase a prepaid bundle first, then schedule sessions from its activated credits through a short-lived signed URL. Bundle purchase does **not** reserve an appointment slot. The five-minute hold is an appointment-booking hold only and is not the bundle validity period or Stripe Checkout expiry.
+Customers purchase a prepaid bundle first, then schedule sessions from its activated credits through a short-lived signed URL. Bundle purchase does **not** reserve an appointment slot. The five-minute hold is an appointment-booking hold only and is not the bundle validity period or Stripe Checkout expiry. When a verified learner has already used the standalone free introduction, the inline booking journey offers the active bundles and links into this same purchase flow. Reviewing bundles, starting checkout, cancelling checkout, or returning from a failed checkout does not create a booking, slot hold, teacher assignment, free-session claim reservation, or call event. Availability is reloaded and checked again when the learner later schedules a session.
 
 The purchase amount is always read from the active `BundleDefinition` on the server. The customer cannot submit a price or credit count. Prices are integer RON amounts and Stripe receives minor units (`price_ron * 100`); the listed prices already include applicable taxes, so do not add an additional tax line.
 

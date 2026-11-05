@@ -6,6 +6,7 @@ use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
 use App\Models\Booking;
 use App\Models\BookingAudit;
+use App\Models\BookingCallEvent;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
@@ -237,6 +238,60 @@ test('return page reconciles with Stripe before activating a bundle', function (
         ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(4)
         ->and($purchase['payment']->fresh()->status)->toBe('succeeded')
         ->and($purchase['payment']->fresh()->provider_payment_id)->toBe('pi_test_return');
+});
+
+test('cancelled bundle checkout returns to the purchase page without creating a booking or activating an entitlement', function () {
+    $purchase = startStripePurchase($this, locale: 'en');
+
+    $this->get(route('purchase.cancel', [
+        'bundle' => $purchase['bundle']->id,
+        'token' => $purchase['token'],
+        'session_id' => $purchase['payment']->provider_checkout_id,
+    ]))->assertRedirect(route('purchase', $purchase['bundle']));
+
+    $this->get(route('purchase', $purchase['bundle']))
+        ->assertOk()
+        ->assertSee('lang="en"', false)
+        ->assertSee(__('public.purchase_cancelled_notice'));
+
+    expect($purchase['payment']->fresh()->status)->toBe('expired')
+        ->and($purchase['entitlement']->fresh()->status)->toBe('pending_payment')
+        ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(0)
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0)
+        ->and(BookingCallEvent::query()->count())->toBe(0);
+});
+
+test('unpaid checkout return stays pending and does not activate bundle credits', function () {
+    $purchase = startStripePurchase($this);
+    app(FakeStripeGateway::class)->setSessionStatus('cs_test_1', 'complete', 'unpaid');
+
+    $this->get(route('purchase.success', ['session_id' => 'cs_test_1']))
+        ->assertOk()
+        ->assertSee(__('public.purchase_pending_title'))
+        ->assertSee(__('public.purchase_pending_text'));
+
+    expect($purchase['payment']->fresh()->status)->toBe('pending')
+        ->and($purchase['entitlement']->fresh()->status)->toBe('pending_payment')
+        ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(0)
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(BookingCallEvent::query()->count())->toBe(0);
+});
+
+test('failed checkout return offers a retry without activating bundle credits', function () {
+    $purchase = startStripePurchase($this);
+    app(FakeStripeGateway::class)->setSessionStatus('cs_test_1', 'expired', 'unpaid');
+
+    $this->get(route('purchase.success', ['session_id' => 'cs_test_1']))
+        ->assertOk()
+        ->assertSee(__('public.purchase_failed_title'))
+        ->assertSee(route('purchase', $purchase['bundle']), false);
+
+    expect($purchase['payment']->fresh()->status)->toBe('expired')
+        ->and($purchase['entitlement']->fresh()->status)->toBe('pending_payment')
+        ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(0)
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(BookingCallEvent::query()->count())->toBe(0);
 });
 
 test('signed checkout webhook activates once and duplicate delivery is idempotent', function () {
