@@ -75,6 +75,12 @@ class Booking extends Model
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
+    /** @return HasMany<BookingCallEvent, $this> */
+    public function callEvents(): HasMany
+    {
+        return $this->hasMany(BookingCallEvent::class);
+    }
+
     /** @return HasMany<BookingAudit, $this> */
     public function audits(): HasMany
     {
