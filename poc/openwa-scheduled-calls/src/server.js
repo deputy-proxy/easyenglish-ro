@@ -38,7 +38,7 @@ const state = {
   phase: config.allowLiveTest ? 'starting' : 'disabled',
   qr: null,
   client: null,
-  error: config.allowLiveTest ? null : 'Pairing is disabled until the Hostinger preflight and security review pass.',
+  error: config.allowLiveTest ? null : 'Pairing is disabled until the Railway container preflight and security review pass.',
   startedAt: new Date().toISOString(),
 };
 const resultsPath = path.join(config.sessionDir, 'poc-results.enc');
