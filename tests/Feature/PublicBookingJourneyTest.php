@@ -8,6 +8,7 @@ use App\Models\Faq;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 
@@ -105,6 +106,7 @@ test('free session availability reveals the booking form for authenticated learn
         ->assertSee('Book your free introductory session.')
         ->assertSee('data-availability-content', false)
         ->assertSee('data-booking-form-panel', false)
+        ->assertSee('name="csrf-token"', false)
         ->assertSee('data-booking-form-close', false)
         ->assertSee('data-booking-starts-at', false)
         ->assertSee('action="'.route('booking.submit').'"', false)
@@ -118,6 +120,9 @@ test('free session availability reveals the booking form for authenticated learn
 test('free session availability offers account creation first and an existing-account login branch', function () {
     $this->withSession(['locale' => 'en'])->get('/')
         ->assertSee('data-booking-form-panel', false)
+        ->assertSee('name="csrf-token"', false)
+        ->assertSee('data-booking-step-content', false)
+        ->assertSee('data-booking-feedback', false)
         ->assertSee('Do you already have an account?', false)
         ->assertSee('data-booking-register-branch', false)
         ->assertSee('data-booking-login-branch', false)
@@ -185,8 +190,13 @@ test('existing account login preserves Fortify two-factor authentication', funct
         'starts_at' => $slot,
     ])->assertRedirect(route('login'));
 
+    $homeUrl = route('home').'?'.http_build_query(['slot' => $slot], '', '&', PHP_QUERY_RFC3986);
     expect(auth()->check())->toBeFalse()
-        ->and(session('url.intended'))->toBe(route('home', ['slot' => $slot]));
+        ->and(session('url.intended'))->toBe($homeUrl);
+
+    $this->get($homeUrl)
+        ->assertOk()
+        ->assertSee('data-initial-slot="'.$slot.'"', false);
 });
 
 test('public landing page exposes progressive enhancement hooks for its animation system', function () {
@@ -610,4 +620,170 @@ test('mobile hero contains the complete fourteen-message conversation', function
 
     expect(substr_count($response->getContent(), 'hero-conversation-mobile__message--teacher'))->toBe(7)
         ->and(substr_count($response->getContent(), 'hero-conversation-mobile__message--learner'))->toBe(7);
+});
+
+test('registration submits asynchronously and returns the authenticated contact-verification step without redirecting', function () {
+    $slot = '2026-10-27T09:00:00+03:00';
+    $beforeSessionId = session()->getId();
+
+    $response = $this->withSession(['locale' => 'ro'])->postJson(route('booking.register'), [
+        'name' => 'Async Learner',
+        'email' => 'async-learner@example.com',
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently at work',
+        'session_notes' => 'Prepare for customer calls.',
+        'password' => 'StrongPassword123!',
+        'password_confirmation' => 'StrongPassword123!',
+        'starts_at' => $slot,
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('status', 'authenticated')
+        ->assertJsonPath('next_step', 'contact_verification')
+        ->assertJsonPath('slot', $slot)
+        ->assertJsonPath('locale', 'en')
+        ->assertJsonMissingPath('redirect_url');
+
+    $user = User::query()->where('email', 'async-learner@example.com')->firstOrFail();
+    expect(auth()->id())->toBe($user->id)
+        ->and(session('locale'))->toBe('en')
+        ->and(session()->getId())->not->toBe($beforeSessionId)
+        ->and($response->json('html'))->toContain('name="_token"')
+        ->and($response->json('html'))->toContain('data-booking-starts-at')
+        ->and($response->json('html'))->toContain($slot)
+        ->and($response->json('html'))->toContain('Verify your contact details');
+});
+
+test('existing account login submits asynchronously and advances directly to booking when contacts are already verified', function () {
+    $user = User::factory()->create([
+        'email' => 'async-existing@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+    $slot = '2026-10-27T09:00:00+03:00';
+    $beforeSessionId = session()->getId();
+
+    $response = $this->withSession(['locale' => 'en'])->postJson(route('booking.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'starts_at' => $slot,
+        'locale' => 'en',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'authenticated')
+        ->assertJsonPath('next_step', 'booking')
+        ->assertJsonPath('slot', $slot)
+        ->assertJsonMissingPath('redirect_url');
+
+    expect(auth()->id())->toBe($user->id)
+        ->and(session()->getId())->not->toBe($beforeSessionId)
+        ->and($response->json('html'))->toContain('name="_token"')
+        ->and($response->json('html'))->toContain('data-booking-starts-at')
+        ->and($response->json('html'))->toContain($slot);
+});
+
+test('asynchronous login reports invalid credentials as an accessible authentication error', function () {
+    $user = User::factory()->create(['email' => 'wrong-password@example.com']);
+
+    $this->postJson(route('booking.login'), [
+        'email' => $user->email,
+        'password' => 'incorrect-password',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'locale' => 'en',
+    ])->assertUnprocessable()
+        ->assertJsonPath('status', 'authentication_failed')
+        ->assertJsonStructure(['errors' => ['email']]);
+
+    $this->assertGuest();
+});
+
+test('asynchronous registration returns field validation errors without creating an account', function () {
+    $this->postJson(route('booking.register'), [
+        'name' => 'Invalid Learner',
+        'email' => 'not-an-email',
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently',
+        'password' => 'StrongPassword123!',
+        'password_confirmation' => 'StrongPassword123!',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ])->assertUnprocessable()->assertJsonValidationErrors(['email']);
+
+    expect(User::query()->where('email', 'not-an-email')->exists())->toBeFalse();
+});
+
+test('duplicate asynchronous registration cannot create a second account', function () {
+    $payload = [
+        'name' => 'One Account',
+        'email' => 'one-account@example.com',
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently',
+        'password' => 'StrongPassword123!',
+        'password_confirmation' => 'StrongPassword123!',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ];
+
+    $this->postJson(route('booking.register'), $payload)->assertCreated();
+    Auth::logout();
+    $this->flushSession();
+
+    $this->postJson(route('booking.register'), $payload)->assertUnprocessable()->assertJsonValidationErrors(['email']);
+
+    expect(User::query()->where('email', 'one-account@example.com')->count())->toBe(1);
+});
+
+test('asynchronous login preserves the Fortify two-factor challenge and selected slot', function () {
+    $user = User::factory()->withTwoFactor()->create(['email' => 'async-two-factor@example.com']);
+    $slot = '2026-10-27T09:00:00+03:00';
+
+    $this->withSession(['locale' => 'en'])->postJson(route('booking.login'), [
+        'email' => $user->email,
+        'password' => 'password',
+        'starts_at' => $slot,
+        'locale' => 'en',
+    ])->assertStatus(409)
+        ->assertJsonPath('status', 'two_factor_required')
+        ->assertJsonPath('redirect_url', route('login'));
+
+    expect(auth()->check())->toBeFalse()
+        ->and(session('url.intended'))->toBe(route('home', ['slot' => $slot]))
+        ->and(session('locale'))->toBe('en');
+});
+
+test('booking submission rejects a slot that is no longer available on the server', function () {
+    $user = User::factory()->create([
+        'email' => 'stale-slot@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+    $this->actingAs($user);
+
+    $this->from('/')->post(route('booking.submit'), [
+        'type' => 'intro',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect('/')
+        ->assertSessionHasErrors(['starts_at']);
+
+    expect(Booking::query()->count())->toBe(0);
 });

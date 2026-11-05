@@ -1,11 +1,23 @@
+import { submitBookingAuthForm } from '../booking/booking-auth';
+
 export function initializeAvailabilityBookingTransition(gsap) {
     const root = document.querySelector('[data-availability]');
     const content = root?.querySelector('[data-availability-content]');
     const formPanel = root?.querySelector('[data-booking-form-panel]');
     const closeButton = formPanel?.querySelector('[data-booking-form-close]');
-    const selectedSlots = formPanel?.querySelectorAll('[data-booking-starts-at]');
-    const selectedSlot = selectedSlots?.[0];
+    const getSelectedSlots = () => formPanel?.querySelectorAll('[data-booking-starts-at]') ?? [];
+    const updateUrlSlot = (startsAt) => {
+        const url = new URL(window.location.href);
+        if (startsAt) {
+            url.searchParams.set('slot', startsAt);
+        } else {
+            url.searchParams.delete('slot');
+        }
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    };
     const slotLabel = formPanel?.querySelector('[data-booking-slot-label]');
+    const feedback = formPanel?.querySelector('[data-booking-feedback]');
+    const stepContent = formPanel?.querySelector('[data-booking-step-content]');
     if (!formPanel) {
         return () => {};
     }
@@ -32,7 +44,7 @@ export function initializeAvailabilityBookingTransition(gsap) {
         (showLogin ? loginBranch : registerBranch)?.querySelector('input:not([type=\"hidden\"])')?.focus();
     }, options);
 
-    if (!root || !content || !closeButton || !selectedSlot || !slotLabel) {
+    if (!root || !content || !closeButton || getSelectedSlots().length === 0 || !slotLabel) {
         return () => controller.abort();
     }
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -53,7 +65,8 @@ export function initializeAvailabilityBookingTransition(gsap) {
             return;
         }
 
-        selectedSlots.forEach((input) => { input.value = startsAt; });
+        getSelectedSlots().forEach((input) => { input.value = startsAt; });
+        updateUrlSlot(startsAt);
         slotLabel.textContent = label || startsAt;
         lastTrigger = trigger;
 
@@ -95,7 +108,8 @@ export function initializeAvailabilityBookingTransition(gsap) {
         }
 
         isOpen = false;
-        selectedSlots.forEach((input) => { input.value = ''; });
+        getSelectedSlots().forEach((input) => { input.value = ''; });
+        updateUrlSlot('');
         root.dataset.initialSlot = '';
         const contentHeight = content.getBoundingClientRect().height;
         const intervalCards = [
@@ -132,6 +146,76 @@ export function initializeAvailabilityBookingTransition(gsap) {
         }
         lastTrigger = null;
     };
+
+    formPanel.addEventListener('submit', async (event) => {
+        const form = event.target.closest('form[data-booking-async-form]');
+        if (!form || !formPanel.contains(form)) return;
+
+        event.preventDefault();
+        const errorContainer = form.querySelector('[data-booking-form-errors]');
+        if (errorContainer) {
+            errorContainer.textContent = '';
+            errorContainer.hidden = true;
+        }
+
+        await submitBookingAuthForm(form, {
+            csrfToken: document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            onState: (state) => {
+                const messages = {
+                    submitting: formPanel.dataset.bookingSubmittingMessage,
+                    network_error: formPanel.dataset.bookingNetworkError,
+                    server_error: formPanel.dataset.bookingServerError,
+                    session_expired: formPanel.dataset.bookingSessionExpired,
+                    rate_limited: formPanel.dataset.bookingRateLimited,
+                    two_factor_required: formPanel.dataset.bookingTwoFactorMessage,
+                };
+                if (feedback) {
+                    const message = messages[state] ?? '';
+                    feedback.textContent = message;
+                    feedback.hidden = message === '';
+                }
+            },
+            onError: (result) => {
+                const validationMessages = Object.values(result.errors ?? {}).flat().filter((message) => typeof message === 'string');
+                const message = validationMessages.join(' ') || result.message || ({
+                    network_error: formPanel.dataset.bookingNetworkError,
+                    server_error: formPanel.dataset.bookingServerError,
+                    session_expired: formPanel.dataset.bookingSessionExpired,
+                    rate_limited: formPanel.dataset.bookingRateLimited,
+                }[result.status] ?? formPanel.dataset.bookingServerError);
+
+                if (errorContainer) {
+                    errorContainer.textContent = message;
+                    errorContainer.hidden = false;
+                }
+                if (feedback) {
+                    feedback.textContent = '';
+                    feedback.hidden = true;
+                }
+            },
+            onSuccess: (payload) => {
+                if (!stepContent) return;
+
+                stepContent.innerHTML = payload.html;
+                const freshCsrfToken = stepContent.querySelector('input[name="_token"]')?.value;
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                if (freshCsrfToken && csrfMeta) csrfMeta.content = freshCsrfToken;
+                getSelectedSlots().forEach((input) => { input.value = payload.slot ?? ''; });
+
+                if (feedback) {
+                    feedback.textContent = payload.message ?? '';
+                    feedback.hidden = feedback.textContent === '';
+                }
+                if (isOpen) {
+                    root.style.height = `${formPanel.scrollHeight}px`;
+                }
+
+                const nextControl = stepContent.querySelector('input:not([type="hidden"]), select, textarea, button');
+                nextControl?.focus({ preventScroll: true });
+            },
+            onRedirect: (url) => window.location.assign(url),
+        });
+    }, options);
 
     document.addEventListener('easyenglish:availability-slot-selected', (event) => open(event.detail || {}), options);
     closeButton.addEventListener('click', close, options);
