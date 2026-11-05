@@ -56,3 +56,8 @@ A session is plotted as a complete radar series only when all five dimensions ha
 ## Privacy
 
 Progress feedback and shared reports are scoped to the authenticated learner's email address and their own bookings. Do not expose another learner's scores, observations, booking details or report content.
+
+
+## Teacher session feedback
+
+Assigned teachers can open `/teacher/bookings/{reference}` from their authenticated session notification. Access is restricted to the currently assigned teacher. The page displays learner and session preparation details, and the feedback form becomes available only after a confirmed session has ended. Teachers can record current scores for vocabulary, pronunciation, fluency, grammar, and confidence, plus one overall written feedback entry. The records are tied to the booking and identify the teacher who recorded them. A cancelled or reassigned booking cannot be used to submit feedback as the previous teacher.

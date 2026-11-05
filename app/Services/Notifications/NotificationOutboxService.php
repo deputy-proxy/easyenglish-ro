@@ -4,10 +4,14 @@ namespace App\Services\Notifications;
 
 use App\Enums\NotificationEvent;
 use App\Models\Booking;
+use App\Models\BookingCallEvent;
 use App\Models\BundleEntitlement;
 use App\Models\NotificationDelivery;
 use App\Models\PaymentRefund;
+use App\Models\User;
 use App\Models\WhatsAppContact;
+use App\Support\PhoneNumber;
+use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
 class NotificationOutboxService
@@ -51,6 +55,140 @@ class NotificationOutboxService
         $this->enqueueWhatsApp($eventValue, $booking->customer_phone, $booking->id, $booking->bundle_entitlement_id, null, $metadata, $eventKey);
 
         return $delivery;
+    }
+
+    public function enqueueTeacherBookingConfirmed(Booking $booking): ?NotificationDelivery
+    {
+        if ($booking->status !== 'confirmed' || $booking->teacher_id === null) {
+            return null;
+        }
+        $teacher = User::query()->find($booking->teacher_id);
+        if ($teacher === null || ! $teacher->isTeacher()) {
+            return null;
+        }
+
+        $metadata = ['snapshot' => [
+            'starts_at' => $booking->starts_at->toIso8601String(),
+            'ends_at' => $booking->ends_at->toIso8601String(),
+        ]];
+        $delivery = $this->createRecipientDelivery(
+            'email', NotificationEvent::TeacherBookingConfirmed, $booking, $teacher, null, $metadata,
+            'email:teacher_booking_confirmed:booking:'.$booking->id.':teacher:'.$teacher->id,
+        );
+        $this->enqueueTeacherWhatsApp(
+            NotificationEvent::TeacherBookingConfirmed, $booking, $teacher, $metadata,
+            'whatsapp:teacher_booking_confirmed:booking:'.$booking->id.':teacher:'.$teacher->id,
+        );
+
+        return $delivery;
+    }
+
+    public function enqueueTeacherBookingRescheduled(Booking $booking, int $teacherId, CarbonImmutable $previousStart): ?NotificationDelivery
+    {
+        if ($booking->status !== 'confirmed') {
+            return null;
+        }
+        $teacher = User::query()->find($teacherId);
+        if ($teacher === null || ! $teacher->isTeacher() || $booking->teacher_id !== $teacher->id) {
+            return null;
+        }
+
+        $metadata = ['snapshot' => [
+            'previous_starts_at' => $previousStart->toIso8601String(),
+            'previous_ends_at' => $previousStart->addMinutes($booking->duration_minutes)->toIso8601String(),
+            'starts_at' => $booking->starts_at->toIso8601String(),
+            'ends_at' => $booking->ends_at->toIso8601String(),
+            'revision' => $booking->reschedule_count + 1,
+        ]];
+        $delivery = $this->createRecipientDelivery(
+            'email', NotificationEvent::TeacherBookingRescheduled, $booking, $teacher, null, $metadata,
+            'email:teacher_booking_rescheduled:booking:'.$booking->id.':revision:'.($booking->reschedule_count + 1).':teacher:'.$teacher->id,
+        );
+        $this->enqueueTeacherWhatsApp(
+            NotificationEvent::TeacherBookingRescheduled, $booking, $teacher, $metadata,
+            'whatsapp:teacher_booking_rescheduled:booking:'.$booking->id.':revision:'.($booking->reschedule_count + 1).':teacher:'.$teacher->id,
+        );
+
+        return $delivery;
+    }
+
+    /** @return list<NotificationDelivery> */
+    public function enqueueCallLinkReady(Booking $booking, BookingCallEvent $event): array
+    {
+        if (! $this->isCurrentCallEvent($booking, $event)) {
+            return [];
+        }
+
+        $metadata = ['snapshot' => [
+            'starts_at' => $booking->starts_at->toIso8601String(),
+            'ends_at' => $booking->ends_at->toIso8601String(),
+            'revision' => $event->revision,
+        ]];
+        $deliveries = [];
+        $deliveries[] = $this->createRecipientDelivery(
+            'email', NotificationEvent::CustomerCallLinkReady, $booking, null, $event, $metadata,
+            'email:customer_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision,
+        );
+        $this->enqueueRecipientWhatsApp(
+            NotificationEvent::CustomerCallLinkReady, $booking, null, $event, $metadata,
+            'whatsapp:customer_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision,
+        );
+
+        $teacher = User::query()->find($booking->teacher_id);
+        if ($teacher === null || ! $teacher->isTeacher()) {
+            return $deliveries;
+        }
+
+        $deliveries[] = $this->createRecipientDelivery(
+            'email', NotificationEvent::TeacherCallLinkReady, $booking, $teacher, $event, $metadata,
+            'email:teacher_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision.':teacher:'.$teacher->id,
+        );
+
+        $customerPhone = $this->normalizedPhone($booking->customer_phone);
+        $teacherPhone = $this->normalizedPhone($teacher->phone);
+        if ($teacher->phone_verified_at !== null && $teacherPhone !== null && $teacherPhone !== $customerPhone) {
+            $this->enqueueRecipientWhatsApp(
+                NotificationEvent::TeacherCallLinkReady, $booking, $teacher, $event, $metadata,
+                'whatsapp:teacher_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision.':teacher:'.$teacher->id,
+            );
+        }
+
+        return $deliveries;
+    }
+
+    /** @param array<string, mixed> $metadata
+     * @return list<NotificationDelivery>
+     */
+    public function enqueueTeacherBookingCancelled(Booking $booking, int $teacherId, string $reason, array $metadata = []): array
+    {
+        $teacher = User::query()->find($teacherId);
+        if ($teacher === null || ! $teacher->isTeacher()) {
+            return [];
+        }
+
+        $metadata = array_merge([
+            'reason' => $reason,
+            'snapshot' => [
+                'starts_at' => $booking->starts_at->toIso8601String(),
+                'ends_at' => $booking->ends_at->toIso8601String(),
+            ],
+        ], $metadata);
+        $keySuffix = ':teacher:'.$teacher->id.':reason:'.$reason;
+        $deliveries = [$this->createRecipientDelivery(
+            'email', NotificationEvent::TeacherBookingCancelled, $booking, $teacher, null, $metadata,
+            'email:teacher_booking_cancelled:booking:'.$booking->id.':revision:'.$booking->reschedule_count.$keySuffix,
+        )];
+
+        $customerPhone = $this->normalizedPhone($booking->customer_phone);
+        $teacherPhone = $this->normalizedPhone($teacher->phone);
+        if ($teacher->phone_verified_at !== null && $teacherPhone !== null && $teacherPhone !== $customerPhone) {
+            $this->enqueueRecipientWhatsApp(
+                NotificationEvent::TeacherBookingCancelled, $booking, $teacher, null, $metadata,
+                'whatsapp:teacher_booking_cancelled:booking:'.$booking->id.':revision:'.$booking->reschedule_count.$keySuffix,
+            );
+        }
+
+        return $deliveries;
     }
 
     /** @param array<string, mixed> $metadata */
@@ -212,6 +350,103 @@ class NotificationOutboxService
                 'metadata' => $metadata,
             ],
         );
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function createRecipientDelivery(
+        string $channel,
+        NotificationEvent $event,
+        Booking $booking,
+        ?User $recipient,
+        ?BookingCallEvent $callEvent,
+        array $metadata,
+        string $key,
+    ): NotificationDelivery {
+        return NotificationDelivery::query()->firstOrCreate(
+            ['idempotency_key' => $key],
+            [
+                'booking_id' => $booking->id,
+                'recipient_type' => $recipient === null ? 'customer' : 'teacher',
+                'recipient_user_id' => $recipient?->id,
+                'booking_call_event_id' => $callEvent?->id,
+                'bundle_entitlement_id' => $booking->bundle_entitlement_id,
+                'channel' => $channel,
+                'event' => $event->value,
+                'status' => 'pending',
+                'attempts' => 0,
+                'next_attempt_at' => now(),
+                'metadata' => $metadata,
+            ],
+        );
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function enqueueRecipientWhatsApp(
+        NotificationEvent $event,
+        Booking $booking,
+        ?User $recipient,
+        ?BookingCallEvent $callEvent,
+        array $metadata,
+        string $key,
+    ): ?NotificationDelivery {
+        if (! (bool) config('services.whatsapp.enabled')) {
+            return null;
+        }
+
+        $phone = $recipient === null ? $booking->customer_phone : $recipient->phone;
+        $normalizedPhone = $this->normalizedPhone($phone);
+        if ($normalizedPhone === null) {
+            return null;
+        }
+        if ($recipient !== null && (! $recipient->isTeacher() || $recipient->phone_verified_at === null
+            || $normalizedPhone === $this->normalizedPhone($booking->customer_phone))) {
+            return null;
+        }
+        $contact = WhatsAppContact::query()->where('phone', $normalizedPhone)->first();
+        if ($contact === null || ! $contact->canReceiveServiceMessages()) {
+            return null;
+        }
+
+        return $this->createRecipientDelivery('whatsapp', $event, $booking, $recipient, $callEvent, $metadata, $key);
+    }
+
+    /** @param array<string, mixed> $metadata */
+    private function enqueueTeacherWhatsApp(NotificationEvent $event, Booking $booking, User $teacher, array $metadata, string $key): ?NotificationDelivery
+    {
+        $customerPhone = $this->normalizedPhone($booking->customer_phone);
+        $teacherPhone = $this->normalizedPhone($teacher->phone);
+        if ($teacher->phone_verified_at === null || $teacherPhone === null || $teacherPhone === $customerPhone) {
+            return null;
+        }
+
+        return $this->enqueueRecipientWhatsApp($event, $booking, $teacher, null, $metadata, $key);
+    }
+
+    private function normalizedPhone(?string $phone): ?string
+    {
+        if (! is_string($phone) || trim($phone) === '') {
+            return null;
+        }
+
+        try {
+            return PhoneNumber::normalize($phone);
+        } catch (InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    private function isCurrentCallEvent(Booking $booking, BookingCallEvent $event): bool
+    {
+        return $booking->status === 'confirmed'
+            && $booking->teacher_id !== null
+            && $event->booking_id === $booking->id
+            && $event->provider === 'openwa'
+            && $event->status === 'scheduled'
+            && $event->join_url !== null
+            && $event->revision === $booking->reschedule_count + 1
+            && $event->teacher_id === $booking->teacher_id
+            && $event->scheduled_start_at->equalTo($booking->starts_at)
+            && $event->scheduled_end_at->equalTo($booking->ends_at);
     }
 
     private function eventValue(NotificationEvent|string $event): string

@@ -19,6 +19,7 @@ use App\Services\Booking\CancellationPolicyService;
 use App\Services\Booking\PaymentStateService;
 use Carbon\CarbonImmutable;
 use Filament\Panel;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -415,8 +416,11 @@ test('customer can reschedule once at the exact 12-hour boundary without reservi
     $tomorrow = $today->addDay();
     addAvailabilityWindow($today, '20:00', '21:00');
     addAvailabilityWindow($tomorrow, '09:00', '11:00');
+    Queue::fake();
     $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
     $booking = app(BookingService::class)->holdSlot(bookingCustomer(), $today->setTime(20, 0), $entitlement->id);
+    $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+    $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
     app(BookingService::class)->confirm($booking->id);
 
     $newStart = $tomorrow->setTime(9, 0);
@@ -428,14 +432,19 @@ test('customer can reschedule once at the exact 12-hour boundary without reservi
         ->and($duplicate->reschedule_count)->toBe(1)
         ->and($entitlement->fresh()->credits_remaining)->toBe(2)
         ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.customer_rescheduled')->count())->toBe(1)
-        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_rescheduled')->count())->toBe(1);
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'booking_rescheduled')->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_confirmed')->where('recipient_user_id', $teacher->id)->count())->toBe(1)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_rescheduled')->where('recipient_user_id', $teacher->id)->count())->toBe(1);
 });
 
 test('teacher cancellation restores credits and extends near-expiry bundle validity', function () {
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addAvailabilityWindow($day);
+    Queue::fake();
     $entitlement = makeBundleEntitlement(['credits_remaining' => 3, 'expires_at' => now()->addDays(3)]);
     $booking = app(BookingService::class)->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'), $entitlement->id);
+    $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+    $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
     app(BookingService::class)->confirm($booking->id);
     $staff = User::factory()->create(['is_staff' => true]);
 
@@ -446,7 +455,8 @@ test('teacher cancellation restores credits and extends near-expiry bundle valid
         ->and($entitlement->fresh()->credits_remaining)->toBe(3)
         ->and($entitlement->fresh()->expires_at->greaterThanOrEqualTo(now()->addDays(14)))->toBeTrue()
         ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'booking.teacher_cancelled')->exists())->toBeTrue()
-        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_cancellation')->exists())->toBeTrue();
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_cancellation')->exists())->toBeTrue()
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_cancelled')->where('recipient_user_id', $teacher->id)->exists())->toBeTrue();
 });
 
 test('teacher cancellation reuses the existing free-introduction claim instead of granting a second offer', function () {

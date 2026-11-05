@@ -1,17 +1,27 @@
 <?php
 
 use App\Contracts\CallEvents\CallEventProvider;
+use App\Contracts\Notifications\WhatsAppGateway;
 use App\Data\CallEvents\CallEventResult;
 use App\Exceptions\CallEvents\CallEventProviderException;
+use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Jobs\CallEvents\CancelBookingCallEvent;
 use App\Jobs\CallEvents\CreateBookingCallEvent;
 use App\Jobs\CallEvents\RetrieveBookingCallEvent;
+use App\Jobs\SendNotificationDelivery;
 use App\Models\Booking;
+use App\Models\BookingAudit;
 use App\Models\BookingCallEvent;
+use App\Models\NotificationDelivery;
+use App\Models\SessionFeedback;
 use App\Models\User;
+use App\Models\WhatsAppContact;
 use App\Services\CallEvents\BookingCallEventService;
 use App\Services\CallEvents\OpenWaConfig;
 use App\Services\CallEvents\OpenWaHttpClient;
+use App\Services\Notifications\NotificationMessageFactory;
+use App\Services\Notifications\NotificationOutboxService;
+use App\Services\Notifications\WhatsAppMessageFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -20,6 +30,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\Fakes\FakeCallEventProvider;
+use Tests\Support\FakeWhatsAppGateway;
 
 function makeCallEventTestBooking(array $overrides = [], bool $assignTeacher = true): Booking
 {
@@ -123,8 +134,8 @@ test('unconfirmed or unassigned bookings cannot create call events', function ()
     $pending = makeCallEventTestBooking(['status' => 'pending', 'confirmed_at' => null]);
     $unassigned = makeCallEventTestBooking([], false);
 
-    expect(fn () => $service->createForBooking($pending->id, 1))->toThrow(DomainException::class)
-        ->and(fn () => $service->createForBooking($unassigned->id, 1))->toThrow(DomainException::class)
+    expect($service->createForBooking($pending->id, 1))->toBeNull()
+        ->and($service->createForBooking($unassigned->id, 1))->toBeNull()
         ->and($provider->createRequests)->toBe([])
         ->and(BookingCallEvent::query()->count())->toBe(0);
 });
@@ -540,4 +551,385 @@ test('teacher reassignment invalidates access to the previous call-event revisio
     $this->actingAs($customer)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
     $this->actingAs($newTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
     $this->actingAs($previousTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertForbidden();
+});
+
+test('scheduled call event creates independent customer and teacher email deliveries with the same private link', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $event = $service->createForBooking($booking->id, 1);
+
+    $deliveries = NotificationDelivery::query()->where('booking_call_event_id', $event->id)->orderBy('event')->get();
+    $customerDelivery = $deliveries->firstWhere('event', 'customer_call_link_ready');
+    $teacherDelivery = $deliveries->firstWhere('event', 'teacher_call_link_ready');
+    $messages = app(NotificationMessageFactory::class);
+    $customerMessage = $messages->make($customerDelivery);
+    $teacherMessage = $messages->make($teacherDelivery);
+
+    expect($deliveries)->toHaveCount(2)
+        ->and($customerDelivery->recipient_type)->toBe('customer')
+        ->and($teacherDelivery->recipient_type)->toBe('teacher')
+        ->and($teacherDelivery->recipient_user_id)->toBe($booking->teacher_id)
+        ->and($customerMessage['recipient'])->toBe($booking->customer_email)
+        ->and($teacherMessage['recipient'])->toBe($booking->teacher->email)
+        ->and($customerMessage['ctaUrl'])->toBe($event->join_url)
+        ->and(collect($customerMessage['details'])->firstWhere('label', 'How to join')['value'])->not->toBeEmpty()
+        ->and(collect($teacherMessage['details'])->firstWhere('label', 'WhatsApp call link')['value'])->toBe($event->join_url)
+        ->and($customerDelivery->metadata)->not->toHaveKey('join_url')
+        ->and($teacherDelivery->metadata)->not->toHaveKey('join_url');
+});
+
+test('WhatsApp call-link deliveries respect separate customer and teacher consent and avoid shared-number leakage', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722123456',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
+    config(['services.whatsapp.enabled' => true]);
+    $service = enableFakeCallEventProvider($provider);
+
+    $event = $service->createForBooking($booking->id, 1);
+    $deliveries = NotificationDelivery::query()->where('booking_call_event_id', $event->id)->where('channel', 'whatsapp')->get();
+
+    expect($deliveries)->toHaveCount(1)
+        ->and($deliveries->first()->event)->toBe('customer_call_link_ready');
+
+    $message = app(WhatsAppMessageFactory::class)->make($deliveries->first());
+    expect($message['recipient'])->toBe($booking->customer_phone)
+        ->and($message['template'])->toBe('easyenglish_call_link_ready')
+        ->and($message['components'][0]['parameters'])->toHaveCount(7)
+        ->and($message['components'][0]['parameters'][5]['text'])->toBe($event->join_url)
+        ->and($message['components'][0]['parameters'][6]['text'])->not->toBeEmpty();
+});
+
+test('WhatsApp teacher call-link delivery uses the verified teacher number and teacher-only template', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722987654',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
+    WhatsAppContact::recordConsent($teacher->phone, 'test_teacher_consent');
+    config(['services.whatsapp.enabled' => true]);
+    $service = enableFakeCallEventProvider($provider);
+
+    $event = $service->createForBooking($booking->id, 1);
+    $delivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('channel', 'whatsapp')
+        ->where('event', 'teacher_call_link_ready')
+        ->firstOrFail();
+    $message = app(WhatsAppMessageFactory::class)->make($delivery);
+
+    expect($delivery->recipient_type)->toBe('teacher')
+        ->and($delivery->recipient_user_id)->toBe($teacher->id)
+        ->and($message['recipient'])->toBe($teacher->phone)
+        ->and($message['template'])->toBe('easyenglish_teacher_call_link_ready')
+        ->and($message['components'][0]['parameters'][11]['text'])->toBe($event->join_url);
+});
+
+test('repeated call-ready handling creates no duplicate recipient deliveries', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $event = $service->createForBooking($booking->id, 1);
+
+    app(NotificationOutboxService::class)->enqueueCallLinkReady($booking->fresh(), $event->fresh());
+    app(NotificationOutboxService::class)->enqueueCallLinkReady($booking->fresh(), $event->fresh());
+
+    expect(NotificationDelivery::query()->where('booking_call_event_id', $event->id)->count())->toBe(2);
+});
+
+test('teacher booking page is restricted to the currently assigned teacher and accepts feedback after the session', function () {
+    $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    $otherTeacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
+
+    $this->actingAs($otherTeacher)->get(route('teacher.bookings.show', $booking->public_reference))->assertNotFound();
+    $this->actingAs($teacher)->get(route('teacher.bookings.show', $booking->public_reference))->assertOk()
+        ->assertSee($booking->customer_email)
+        ->assertSee('Session feedback');
+    $this->actingAs($teacher)->post(route('teacher.bookings.feedback', $booking->public_reference), [
+        'scores' => ['fluency' => 75], 'feedback' => 'Good progress and clear pronunciation practice.',
+    ])->assertUnprocessable();
+
+    $this->travel(4)->hours();
+    $this->actingAs($teacher)->post(route('teacher.bookings.feedback', $booking->public_reference), [
+        'scores' => ['vocabulary' => 70, 'fluency' => 75],
+        'feedback' => 'Good progress and clear pronunciation practice.',
+    ])->assertRedirect(route('teacher.bookings.show', $booking->public_reference));
+
+    expect(SessionFeedback::query()->where('booking_id', $booking->id)->where('metric_key', 'vocabulary')->value('current_score'))->toBe(70)
+        ->and(SessionFeedback::query()->where('booking_id', $booking->id)->where('metric_key', 'fluency')->value('current_score'))->toBe(75)
+        ->and(SessionFeedback::query()->where('booking_id', $booking->id)->where('metric_key', 'overall')->value('feedback'))->toBe('Good progress and clear pronunciation practice.');
+});
+
+test('terminal call setup failure creates an audit entry and a database alert for staff', function () {
+    $provider = new FakeCallEventProvider;
+    $provider->nextCreateException = new CallEventProviderException('authentication', false, 'Provider token must not be exposed.');
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $staff = User::factory()->create(['is_staff' => true]);
+
+    $event = $service->createForBooking($booking->id, 1);
+
+    expect($event->status)->toBe('failed')
+        ->and($booking->fresh()->status)->toBe('confirmed')
+        ->and($event->last_error_message)->toBe('Call-event provider authentication failed.')
+        ->and(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1)
+        ->and(DB::table('notifications')->where('notifiable_id', $staff->id)->value('data'))->toContain('WhatsApp call setup needs attention')
+        ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'call_event.failed')->exists())->toBeTrue();
+});
+
+test('staff can inspect call-event health while non-staff cannot access the operations page', function () {
+    $ordinary = User::factory()->create();
+    $this->actingAs($ordinary)->get('/admin/call-events')->assertForbidden();
+
+    $staff = User::factory()->create(['is_staff' => true]);
+    $this->actingAs($staff)->get('/admin/call-events')->assertOk();
+});
+
+test('teacher cancellation notifications target only the assigned teacher and include the cancellation reason', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    $booking->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancelled_by' => 'customer']);
+
+    $delivery = app(NotificationOutboxService::class)
+        ->enqueueTeacherBookingCancelled($booking->fresh(), $teacher->id, 'customer_cancelled')[0];
+    $message = app(NotificationMessageFactory::class)->make($delivery);
+
+    expect($delivery->recipient_type)->toBe('teacher')
+        ->and($delivery->recipient_user_id)->toBe($teacher->id)
+        ->and($message['recipient'])->toBe($teacher->email)
+        ->and(collect($message['details'])->firstWhere('label', 'Update')['value'])->toBe('The booking has been cancelled.')
+        ->and($message['ctaUrl'])->toContain('/teacher/bookings/'.$booking->public_reference);
+});
+
+test('teacher cancellation WhatsApp uses teacher consent and never sends teacher-only content to a shared number', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722123456',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    $booking->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancelled_by' => 'customer']);
+    WhatsAppContact::recordConsent($booking->customer_phone, 'test_shared_phone_consent');
+    config(['services.whatsapp.enabled' => true]);
+    enableFakeCallEventProvider($provider);
+
+    app(NotificationOutboxService::class)
+        ->enqueueTeacherBookingCancelled($booking->fresh(), $teacher->id, 'customer_cancelled');
+
+    expect(NotificationDelivery::query()->where('event', 'teacher_booking_cancelled')->where('channel', 'whatsapp')->count())->toBe(0)
+        ->and(NotificationDelivery::query()->where('event', 'teacher_booking_cancelled')->where('channel', 'email')->count())->toBe(1);
+});
+
+test('queued create for a booking cancelled before the worker starts is a safe no-op', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking(['status' => 'cancelled', 'cancelled_at' => now(), 'cancelled_by' => 'customer']);
+
+    expect($service->createForBooking($booking->id, 1))->toBeNull()
+        ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(0)
+        ->and($provider->createRequests)->toBe([]);
+});
+
+test('queued create for an obsolete booking revision is ignored and only the current revision is created', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $newStart = $booking->starts_at->addDay();
+    $booking->update([
+        'starts_at' => $newStart,
+        'ends_at' => $newStart->addMinutes(15),
+        'reschedule_count' => 1,
+    ]);
+
+    expect($service->createForBooking($booking->id, 1))->toBeNull()
+        ->and($provider->createRequests)->toBe([]);
+
+    $current = $service->createForBooking($booking->id, 2);
+    expect($current?->status)->toBe('scheduled')
+        ->and($current?->revision)->toBe(2)
+        ->and($provider->events)->toHaveCount(1);
+});
+
+test('teacher WhatsApp delivery worker sends to the teacher contact and updates only that recipient record', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722987654',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    WhatsAppContact::recordConsent($teacher->phone, 'teacher_booking_consent');
+    config(['services.whatsapp.enabled' => true]);
+    $service = enableFakeCallEventProvider($provider);
+    $event = $service->createForBooking($booking->id, 1);
+    $delivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('channel', 'whatsapp')
+        ->where('event', 'teacher_call_link_ready')
+        ->firstOrFail();
+    $delivery->update(['status' => 'queued']);
+    $customerEmailDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'customer_call_link_ready')
+        ->firstOrFail();
+    $fakeGateway = new FakeWhatsAppGateway;
+    app()->instance(WhatsAppGateway::class, $fakeGateway);
+
+    (new SendNotificationDelivery($delivery->id))->handle(
+        app(NotificationMessageFactory::class),
+        app(WhatsAppMessageFactory::class),
+        $fakeGateway,
+    );
+
+    expect($delivery->fresh()->status)->toBe('sent')
+        ->and($delivery->fresh()->recipient_user_id)->toBe($teacher->id)
+        ->and($fakeGateway->sent)->toHaveCount(1)
+        ->and($fakeGateway->sent[0]['recipient'])->toBe($teacher->phone)
+        ->and($fakeGateway->sent[0]['template'])->toBe('easyenglish_teacher_call_link_ready')
+        ->and($customerEmailDelivery->fresh()->status)->toBe('pending')
+        ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(1);
+});
+
+test('queued call-link notifications are skipped when the booking has moved to another revision', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $event = $service->createForBooking($booking->id, 1);
+    $delivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'customer_call_link_ready')
+        ->firstOrFail();
+    $newStart = $booking->starts_at->addDay();
+    $booking->update(['starts_at' => $newStart, 'ends_at' => $newStart->addMinutes(15), 'reschedule_count' => 1]);
+
+    expect(fn () => app(NotificationMessageFactory::class)->make($delivery))
+        ->toThrow(NotificationNoLongerEligibleException::class);
+});
+
+test('teacher booking page hides a call link immediately when the booking is cancelled', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $event = $service->createForBooking($booking->id, 1);
+    $teacher = $booking->teacher;
+    $booking->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancelled_by' => 'customer']);
+
+    $this->actingAs($teacher)
+        ->get(route('teacher.bookings.show', $booking->public_reference))
+        ->assertOk()
+        ->assertDontSee($event->join_url);
+});
+
+test('teacher receives an independent booking confirmation even before OpenWA creates a call link', function () {
+    $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    DB::table('users')->where('id', $teacher->id)->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
+    $teacher = User::query()->findOrFail($teacher->id);
+    expect(DB::table('users')->where('id', $teacher->id)->value('phone'))->toBe('+40722987654');
+    WhatsAppContact::recordConsent($teacher->phone, 'teacher_confirmation_consent');
+    config(['services.whatsapp.enabled' => true]);
+
+    $delivery = app(NotificationOutboxService::class)->enqueueTeacherBookingConfirmed($booking);
+    $message = app(NotificationMessageFactory::class)->make($delivery);
+    $whatsappDelivery = NotificationDelivery::query()
+        ->where('event', 'teacher_booking_confirmed')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $whatsappMessage = app(WhatsAppMessageFactory::class)->make($whatsappDelivery);
+
+    expect($delivery->recipient_type)->toBe('teacher')
+        ->and($message['recipient'])->toBe($teacher->email)
+        ->and(collect($message['details'])->firstWhere('label', 'Customer phone')['value'])->toBe($booking->customer_phone)
+        ->and($message['ctaUrl'])->toContain('/teacher/bookings/'.$booking->public_reference)
+        ->and($whatsappMessage['recipient'])->toBe($teacher->phone)
+        ->and($whatsappMessage['template'])->toBe('easyenglish_teacher_booking_confirmation')
+        ->and($whatsappMessage['components'][0]['parameters'])->toHaveCount(12);
+});
+
+test('teacher receives the previous and new appointment time when a booking is rescheduled', function () {
+    $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    $previousStart = $booking->starts_at;
+    $newStart = $previousStart->addDay();
+    $booking->update([
+        'starts_at' => $newStart,
+        'ends_at' => $newStart->addMinutes(15),
+        'reschedule_count' => 1,
+    ]);
+    DB::table('users')->where('id', $teacher->id)->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
+    $teacher = User::query()->findOrFail($teacher->id);
+    WhatsAppContact::recordConsent($teacher->phone, 'teacher_reschedule_consent');
+    config(['services.whatsapp.enabled' => true]);
+
+    $delivery = app(NotificationOutboxService::class)->enqueueTeacherBookingRescheduled($booking->fresh(), $teacher->id, $previousStart);
+    $message = app(NotificationMessageFactory::class)->make($delivery);
+    $whatsappDelivery = NotificationDelivery::query()
+        ->where('event', 'teacher_booking_rescheduled')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $whatsappMessage = app(WhatsAppMessageFactory::class)->make($whatsappDelivery);
+
+    expect($message['recipient'])->toBe($teacher->email)
+        ->and(collect($message['details'])->firstWhere('label', 'Previous appointment time')['value'])->toContain($previousStart->setTimezone('Europe/Bucharest')->format('d.m.Y'))
+        ->and($whatsappMessage['template'])->toBe('easyenglish_teacher_booking_rescheduled')
+        ->and($whatsappMessage['components'][0]['parameters'])->toHaveCount(11)
+        ->and($whatsappMessage['components'][0]['parameters'][5]['text'])->toBe($previousStart->setTimezone('Europe/Bucharest')->format('H:i'))
+        ->and($whatsappMessage['components'][0]['parameters'][7]['text'])->toBe($newStart->setTimezone('Europe/Bucharest')->format('H:i'));
+});
+
+test('a transient teacher WhatsApp failure retries only that recipient without creating another call event', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722987654',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    WhatsAppContact::recordConsent($teacher->phone, 'teacher_delivery_retry_consent');
+    config(['services.whatsapp.enabled' => true]);
+    $service = enableFakeCallEventProvider($provider);
+    $event = $service->createForBooking($booking->id, 1);
+    $teacherDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'teacher_call_link_ready')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $customerDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'customer_call_link_ready')
+        ->where('channel', 'email')
+        ->firstOrFail();
+    $teacherDelivery->update(['status' => 'queued']);
+    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary provider failure'));
+
+    (new SendNotificationDelivery($teacherDelivery->id))->handle(
+        app(NotificationMessageFactory::class),
+        app(WhatsAppMessageFactory::class),
+        $gateway,
+    );
+
+    expect($teacherDelivery->fresh()->status)->toBe('pending')
+        ->and($teacherDelivery->fresh()->attempts)->toBe(1)
+        ->and($teacherDelivery->fresh()->next_attempt_at)->not->toBeNull()
+        ->and($customerDelivery->fresh()->status)->toBe('pending')
+        ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(1)
+        ->and($event->fresh()->status)->toBe('scheduled');
 });

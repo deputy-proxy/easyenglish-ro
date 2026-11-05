@@ -48,15 +48,30 @@ class SendNotificationDelivery implements ShouldQueue
         }
 
         try {
-            $delivery = NotificationDelivery::query()->with(['booking', 'entitlement', 'refund.payment.entitlement'])->findOrFail($this->deliveryId);
+            $delivery = NotificationDelivery::query()->with(['booking', 'entitlement', 'refund.payment.entitlement', 'recipientUser'])->findOrFail($this->deliveryId);
             if ($delivery->channel === 'whatsapp') {
                 if (! (bool) config('services.whatsapp.enabled')) {
                     throw new NotificationNoLongerEligibleException('WhatsApp sending is disabled.');
                 }
-                $phone = $delivery->booking->customer_phone ?? $delivery->entitlement->customer_phone ?? $delivery->refund->payment->entitlement->customer_phone;
-                $contact = WhatsAppContact::query()->where('phone', PhoneNumber::normalize((string) $phone))->first();
+                if ($delivery->recipient_type === 'teacher') {
+                    $recipientPhone = $delivery->recipientUser?->phone;
+                    if ($delivery->recipientUser === null || ! $delivery->recipientUser->isTeacher()
+                        || $delivery->recipientUser->phone_verified_at === null) {
+                        throw new NotificationNoLongerEligibleException('Teacher WhatsApp recipient is no longer eligible.');
+                    }
+                } else {
+                    $recipientPhone = $delivery->booking->customer_phone
+                        ?? $delivery->entitlement->customer_phone
+                        ?? $delivery->refund->payment->entitlement->customer_phone;
+                }
+                try {
+                    $normalizedRecipientPhone = PhoneNumber::normalize((string) $recipientPhone);
+                } catch (\InvalidArgumentException) {
+                    throw new NotificationNoLongerEligibleException('WhatsApp notification recipient phone number is invalid.');
+                }
+                $contact = WhatsAppContact::query()->where('phone', $normalizedRecipientPhone)->first();
                 if ($contact === null || ! $contact->canReceiveServiceMessages()) {
-                    throw new NotificationNoLongerEligibleException('Customer has not opted in to WhatsApp service messages or has opted out.');
+                    throw new NotificationNoLongerEligibleException('Notification recipient has not opted in to WhatsApp service messages or has opted out.');
                 }
                 $messageData = $whatsappMessages->make($delivery);
                 $result = $whatsapp->sendTemplate(

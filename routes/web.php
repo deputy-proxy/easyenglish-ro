@@ -4,6 +4,7 @@ use App\Http\Controllers\Booking\BookingCallEventController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TeacherAvailabilityController;
+use App\Http\Controllers\TeacherBookingController;
 use App\Http\Controllers\WhatsAppWebhookController;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +38,8 @@ Route::get('/privacy', [PublicSiteController::class, 'policy'])->defaults('page'
 Route::get('/terms', [PublicSiteController::class, 'policy'])->defaults('page', 'terms')->name('terms');
 
 Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->group(function () {
+    Route::get('/bookings/{reference}', [TeacherBookingController::class, 'show'])->name('bookings.show');
+    Route::post('/bookings/{reference}/feedback', [TeacherBookingController::class, 'storeFeedback'])->middleware('throttle:20,1')->name('bookings.feedback');
     Route::get('/availability', [TeacherAvailabilityController::class, 'index'])->name('availability');
     Route::put('/availability', [TeacherAvailabilityController::class, 'updateAvailability'])->name('availability.update');
     Route::post('/availability/exceptions', [TeacherAvailabilityController::class, 'storeException'])->name('availability.exceptions.store');

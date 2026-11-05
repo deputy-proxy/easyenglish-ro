@@ -47,6 +47,7 @@ class SessionFeedbackResource extends Resource
                 'fluency' => 'Fluency',
                 'grammar' => 'Grammar',
                 'confidence' => 'Confidence',
+                'overall' => 'Overall feedback',
             ])->required(),
             TextInput::make('baseline_score')->label('Baseline score (0–100)')->numeric()->minValue(0)->maxValue(100),
             TextInput::make('current_score')->label('Current score (0–100)')->numeric()->minValue(0)->maxValue(100),

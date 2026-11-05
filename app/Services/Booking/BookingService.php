@@ -4,12 +4,16 @@ namespace App\Services\Booking;
 
 use App\Enums\NotificationEvent;
 use App\Jobs\Calendar\SyncBookingCalendarEvent;
+use App\Jobs\CallEvents\CancelBookingCallEvent;
+use App\Jobs\CallEvents\CreateBookingCallEvent;
 use App\Models\Booking;
 use App\Models\BookingAudit;
+use App\Models\BookingCallEvent;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
 use App\Models\User;
+use App\Services\CallEvents\BookingCallEventEligibility;
 use App\Services\Notifications\NotificationOutboxService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
@@ -185,8 +189,10 @@ class BookingService
             $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
             if ($booking->status === 'confirmed') {
                 $this->notifications->enqueueBookingConfirmation($booking);
+                $this->notifications->enqueueTeacherBookingConfirmed($booking);
                 if ($booking->teacher_id !== null) {
                     SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+                    $this->queueCallEventCreation($booking);
                 }
 
                 return $booking;
@@ -231,9 +237,15 @@ class BookingService
                     'teacher_reassigned_at_confirmation' => $previousTeacherId !== $booking->teacher_id,
                 ],
             ]);
-            $this->notifications->enqueueBookingConfirmation($booking->refresh());
+            $booking->refresh();
+            $this->notifications->enqueueBookingConfirmation($booking);
+            if ($previousTeacherId !== null && $previousTeacherId !== $booking->teacher_id) {
+                $this->notifications->enqueueTeacherBookingCancelled($booking, $previousTeacherId, 'reassigned');
+            }
+            $this->notifications->enqueueTeacherBookingConfirmed($booking);
             if ($booking->teacher_id !== null) {
                 SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+                $this->queueCallEventCreation($booking->refresh());
             }
 
             return $booking->refresh();
@@ -307,14 +319,17 @@ class BookingService
                     'seconds_before_start' => $this->policy->secondsUntilStart($booking, $now),
                 ],
             ]);
-            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingCancelled, [
+            $booking->refresh();
+            $this->notifications->enqueueBookingEvent($booking, NotificationEvent::BookingCancelled, [
                 'credit_restored' => $creditRestored,
                 'credit_refunded' => false,
                 'cancellation_reason' => $reason,
             ], 'customer-cancelled');
             if ($booking->teacher_id !== null) {
+                $this->notifications->enqueueTeacherBookingCancelled($booking, $booking->teacher_id, 'customer_cancelled');
                 SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
             }
+            $this->queueCallEventCancellation($booking);
 
             return $booking->refresh();
         }, attempts: 3);
@@ -401,12 +416,26 @@ class BookingService
                     'teacher_reassigned' => $teacherChanged,
                 ],
             ]);
-            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::BookingRescheduled, [
+            $booking->refresh();
+            $this->notifications->enqueueBookingEvent($booking, NotificationEvent::BookingRescheduled, [
                 'previous_starts_at' => $previousStart->toIso8601String(),
                 'reason' => $reason,
             ], $newUtc->toIso8601String());
+            $this->queueCallEventCancellation($booking);
+            if ($teacherChanged && $previousTeacherId !== null) {
+                $this->notifications->enqueueTeacherBookingCancelled($booking, $previousTeacherId, 'reassigned', [
+                    'snapshot' => [
+                        'starts_at' => $previousStart->toIso8601String(),
+                        'ends_at' => $previousStart->addMinutes($booking->duration_minutes)->toIso8601String(),
+                    ],
+                ]);
+            }
+            if ($booking->teacher_id !== null) {
+                $this->notifications->enqueueTeacherBookingRescheduled($booking, $booking->teacher_id, $previousStart);
+            }
             if ($booking->teacher_id !== null) {
                 SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+                $this->queueCallEventCreation($booking);
             }
 
             return $booking->refresh();
@@ -464,13 +493,16 @@ class BookingService
                 'reason' => trim($reason),
                 'metadata' => ['credit_restored' => $creditRestored, 'validity_extended_to' => $validityExtendedTo, 'accepted_policy_version' => $booking->accepted_policy_version],
             ]);
-            $this->notifications->enqueueBookingEvent($booking->refresh(), NotificationEvent::TeacherCancellation, [
+            $booking->refresh();
+            $this->notifications->enqueueBookingEvent($booking, NotificationEvent::TeacherCancellation, [
                 'credit_restored' => $creditRestored,
                 'validity_extended_to' => $validityExtendedTo,
             ], 'teacher-cancelled');
             if ($booking->teacher_id !== null) {
+                $this->notifications->enqueueTeacherBookingCancelled($booking, $booking->teacher_id, 'teacher_cancelled');
                 SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
             }
+            $this->queueCallEventCancellation($booking);
 
             return $booking->refresh();
         }, attempts: 3);
@@ -514,6 +546,33 @@ class BookingService
 
             return $booking->refresh();
         }, attempts: 3);
+    }
+
+    private function queueCallEventCreation(Booking $booking): void
+    {
+        if (! (bool) config('services.openwa.enabled')
+            || ! BookingCallEventEligibility::shouldCreate($booking, (bool) config('services.openwa.apply_to_paid_sessions', false))) {
+            return;
+        }
+
+        CreateBookingCallEvent::dispatch($booking->id, $booking->reschedule_count + 1)->afterCommit();
+    }
+
+    private function queueCallEventCancellation(Booking $booking): void
+    {
+        if (! (bool) config('services.openwa.enabled')) {
+            return;
+        }
+
+        BookingCallEvent::query()
+            ->where('booking_id', $booking->id)
+            ->where('provider', 'openwa')
+            ->where('status', '!=', 'cancelled')
+            ->orderBy('id')
+            ->pluck('id')
+            ->each(static function (int $eventId): void {
+                CancelBookingCallEvent::dispatch($eventId)->afterCommit();
+            });
     }
 
     private function restoreReservedCredit(Booking $booking, BundleEntitlement $entitlement, ?int $actorId, string $reason, string $idempotencyKey): void

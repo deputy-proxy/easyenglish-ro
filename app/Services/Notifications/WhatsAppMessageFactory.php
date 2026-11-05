@@ -4,7 +4,10 @@ namespace App\Services\Notifications;
 
 use App\Enums\NotificationEvent;
 use App\Exceptions\NotificationNoLongerEligibleException;
+use App\Models\Booking;
+use App\Models\BookingCallEvent;
 use App\Models\NotificationDelivery;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use RuntimeException;
 
@@ -13,7 +16,14 @@ class WhatsAppMessageFactory
     /** @return array{recipient:string,template:string,language:string,components:list<array{type:string,parameters:list<array{type:string,text:string}>}>} */
     public function make(NotificationDelivery $delivery): array
     {
-        $delivery->loadMissing(['booking.teacher', 'booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition']);
+        $delivery->loadMissing(['booking.teacher', 'booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition', 'recipientUser', 'bookingCallEvent']);
+        $event = NotificationEvent::tryFrom($delivery->event);
+        if ($event === null) {
+            throw new RuntimeException('Unsupported WhatsApp notification event.');
+        }
+        if (in_array($event, [NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled, NotificationEvent::CustomerCallLinkReady, NotificationEvent::TeacherCallLinkReady, NotificationEvent::TeacherBookingCancelled], true)) {
+            return $this->makeCallEventMessage($delivery, $event);
+        }
         $booking = $delivery->booking;
         $entitlement = $delivery->entitlement ?? $delivery->refund->payment->entitlement ?? $booking?->entitlement;
         $refund = $delivery->refund;
@@ -41,6 +51,11 @@ class WhatsAppMessageFactory
             NotificationEvent::BookingNoShow => 'booking_no_show',
             NotificationEvent::RefundSucceeded => 'refund_succeeded',
             NotificationEvent::RefundFailed => 'refund_failed',
+            NotificationEvent::TeacherBookingConfirmed => 'teacher_booking_confirmed',
+            NotificationEvent::TeacherBookingRescheduled => 'teacher_booking_rescheduled',
+            NotificationEvent::CustomerCallLinkReady => 'customer_call_link_ready',
+            NotificationEvent::TeacherCallLinkReady => 'teacher_call_link_ready',
+            NotificationEvent::TeacherBookingCancelled => 'teacher_booking_cancelled',
             NotificationEvent::BundleExpiry14Days => 'bundle_expiry_14d',
             NotificationEvent::BundleExpiry3Days => 'bundle_expiry_3d',
         };
@@ -68,6 +83,8 @@ class WhatsAppMessageFactory
             NotificationEvent::RefundSucceeded, NotificationEvent::RefundFailed => [
                 $entitlement->customer_name ?? '', $this->money($refund->amount_ron ?? 0), $refund->reason ?? '',
             ],
+            NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled,
+            NotificationEvent::CustomerCallLinkReady, NotificationEvent::TeacherCallLinkReady, NotificationEvent::TeacherBookingCancelled => [],
             NotificationEvent::BundleExpiry14Days, NotificationEvent::BundleExpiry3Days => [
                 $entitlement->customer_name ?? '',
                 $entitlement?->definition->localizedName($entitlement->locale) ?? '',
@@ -125,6 +142,170 @@ class WhatsAppMessageFactory
         ];
     }
 
+    /** @return array{recipient:string,template:string,language:string,components:list<array{type:string,parameters:list<array{type:string,text:string}>}>} */
+    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): array
+    {
+        $booking = $delivery->booking;
+        $teacher = $delivery->recipientUser;
+        $callEvent = $delivery->bookingCallEvent;
+        $metadata = $delivery->metadata ?? [];
+        $snapshot = is_array($metadata['snapshot'] ?? null) ? $metadata['snapshot'] : [];
+        if ($booking === null) {
+            throw new RuntimeException('Call-event WhatsApp notification requires a booking record.');
+        }
+
+        if (in_array($event, [NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)) {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher()
+                || $teacher->id !== $booking->teacher_id || $booking->status !== 'confirmed'
+                || $teacher->phone_verified_at === null) {
+                throw new NotificationNoLongerEligibleException('The teacher booking WhatsApp notification is no longer eligible.');
+            }
+            $phone = $teacher->phone;
+            if ($this->normalizedPhone($phone) === $this->normalizedPhone($booking->customer_phone)) {
+                throw new NotificationNoLongerEligibleException('Teacher and customer share a WhatsApp number; send teacher preparation details by email.');
+            }
+            $locale = 'en';
+            $bookingUrl = route('teacher.bookings.show', $booking->public_reference);
+            if ($event === NotificationEvent::TeacherBookingConfirmed) {
+                if (! isset($snapshot['starts_at'], $snapshot['ends_at'])
+                    || Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()
+                    || Carbon::parse((string) $snapshot['ends_at'])->getTimestamp() !== $booking->ends_at->getTimestamp()) {
+                    throw new NotificationNoLongerEligibleException('The appointment changed after the teacher confirmation was queued.');
+                }
+                $key = 'teacher_booking_confirmed';
+                $parameters = [
+                    $teacher->name, $booking->customer_name, $booking->customer_email, $booking->customer_phone,
+                    $booking->english_level ?: 'Not provided', $booking->session_goal ?: 'Not provided', $booking->notes ?: 'None',
+                    $this->dateOnly($booking->starts_at), $booking->starts_at->setTimezone('Europe/Bucharest')->format('H:i'),
+                    (string) $booking->starts_at->diffInMinutes($booking->ends_at), 'Europe/Bucharest', $bookingUrl,
+                ];
+            } else {
+                if ((int) ($snapshot['revision'] ?? 0) !== $booking->reschedule_count + 1
+                    || ! isset($snapshot['starts_at'], $snapshot['ends_at'], $snapshot['previous_starts_at'])
+                    || Carbon::parse((string) $snapshot['starts_at'])->getTimestamp() !== $booking->starts_at->getTimestamp()
+                    || Carbon::parse((string) $snapshot['ends_at'])->getTimestamp() !== $booking->ends_at->getTimestamp()) {
+                    throw new NotificationNoLongerEligibleException('The appointment changed after the teacher reschedule notification was queued.');
+                }
+                $key = 'teacher_booking_rescheduled';
+                $previousStart = Carbon::parse((string) $snapshot['previous_starts_at']);
+                $parameters = [
+                    $teacher->name, $booking->customer_name, $booking->customer_email, $booking->customer_phone,
+                    $this->dateOnly($previousStart), $previousStart->setTimezone('Europe/Bucharest')->format('H:i'),
+                    $this->dateOnly($booking->starts_at), $booking->starts_at->setTimezone('Europe/Bucharest')->format('H:i'),
+                    (string) $booking->starts_at->diffInMinutes($booking->ends_at), 'Europe/Bucharest', $bookingUrl,
+                ];
+            }
+        } elseif ($event === NotificationEvent::CustomerCallLinkReady) {
+            if ($delivery->recipient_type !== 'customer' || ! $this->isCurrentCallEvent($booking, $callEvent)) {
+                throw new NotificationNoLongerEligibleException('The customer call-link WhatsApp message is no longer eligible.');
+            }
+            $phone = $booking->customer_phone;
+            $locale = in_array($booking->locale, ['ro', 'en'], true) ? $booking->locale : 'ro';
+            $key = 'customer_call_link_ready';
+            $parameters = [
+                $booking->customer_name,
+                $this->date($booking->starts_at),
+                $booking->starts_at->setTimezone('Europe/Bucharest')->format('H:i'),
+                (string) $booking->starts_at->diffInMinutes($booking->ends_at),
+                'Europe/Bucharest',
+                (string) $callEvent->join_url,
+                $locale === 'ro' ? 'Deschide linkul la ora programată și permite accesul la microfon și cameră.' : 'Open the link at the scheduled time and allow microphone and camera access.',
+            ];
+        } elseif ($event === NotificationEvent::TeacherCallLinkReady) {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher()
+                || $teacher->id !== $booking->teacher_id || $teacher->phone_verified_at === null
+                || ! $this->isCurrentCallEvent($booking, $callEvent)) {
+                throw new NotificationNoLongerEligibleException('The teacher call-link WhatsApp message is no longer eligible.');
+            }
+            $phone = $teacher->phone;
+            if ($this->normalizedPhone($phone) === $this->normalizedPhone($booking->customer_phone)) {
+                throw new NotificationNoLongerEligibleException('Teacher and customer share a WhatsApp number; send the teacher preparation details by email.');
+            }
+            $locale = 'en';
+            $key = 'teacher_call_link_ready';
+            $parameters = [
+                $teacher->name,
+                $booking->customer_name,
+                $booking->customer_email,
+                $booking->customer_phone,
+                $booking->english_level ?: 'Not provided',
+                $booking->session_goal ?: 'Not provided',
+                $booking->notes ?: 'None',
+                $this->date($booking->starts_at),
+                $booking->starts_at->setTimezone('Europe/Bucharest')->format('H:i'),
+                (string) $booking->starts_at->diffInMinutes($booking->ends_at),
+                'Europe/Bucharest',
+                (string) $callEvent->join_url,
+                route('teacher.bookings.show', $booking->public_reference),
+            ];
+        } else {
+            if ($delivery->recipient_type !== 'teacher' || $teacher === null || ! $teacher->isTeacher() || $teacher->phone_verified_at === null) {
+                throw new NotificationNoLongerEligibleException('The teacher cancellation WhatsApp message is no longer eligible.');
+            }
+            $phone = $teacher->phone;
+            if ($this->normalizedPhone($phone) === $this->normalizedPhone($booking->customer_phone)) {
+                throw new NotificationNoLongerEligibleException('Teacher and customer share a WhatsApp number; do not send teacher-only cancellation details to that number.');
+            }
+            $locale = 'en';
+            $key = 'teacher_booking_cancelled';
+            $reason = match ((string) ($metadata['reason'] ?? 'cancelled')) {
+                'reassigned' => 'The booking has been reassigned to another teacher.',
+                'teacher_cancelled' => 'You cancelled this booking.',
+                default => 'The booking has been cancelled.',
+            };
+            $startsAt = isset($snapshot['starts_at']) ? Carbon::parse((string) $snapshot['starts_at']) : $booking->starts_at;
+            $parameters = [$teacher->name, $booking->customer_name, $this->date($startsAt), $reason];
+        }
+
+        try {
+            $recipient = PhoneNumber::normalize((string) $phone);
+        } catch (\InvalidArgumentException) {
+            throw new NotificationNoLongerEligibleException('The WhatsApp recipient phone number is invalid.');
+        }
+
+        $template = config('services.whatsapp.templates.'.$key);
+        if (! is_string($template) || ! preg_match('/^[a-z0-9_]{1,128}$/', $template)) {
+            throw new RuntimeException('Required WhatsApp template is not configured: '.$key.'.');
+        }
+        $language = config('services.whatsapp.template_languages.'.$locale, $locale === 'en' ? 'en_US' : 'ro');
+        $textParameters = array_map(static fn (string $value): array => ['type' => 'text', 'text' => $value], $parameters);
+
+        return [
+            'recipient' => $recipient,
+            'template' => $template,
+            'language' => (string) $language,
+            'components' => [['type' => 'body', 'parameters' => $textParameters]],
+        ];
+    }
+
+    private function normalizedPhone(?string $phone): ?string
+    {
+        if (! is_string($phone) || trim($phone) === '') {
+            return null;
+        }
+
+        try {
+            return PhoneNumber::normalize($phone);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
+    }
+
+    private function isCurrentCallEvent(Booking $booking, ?BookingCallEvent $event): bool
+    {
+        return $booking->status === 'confirmed'
+            && $booking->teacher_id !== null
+            && $event !== null
+            && $event->booking_id === $booking->id
+            && $event->provider === 'openwa'
+            && $event->status === 'scheduled'
+            && $event->join_url !== null
+            && $event->revision === $booking->reschedule_count + 1
+            && $event->teacher_id === $booking->teacher_id
+            && $event->scheduled_start_at->equalTo($booking->starts_at)
+            && $event->scheduled_end_at->equalTo($booking->ends_at);
+    }
+
     /** @param array<string, mixed> $metadata */
     private function noShowOutcome(array $metadata, string $locale): string
     {
@@ -162,6 +343,15 @@ class WhatsAppMessageFactory
             ['ro', 'pending_payment'] => 'în așteptarea plății',
             default => $status,
         };
+    }
+
+    private function dateOnly(mixed $date): string
+    {
+        if ($date === null) {
+            return 'TBC';
+        }
+
+        return Carbon::parse($date)->setTimezone('Europe/Bucharest')->format('d.m.Y');
     }
 
     private function date(mixed $date): string
