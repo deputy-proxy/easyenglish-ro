@@ -116,3 +116,11 @@ jobs:
       - name: Audit OpenWA PoC dependencies
         working-directory: poc/openwa-scheduled-calls
         run: npm audit --audit-level=high
+
+      - name: Validate OpenWA container entrypoint
+        working-directory: poc/openwa-scheduled-calls
+        run: sh -n docker-entrypoint.sh
+
+      - name: Build OpenWA production image
+        working-directory: poc/openwa-scheduled-calls
+        run: docker build --file Dockerfile --tag easyenglish-openwa-poc:${{ github.sha }} .

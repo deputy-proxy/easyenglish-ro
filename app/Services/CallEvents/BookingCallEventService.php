@@ -25,7 +25,7 @@ class BookingCallEventService
 
     public function createForBooking(int $bookingId, int $revision): ?BookingCallEvent
     {
-        if (! $this->config->enabled) {
+        if (! $this->config->enabled || $this->config->rolloutStage === 'off') {
             return null;
         }
         if ($revision < 1 || $revision > 65535) {
@@ -41,11 +41,17 @@ class BookingCallEventService
                 ->lockForUpdate()
                 ->first();
 
-            $eligibleBooking = $booking->status === 'confirmed'
+            $bookingMatchesCurrentRevision = $booking->status === 'confirmed'
                 && $booking->teacher_id !== null
                 && $revision === $booking->reschedule_count + 1;
+            $rolloutEligible = BookingCallEventEligibility::shouldCreate(
+                $booking,
+                $this->config->applyToPaidSessions,
+                $this->config->rolloutStage,
+                $this->config->rolloutCustomerEmails,
+            ) && $bookingMatchesCurrentRevision;
             if ($event === null) {
-                if (! $eligibleBooking) {
+                if (! $rolloutEligible) {
                     return ['event' => null, 'claimed' => false];
                 }
 
@@ -63,7 +69,7 @@ class BookingCallEventService
                 ]);
             }
 
-            $eventMatchesBooking = $eligibleBooking
+            $eventMatchesBooking = $bookingMatchesCurrentRevision
                 && $event->teacher_id === $booking->teacher_id
                 && $event->scheduled_start_at->equalTo($booking->starts_at)
                 && $event->scheduled_end_at->equalTo($booking->ends_at);

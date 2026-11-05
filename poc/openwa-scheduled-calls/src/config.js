@@ -5,6 +5,7 @@ export function readConfig(env = process.env) {
   const pairingUsername = env.OPENWA_PAIRING_USERNAME, pairingPassword = env.OPENWA_PAIRING_PASSWORD;
   const serviceToken = env.OPENWA_SERVICE_TOKEN;
   const allowLiveTest = env.OPENWA_ALLOW_LIVE_TEST === 'true';
+  const pairingEnabled = env.OPENWA_PAIRING_ENABLED === 'true';
   if (!sessionDir || !path.isAbsolute(sessionDir)) throw new Error('OPENWA_SESSION_DIR must be an absolute private path.');
   if (!sessionKeyDir || !path.isAbsolute(sessionKeyDir)) throw new Error('OPENWA_SESSION_KEY_DIR must be an absolute private path.');
   const resolvedSessionDir = path.resolve(sessionDir), resolvedKeyDir = path.resolve(sessionKeyDir);
@@ -19,7 +20,7 @@ export function readConfig(env = process.env) {
   for (const candidate of [resolvedSessionDir, resolvedKeyDir]) if (candidate === appRoot || candidate.startsWith(appRoot + path.sep)) throw new Error('Session and key directories must be outside the Node application root.');
   const port = Number(env.PORT || 3100);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port.');
-  return Object.freeze({ host: env.HOST || '0.0.0.0', port, sessionId: env.OPENWA_SESSION_ID || 'easyenglish-openwa', sessionDir: resolvedSessionDir, sessionKeyDir: resolvedKeyDir, sessionDataPath: path.join(resolvedSessionDir, 'session.data.json'), eventStorePath: path.join(resolvedSessionDir, 'call-events.enc'), encryptionKeyFile: path.join(resolvedKeyDir, 'session-encryption.key'), encryptionKey: decodedKey, pairingUsername, pairingPassword, serviceToken: serviceToken || null, publicBaseUrl, chromeExecutable: env.OPENWA_CHROME_EXECUTABLE || null, chromeNoSandbox: env.OPENWA_CHROME_NO_SANDBOX === 'true', allowLiveTest });
+  return Object.freeze({ host: env.HOST || '0.0.0.0', port, sessionId: env.OPENWA_SESSION_ID || 'easyenglish-openwa', sessionDir: resolvedSessionDir, sessionKeyDir: resolvedKeyDir, sessionDataPath: path.join(resolvedSessionDir, 'session.data.json'), eventStorePath: path.join(resolvedSessionDir, 'call-events.enc'), encryptionKeyFile: path.join(resolvedKeyDir, 'session-encryption.key'), encryptionKey: decodedKey, pairingUsername, pairingPassword, pairingEnabled, serviceToken: serviceToken || null, publicBaseUrl, chromeExecutable: env.OPENWA_CHROME_EXECUTABLE || null, chromeNoSandbox: env.OPENWA_CHROME_NO_SANDBOX === 'true', allowLiveTest });
 }
 export function normalizeE164(value, label = 'Destination phone') {
   if (typeof value !== 'string' || !/^\+[1-9]\d{7,14}$/.test(value.trim())) throw new Error(label + ' must be a valid E.164 phone number, including country code.');

@@ -3,12 +3,25 @@
 namespace App\Services\CallEvents;
 
 use App\Models\Booking;
+use App\Models\User;
 
 class BookingCallEventEligibility
 {
-    public static function shouldCreate(Booking $booking, bool $applyToPaidSessions): bool
+    /** @param list<string> $rolloutCustomerEmails */
+    public static function shouldCreate(Booking $booking, bool $applyToPaidSessions, string $rolloutStage, array $rolloutCustomerEmails = []): bool
     {
-        if ($booking->status !== 'confirmed' || $booking->teacher_id === null) {
+        if ($booking->status !== 'confirmed' || $booking->teacher_id === null || $rolloutStage === 'off') {
+            return false;
+        }
+
+        $customerEmail = strtolower(trim((string) $booking->customer_email));
+        $inRollout = match ($rolloutStage) {
+            'internal_test', 'limited_customer' => in_array($customerEmail, $rolloutCustomerEmails, true),
+            'staff_pilot' => User::query()->where('is_staff', true)->whereRaw('LOWER(email) = ?', [$customerEmail])->exists(),
+            'general' => true,
+            default => false,
+        };
+        if (! $inRollout) {
             return false;
         }
 

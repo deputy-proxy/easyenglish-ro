@@ -551,7 +551,12 @@ class BookingService
     private function queueCallEventCreation(Booking $booking): void
     {
         if (! (bool) config('services.openwa.enabled')
-            || ! BookingCallEventEligibility::shouldCreate($booking, (bool) config('services.openwa.apply_to_paid_sessions', false))) {
+            || ! BookingCallEventEligibility::shouldCreate(
+                $booking,
+                (bool) config('services.openwa.apply_to_paid_sessions', false),
+                (string) config('services.openwa.rollout_stage', 'off'),
+                array_values(array_filter((array) config('services.openwa.rollout_customer_emails', []), 'is_string')),
+            )) {
             return;
         }
 

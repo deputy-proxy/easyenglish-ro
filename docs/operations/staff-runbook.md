@@ -77,6 +77,16 @@ Never invent a reason or change a policy deadline to make an action succeed. If 
 5. For WhatsApp, verify the contact has current service-message consent and no opt-out. An opt-out must not be bypassed; email is unaffected.
 6. If the provider may have accepted a request before a timeout, inspect provider status before retrying. Delivery is at-least-once, not guaranteed exactly-once.
 
+## WhatsApp call-link readiness and fallback
+
+1. Open **Admin → Scheduling → Call events** and locate the confirmed booking. Check the event status, attempt count, next retry, and sanitized error category. The customer and assigned teacher see only the join link for the current booking revision.
+2. If the event is pending, queued, or reconciling, check the OpenWA readiness alert and queue status before retrying. Do not create a second event manually or reuse a different booking's URL.
+3. If no valid call link exists 30 minutes before the appointment (or immediately for a booking created inside that window), contact the assigned teacher and learner using the approved Meta WhatsApp/email workflow and arrange a normal WhatsApp call manually. Do not cancel the booking solely because OpenWA is unavailable.
+4. Record the manual fallback and confirmed arrangement in the booking audit trail. The teacher and learner must agree on the actual call time.
+5. Escalate to the technical owner if readiness remains down for 10 minutes during a pilot, the encrypted event store cannot be read, the linked device is logged out, or retries keep failing.
+
+The `openwa:monitor` scheduler command checks provider readiness, stale due call-event operations, terminal notification delivery failures, and database queue pressure. It sends deduplicated alerts and recovery notifications to the Filament staff inbox. It does not expose booking contact details or join URLs in alert text. See the [OpenWA operations runbook](../integrations/openwa.md).
+
 ## Escalation and incident recovery
 
 Escalate immediately to the designated technical/owner contact when payment state is unclear, a refund is ambiguous, two bookings appear to overlap, credits are negative or inconsistent, the scheduler/queue has stopped, a webhook signature fails unexpectedly, or secrets/personal data may have been exposed.

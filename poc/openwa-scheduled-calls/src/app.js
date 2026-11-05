@@ -89,20 +89,25 @@ export function createApp({ config, state, store, pairingDirectory = path.join(p
       const cancelled = await withTimeout(state.provider.cancelEvent(req.params.providerEventId), providerTimeouts.cancel);
       if (!cancelled) { state.metrics.providerErrors += 1; log(logger, 'error', 'call_event.cancel.unconfirmed', { durationMs: Date.now() - startedAt }); return res.status(502).json({ error: 'The provider did not confirm cancellation.', code: 'PROVIDER_ERROR' }); }
       record.status = 'cancelled'; record.cancelledAt = new Date().toISOString(); record.updatedAt = record.cancelledAt;
+      record.joinUrl = null;
+      delete record.input;
+      delete record.externalBookingReference;
       await store.upsert(record);
       log(logger, 'info', 'call_event.cancel.completed', { durationMs: Date.now() - startedAt });
       return res.json({ providerEventId: record.providerEventId, status: 'cancelled' });
     } catch { state.metrics.providerErrors += 1; log(logger, 'error', 'call_event.cancel.failed', { durationMs: Date.now() - startedAt }); return res.status(502).json({ error: 'The call-event provider could not cancel the event.', code: 'PROVIDER_ERROR' }); }
   });
 
-  app.use(createBasicAuth(config));
-  app.use(express.static(pairingDirectory, { index: 'index.html', etag: false, maxAge: 0 }));
-  app.get('/pairing/status', (_req, res) => res.json({ phase: state.phase, startedAt: state.startedAt }));
-  app.get('/pairing/qr', async (_req, res) => {
+  if (config.pairingEnabled) {
+    app.use(createBasicAuth(config));
+    app.use(express.static(pairingDirectory, { index: 'index.html', etag: false, maxAge: 0 }));
+    app.get('/pairing/status', (_req, res) => res.json({ phase: state.phase, startedAt: state.startedAt }));
+    app.get('/pairing/qr', async (_req, res) => {
     if (state.phase !== 'qr_ready' || !state.qr) return res.status(404).end();
     try { return res.type('png').send(await QRCode.toBuffer(state.qr, { type: 'png', margin: 2, width: 360 })); }
     catch { return res.status(500).end(); }
-  });
+    });
+  }
   app.use((error, _req, res, _next) => {
     if (error instanceof SyntaxError && 'body' in error) return res.status(400).json({ error: 'Malformed JSON request body.' });
     return res.status(500).json({ error: 'Internal server error.' });

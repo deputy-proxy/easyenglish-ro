@@ -64,6 +64,9 @@ function enableFakeCallEventProvider(FakeCallEventProvider $provider): BookingCa
 {
     config(['services.openwa' => [
         'enabled' => true,
+        'apply_to_paid_sessions' => false,
+        'rollout_stage' => 'general',
+        'rollout_customer_emails' => [],
         'base_url' => 'https://openwa.test',
         'service_token' => str_repeat('s', 48),
         'connect_timeout' => 5,
@@ -932,4 +935,88 @@ test('a transient teacher WhatsApp failure retries only that recipient without c
         ->and($customerDelivery->fresh()->status)->toBe('pending')
         ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(1)
         ->and($event->fresh()->status)->toBe('scheduled');
+});
+
+test('internal-test and limited-customer rollout stages restrict call events to the explicit email allowlist', function () {
+    $provider = new FakeCallEventProvider;
+    enableFakeCallEventProvider($provider);
+    config(['services.openwa.rollout_stage' => 'internal_test', 'services.openwa.rollout_customer_emails' => ['pilot@example.test']]);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+    $allowed = makeCallEventTestBooking(['customer_email' => 'pilot@example.test']);
+    $blocked = makeCallEventTestBooking(['customer_email' => 'other@example.test']);
+
+    expect($service->createForBooking($allowed->id, 1))->not->toBeNull()
+        ->and($service->createForBooking($blocked->id, 1))->toBeNull();
+
+    config(['services.openwa.rollout_stage' => 'limited_customer']);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+    $limitedAllowed = makeCallEventTestBooking(['customer_email' => 'pilot@example.test']);
+    $limitedBlocked = makeCallEventTestBooking(['customer_email' => 'other@example.test']);
+
+    expect($service->createForBooking($limitedAllowed->id, 1))->not->toBeNull()
+        ->and($service->createForBooking($limitedBlocked->id, 1))->toBeNull();
+});
+
+test('staff pilot rollout only creates call events for bookings whose customer email belongs to a staff account', function () {
+    $provider = new FakeCallEventProvider;
+    enableFakeCallEventProvider($provider);
+    User::factory()->create(['is_staff' => true, 'email' => 'staff-pilot@example.test']);
+    config(['services.openwa.rollout_stage' => 'staff_pilot']);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+    $staffBooking = makeCallEventTestBooking(['customer_email' => 'staff-pilot@example.test']);
+    $customerBooking = makeCallEventTestBooking(['customer_email' => 'customer@example.test']);
+
+    expect($service->createForBooking($staffBooking->id, 1))->not->toBeNull()
+        ->and($service->createForBooking($customerBooking->id, 1))->toBeNull();
+});
+
+test('turning rollout stage off stops new events but preserves existing bookings and issued links', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $existingEvent = $service->createForBooking($booking->id, 1);
+    expect($existingEvent?->status)->toBe('scheduled');
+
+    config(['services.openwa.rollout_stage' => 'off']);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+
+    expect($service->createForBooking($booking->id, 1))->toBeNull()
+        ->and($existingEvent->fresh()->status)->toBe('scheduled')
+        ->and($existingEvent->fresh()->join_url)->not->toBeEmpty()
+        ->and($booking->fresh()->status)->toBe('confirmed');
+});
+
+test('OpenWA configuration rejects invalid rollout stages and empty or malformed allowlists', function () {
+    expect(fn () => OpenWaConfig::fromArray(['enabled' => true, 'rollout_stage' => 'everyone']))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn () => OpenWaConfig::fromArray(['enabled' => true, 'rollout_stage' => 'internal_test', 'rollout_customer_emails' => []]))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn () => OpenWaConfig::fromArray(['enabled' => true, 'rollout_stage' => 'limited_customer', 'rollout_customer_emails' => ['not-an-email']]))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+test('narrowing the rollout allowlist does not cancel call links already issued to existing bookings', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking(['customer_email' => 'existing-customer@example.test']);
+    $event = $service->createForBooking($booking->id, 1);
+    $joinUrl = $event?->join_url;
+
+    config([
+        'services.openwa.rollout_stage' => 'limited_customer',
+        'services.openwa.rollout_customer_emails' => ['another-customer@example.test'],
+    ]);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+
+    $stillScheduled = $service->createForBooking($booking->id, 1);
+
+    expect($stillScheduled?->status)->toBe('scheduled')
+        ->and($stillScheduled?->join_url)->toBe($joinUrl)
+        ->and($provider->events)->toHaveCount(1)
+        ->and($booking->fresh()->status)->toBe('confirmed');
 });

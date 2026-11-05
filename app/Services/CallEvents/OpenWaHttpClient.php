@@ -30,6 +30,35 @@ class OpenWaHttpClient
         }
     }
 
+    /** @return array{created: int, providerErrors: int, reconnects: int, connectionState: string}|null */
+    public function metrics(): ?array
+    {
+        try {
+            $response = $this->send(fn (): Response => $this->request()->get($this->url('/v1/metrics')));
+            if (! $response->successful()) {
+                return null;
+            }
+
+            $metrics = $response->json();
+            if (! is_array($metrics)
+                || ! is_numeric($metrics['created'] ?? null)
+                || ! is_numeric($metrics['providerErrors'] ?? null)
+                || ! is_numeric($metrics['reconnects'] ?? null)
+                || ! is_string($metrics['connectionState'] ?? null)) {
+                return null;
+            }
+
+            return [
+                'created' => max(0, (int) $metrics['created']),
+                'providerErrors' => max(0, (int) $metrics['providerErrors']),
+                'reconnects' => max(0, (int) $metrics['reconnects']),
+                'connectionState' => mb_substr($metrics['connectionState'], 0, 32),
+            ];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     /** @param array<string, string> $payload */
     public function createEvent(array $payload, string $idempotencyKey): CallEventResult
     {

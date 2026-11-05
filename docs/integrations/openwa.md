@@ -2,11 +2,11 @@
 
 ## Purpose and architecture
 
-OpenWA is isolated in a standalone Node.js service. Laravel remains the system of record for users, bookings, teacher assignment, payment state, and notification delivery. Laravel calls this service over a private service-to-service API; it must never connect to the OpenWA browser or raw client directly.
+OpenWA is isolated in a standalone Node.js service. Laravel remains the system of record for users, bookings, teacher assignment, payment state, and notification delivery. Laravel calls this service over an HTTPS service-to-service API protected by a high-entropy Bearer token; it must never connect to the OpenWA browser or raw client directly.
 
 The existing Meta WhatsApp Business Platform integration remains the approved channel for transactional messages. OpenWA is an unofficial WhatsApp Web automation package used only to create, retrieve, and cancel scheduled WhatsApp video-call events. It is not an approved replacement for Meta messaging. Its use may conflict with WhatsApp terms and may result in account restrictions. Use a dedicated disposable non-production WhatsApp account only.
 
-The service owns one OpenWA session and one durable encrypted event store. Run exactly one replica. Do not embed OpenWA, Chromium, or browser automation in the Laravel runtime. The service is deployed separately from the EasyEnglish website because the confirmed Hostinger Cloud Startup plan does not support the persistent browser process and separate services required by OpenWA.
+The service owns one OpenWA session and one durable encrypted event store. Outbound networking requires DNS and HTTPS/WSS egress to WhatsApp Web and required provider endpoints; inbound traffic is limited to the Railway HTTPS listener on port 8080. Do not expose raw Chromium debugging ports. Run exactly one replica. Do not embed OpenWA, Chromium, or browser automation in the Laravel runtime. The service is deployed separately from the EasyEnglish website because the confirmed Hostinger Cloud Startup plan does not support the persistent browser process and separate services required by OpenWA. Laravel runs on Hostinger while OpenWA runs in Railway. Railway private DNS is scoped to services in the same Railway project and environment, so Hostinger must use the Railway HTTPS domain with a mandatory high-entropy Bearer token. Do not configure a `.railway.internal` URL in Hostinger.
 
 ## Provider contract
 
@@ -24,7 +24,7 @@ The provider receives a destination E.164 phone number, which is converted to th
 
 ## HTTP API v1
 
-All `/v1/*` endpoints require `Authorization: Bearer <OPENWA_SERVICE_TOKEN>`. The token must contain at least 32 characters and is compared using a constant-time comparison. Do not put it in URLs, browser code, logs, source control, or the public Laravel frontend. Health endpoints are intentionally unauthenticated and disclose only a generic status. The separate pairing interface uses HTTP Basic authentication over HTTPS.
+All `/v1/*` endpoints require `Authorization: Bearer <OPENWA_SERVICE_TOKEN>`. The token must contain at least 32 characters and is compared using a constant-time comparison. Do not put it in URLs, browser code, logs, source control, or the public Laravel frontend. Health endpoints are intentionally unauthenticated and disclose only a generic status. The separate pairing interface is disabled by default (`OPENWA_PAIRING_ENABLED=false`) and uses HTTP Basic authentication over HTTPS only during an explicitly approved pairing window.
 
 ### Health
 
@@ -120,6 +120,7 @@ Copy `.env.example` and provide secrets through the deployment platform, not a c
 - `OPENWA_PUBLIC_BASE_URL` (HTTPS URL used by the protected pairing interface)
 - `OPENWA_SERVICE_TOKEN` (at least 32 random characters, shared only with Laravel; required before live provider startup or API access)
 - `OPENWA_ALLOW_LIVE_TEST` (keep `false` until the final acceptance gate)
+- `OPENWA_PAIRING_ENABLED` (default `false`; enable only for an approved pairing window, then disable immediately)
 
 `OPENWA_CHROME_EXECUTABLE` and `OPENWA_CHROME_NO_SANDBOX` must match the container runtime. Railway currently requires Chromium's no-sandbox flags in this isolated PoC; the process still runs as the unprivileged `node` user. This weakens browser isolation and is not production approval.
 
@@ -148,32 +149,63 @@ The dependency audit currently reports seven low-severity findings and zero high
 
 ## Deployment and network boundary
 
-Deploy the container from `poc/openwa-scheduled-calls/Dockerfile` as a dedicated Railway service in the separate `easyenglish-openwa` project. Attach a persistent volume at `/data`; configure one replica only. Set the service root directory to `/poc/openwa-scheduled-calls` when using the repository root. The image installs Chromium, `zstd`, and runs Node as the unprivileged `node` user.
+Deploy the container from `poc/openwa-scheduled-calls/Dockerfile` as a dedicated Railway service in the separate `easyenglish-openwa` project. This is the selected persistent runtime; Hostinger remains the Laravel host. Attach a persistent volume at `/data`; configure one replica only. Set the service root directory to `/poc/openwa-scheduled-calls` when using the repository root. The image installs Chromium, `zstd`, and runs Node as the unprivileged `node` user.
 
-Use Railway private networking for Laravel-to-OpenWA API traffic. A public HTTPS domain may be enabled temporarily for the protected pairing interface; because the service API shares the same listener, the bearer token remains mandatory during this window. Remove the public domain/ingress after pairing and use the private Railway hostname for Laravel-to-OpenWA traffic. Never expose raw OpenWA or browser debugging ports. The bearer token remains mandatory even on the private network.
+The Laravel application is hosted outside Railway. Railway private networking and `*.railway.internal` DNS are available only to services in the same Railway project/environment, so Hostinger cannot use the OpenWA private hostname. Keep the Railway HTTPS domain for server-to-server traffic and configure `OPENWA_SERVICE_TOKEN` in Railway and the matching secret in Hostinger. Every `/v1/*` route requires that Bearer token; without it, the API returns `503`. The pairing UI is separately disabled by default through `OPENWA_PAIRING_ENABLED=false`; enable it only for an approved pairing window, keep Basic authentication enabled, and disable it immediately after pairing. Health endpoints disclose only generic liveness/readiness status. Never expose raw OpenWA or browser debugging ports. See [Railway private networking](https://docs.railway.com/networking/private-networking).
 
 Deployment steps:
 
-1. Create the dedicated Railway project/environment and a single `openwa-service` service using this Dockerfile.
-2. Attach a persistent volume at `/data` in the same region.
-3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, service token, Chromium settings, and `OPENWA_ALLOW_LIVE_TEST=false`.
-4. Configure the Railway health check to `GET /health/live`; use restart policy `ALWAYS`; do not enable serverless sleep or multiple replicas.
-5. Run `npm run preflight` inside the deployed container as the unprivileged `node` user. Verify Node, Chromium headless launch, `zstd`, HTTPS configuration, token/key validation, and volume write permissions.
-6. Keep `OPENWA_ALLOW_LIVE_TEST=false` until the final acceptance issue explicitly authorizes pairing. In this mode the process and liveness endpoint work, while readiness correctly remains `503`. If the service token is not configured, all `/v1` requests return `503` and no API operation is available. Configure the token before Laravel integration or enabling the live provider.
-7. Configure Laravel with the private service base URL and the matching service token. Do not expose either value in client-side code.
-8. Pair only the dedicated non-production account when authorized by final acceptance. Confirm readiness before exercising the API.
+1. Use the existing `easyenglish-openwa` Railway project, production environment, and `openwa-poc` service. Do not create a second service or replica.
+2. Keep the `openwa-session-data` volume mounted at `/data` in `europe-west4-drams3a`; its current capacity is 5 GB.
+3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, a new `OPENWA_SERVICE_TOKEN`, Chromium settings, `OPENWA_ALLOW_LIVE_TEST=false`, and `OPENWA_PAIRING_ENABLED=false`. Store secrets only in Railway Variables.
+4. Configure the Railway health check to `GET /health/live`; use restart policy `ALWAYS`; do not enable serverless sleep or multiple replicas. The service serializes event creation and its persistent volume is single-writer.
+5. The Docker entrypoint runs `node src/preflight.js` as the unprivileged `node` user and then starts `node src/server.js`. Verify Node, Chromium headless launch, `zstd`, HTTPS configuration, token/key validation, and volume write permissions in deploy logs.
+6. Keep `OPENWA_ALLOW_LIVE_TEST=false` until #220 explicitly authorizes pairing. In this mode liveness works while readiness correctly remains `503`. If the service token is missing, all `/v1` requests return `503`. Configure the token before Laravel integration or enabling the live provider.
+7. Configure Hostinger Laravel with the public HTTPS Railway base URL and matching service token. Do not use the private Railway hostname from Hostinger or expose either value in client-side code.
+8. Pair only the dedicated non-production account when authorized by #220. Temporarily set `OPENWA_PAIRING_ENABLED=true` for pairing, confirm readiness, then set it back to `false` and verify `/pairing/status` and `/pairing/qr` return `404`.
 
-The existing Railway PoC deployment was previously observed running, but its deployed-container preflight output was not verified. The service API implementation in this issue must not be described as deployed or production-ready until a separate deployment check confirms the new image, environment variables, health checks, and durable volume.
+**Observed deployment state (5 November 2026):** the `openwa-poc` service has one configured replica, the 5 GB `/data` volume, and the public HTTPS domain `openwa-poc-production.up.railway.app`. The latest deployment failed its `/health/live` check: deploy logs show the preflight command repeatedly running, no `OpenWA call-event service listening` line, and the container being terminated. The deployed Railway variables do not include `OPENWA_SERVICE_TOKEN`, so the API is intentionally unavailable. Other sealed values are not readable through the connected account. The latest 24-hour Railway metrics sample while the service was unpaired and failing startup showed 0.331 GB peak memory and 0.12 GB disk usage; CPU and network activity were negligible. This is not a representative authenticated-session or production-load baseline, and no explicit CPU/memory limits are currently configured. Treat this as a non-production prototype, not a healthy production endpoint. The Docker entrypoint has been corrected in this issue to run preflight once and then start the server; the corrected image still needs a successful deployment and runtime verification. Do not enable Laravel integration or pair an account until those checks pass.
+
+## Production capacity, backups, and monitoring
+
+The 5 GB Railway volume is a persistent storage mount, not a backup by itself. Railway volume backups are incremental, Copy-on-Write, and encrypted at rest with AES-256. Scheduled retention is 6 days daily, 27 days weekly, and 89 days monthly. A restore stages a new volume and leaves the previous volume unmounted until the new deployment is accepted; wiping a volume also deletes its backups. Restores are limited to the same Railway project and environment, so these backups do not protect against loss/deletion of the whole project. Add an independently stored encrypted backup if cross-project disaster recovery is required. See [Railway volume backups](https://docs.railway.com/volumes/backups), [Railway security and encryption](https://docs.railway.com/enterprise/security), and [volume caveats](https://docs.railway.com/volumes/reference).
+
+### Initial capacity and process model
+
+- Start with one Railway replica in `europe-west4-drams3a`, 1 vCPU and at least 2 GB RAM as a conservative initial allocation. This is a starting envelope, not a measured capacity claim; capture peak CPU, memory, and restart/OOM behavior during #220 and adjust from observed metrics.
+- Keep the existing 5 GB persistent volume mounted at `/data`. Review Railway volume usage at least weekly and before each deployment; investigate when usage exceeds 70% capacity.
+- Keep exactly one replica. Event creation is serialized in-process and the session store is single-writer. Do not scale horizontally or mount the volume concurrently.
+- Keep restart policy `ALWAYS`, the liveness health check `/health/live`, and serverless sleep disabled. Readiness is separate and must remain `503` while unpaired or disconnected.
+
+### Volume backup and restore
+
+Railway supports manual and scheduled volume backups encrypted at rest with AES-256. No schedule has been verified as configured on this environment yet. Configure all three schedules on `openwa-session-data`: daily (6-day retention), weekly (27-day retention), and monthly (89-day retention). These are platform backup windows, not the approved retention period for customer data. Keep `OPENWA_SESSION_ENCRYPTION_KEY` in Railway's secret store and include its controlled recovery procedure with the volume backup; a volume without its matching key is unusable. See [Railway volume backups](https://docs.railway.com/volumes/backups).
+
+A restore creates a new volume and leaves the previous volume unmounted. Restores are restricted to the same Railway project/environment, so add an independently stored encrypted copy if cross-project recovery is required. Before accepting the restore deployment, verify the new volume is mounted at `/data`, the service can decrypt the session/event store, and `/health/live` responds. Do not wipe the previous volume until recovery is confirmed. The first restore drill against an authenticated account must be performed in non-production as part of #220; no real-account restore has been tested yet.
+
+### Application monitoring and alerting
+
+See the [production operations decision record](../decisions/openwa-production-operations.md) for the runtime selection, current deployment state, backup plan, capacity assumptions, rollout stages, and remaining approval gates.
+
+The Laravel scheduler runs `openwa:monitor` every minute. When `OPENWA_ENABLED=true`, it checks `/health/ready`, samples the authenticated `/v1/metrics` counters, and alerts staff if readiness is lost, provider errors reach the configured rolling threshold, or due call-event operations remain stale. It also alerts on terminal notification-delivery failures and a database queue backlog above configured count/age thresholds. Alerts are written to the Filament staff notification inbox, deduplicated for 24 hours, and followed by a recovery notification when the condition clears. Terminal call-event failures already create a staff notification and booking audit record in `BookingCallEventService`. The monitor logs aggregate counts only, never booking references, phone numbers, join URLs, or credentials. The provider-error alert defaults to 5 new errors in 10 minutes; configure thresholds with `OPENWA_MONITOR_PROVIDER_ERROR_THRESHOLD` and `OPENWA_MONITOR_PROVIDER_ERROR_WINDOW_MINUTES`.
+
+The monitor depends on the Hostinger scheduler cron and database queue worker. Confirm `php artisan schedule:list`, the one-minute scheduler invocation, and worker cadence on the actual Hostinger plan. Railway `/health/live` checks process liveness; Laravel monitoring checks `/health/ready`. Use Railway deployment status and restricted deploy logs to investigate container restarts and build/start failures.
+
+### Retention and deletion
+
+The Laravel `booking_call_events.join_url` field is encrypted at rest, hidden from serialization, and exposed only through customer/assigned-teacher booking workflows while the booking is eligible. Confirmed provider cancellation clears the Laravel join URL. The Node event store is encrypted with AES-256-GCM; when an event is cancelled, the service clears the join URL, original request payload (including destination phone), and external booking reference, retaining only a minimal idempotency/cancellation tombstone. Active scheduled events retain the provider metadata and join URL needed to operate the call.
+
+The EasyEnglish retention schedule is still a legal/accounting draft. Do not invent a statutory retention period or enable automatic deletion until the privacy/legal reviewer approves periods and exceptions. Until then, keep `DATA_RETENTION_ENABLED` off, cancel provider events before deleting their Laravel booking records, and handle erasure requests through the approved owner/reviewer process. Backups must expire under the configured Railway schedule and restored data must re-enter the approved deletion process.
 
 ## Operations runbook
 
 ### Bootstrap and pairing
 
 1. Confirm the correct Railway service, persistent volume, and secret values.
-2. Temporarily enable the protected pairing interface and explicitly set `OPENWA_ALLOW_LIVE_TEST=true` only for the dedicated non-production account.
+2. Temporarily set `OPENWA_PAIRING_ENABLED=true` and explicitly set `OPENWA_ALLOW_LIVE_TEST=true` only for the dedicated non-production account.
 3. Open the HTTPS pairing page with Basic authentication and scan the QR using WhatsApp Linked Devices.
 4. Confirm `/health/ready` returns `200`; never copy QR contents into tickets or logs.
-5. Disable public pairing access when no longer needed. Do not pair personal or primary business accounts.
+5. Set `OPENWA_PAIRING_ENABLED=false` immediately after pairing and verify `/pairing/status` and `/pairing/qr` return `404`. Do not pair personal or primary business accounts.
 
 ### Restart and recovery
 
@@ -192,11 +224,27 @@ The existing Railway PoC deployment was previously observed running, but its dep
 
 ### Emergency disable and account disconnect
 
-1. Set `OPENWA_ALLOW_LIVE_TEST=false` and restart the service. Readiness must become `503` and event operations must return `503`.
-2. Revoke the linked device from the dedicated WhatsApp account.
-3. Remove public pairing ingress and rotate the service token if compromise is suspected.
-4. Preserve encrypted records for incident investigation only as required by the retention policy; otherwise securely delete the volume and secrets.
-5. Do not re-enable the service without explicit approval after the incident is reviewed.
+1. Set Laravel `OPENWA_ENABLED=false` to stop new booking call-event operations and preserve existing booking records/issued links.
+2. Set Node `OPENWA_ALLOW_LIVE_TEST=false` and restart the service. Readiness must become `503` and event operations must return `503`.
+3. Set `OPENWA_PAIRING_ENABLED=false` and revoke the linked device from the dedicated WhatsApp account.
+4. Keep the public HTTPS domain only while Hostinger needs the authenticated API; pairing endpoints must return `404`. Rotate the service token if compromise is suspected.
+5. Preserve encrypted records for incident investigation only as required by the retention policy; otherwise securely delete the volume and secrets.
+6. Do not re-enable the service without explicit approval after the incident is reviewed.
+
+## Staged rollout and rollback
+
+The rollout has two independent controls: `OPENWA_ENABLED` is the hard application kill switch, while `OPENWA_ROLLOUT_STAGE` controls which bookings may create new events. The rollout stage defaults to `off`; paid sessions remain excluded unless `OPENWA_APPLY_TO_PAID_SESSIONS=true` is separately approved.
+
+| Stage | Configuration | Eligible bookings |
+| --- | --- | --- |
+| Internal test | `OPENWA_ENABLED=true`, `OPENWA_ROLLOUT_STAGE=internal_test`, `OPENWA_ROLLOUT_CUSTOMER_EMAILS` set | Only the explicitly allowlisted test customer emails |
+| Staff pilot | `OPENWA_ROLLOUT_STAGE=staff_pilot` | Only bookings whose customer email belongs to an `is_staff` account |
+| Limited customer pilot | `OPENWA_ROLLOUT_STAGE=limited_customer`, `OPENWA_ROLLOUT_CUSTOMER_EMAILS` set | Only explicitly allowlisted customer emails |
+| General | `OPENWA_ROLLOUT_STAGE=general` | All otherwise eligible confirmed bookings |
+
+At each stage, verify readiness, event creation/cancellation, current-revision link access, customer/teacher notifications, delivery retries, error-rate alerts, and manual fallback before expanding. The allowlist is parsed and validated at application boot. `internal_test` and `limited_customer` fail configuration if the allowlist is empty. Never include the allowlist in logs.
+
+**Rollback:** set `OPENWA_ROLLOUT_STAGE=off` first. This prevents new events but leaves existing confirmed bookings and issued links intact; queued creation jobs become no-ops, while existing events can still be reconciled or cancelled. Do not delete bookings, event rows, or links as part of rollback. Use `OPENWA_ENABLED=false` only as a hard stop when provider operations themselves must cease; this also prevents cancellation/reconciliation requests, so it is not the normal pilot rollback. Keep the Node provider running until existing calls are completed or cancelled. The feature-flag tests cover allowlisted internal/limited stages, staff-only pilot eligibility, general mode, and rollback without deleting existing links.
 
 ## Final acceptance boundary
 
@@ -214,16 +262,18 @@ The Laravel integration is disabled by default. Configure the following values o
 
 - `OPENWA_ENABLED=false` (leave false until the rollout gate approves it)
 - `OPENWA_APPLY_TO_PAID_SESSIONS=false` (paid bundle-credit sessions are excluded by default; free introductions and bundle-included free credits are included)
-- `OPENWA_BASE_URL=https://...` or the private Railway hostname, for example `http://openwa-poc.railway.internal:8080`
+- `OPENWA_ROLLOUT_STAGE=off` (default; use `internal_test`, `staff_pilot`, `limited_customer`, or `general` only after the preceding stage passes)
+- `OPENWA_ROLLOUT_CUSTOMER_EMAILS` (comma-separated, validated allowlist required for `internal_test` and `limited_customer`)
+- `OPENWA_BASE_URL=https://openwa-poc-production.up.railway.app` (public HTTPS domain; Laravel is on Hostinger and cannot resolve Railway private DNS)
 - `OPENWA_SERVICE_TOKEN` (the same high-entropy token configured as `OPENWA_SERVICE_TOKEN` in the Node service; at least 32 characters)
 - `OPENWA_CONNECT_TIMEOUT=5`
 - `OPENWA_TIMEOUT=30` (must exceed the Node create-operation timeout)
 - `OPENWA_MAX_ATTEMPTS=5`
 - `OPENWA_RETRY_DELAYS=60,300,900,3600,14400` (seconds)
 
-The typed `OpenWaConfig` validates the URL scheme, private Railway hostname, token length, timeout bounds, retry count, and retry schedule at container resolution. Public endpoints must use HTTPS. Plain HTTP is accepted only for a `.railway.internal` host. URL credentials, query strings, and fragments are rejected. The service token is sent only in the Bearer authorization header and is never logged.
+The typed `OpenWaConfig` validates the URL scheme, token length, timeout bounds, retry count, and retry schedule at container resolution. The Hostinger runtime must use the public HTTPS Railway domain. Plain HTTP to `.railway.internal` is supported only if Laravel is moved into the same Railway project/environment. URL credentials, query strings, and fragments are rejected. The service token is sent only in the Bearer authorization header and is never logged.
 
-The Node service exposes separate `/health/live` and `/health/ready` endpoints. Hosting-platform process health checks must use `/health/live`, which stays successful while the service is safely unpaired. Laravel and operational monitoring use `/health/ready`; it remains unavailable until the WhatsApp session is authenticated and the provider is initialized. Do not treat an unpaired service as ready, and do not use readiness as the container liveness check.
+The Node service exposes separate `/health/live` and `/health/ready` endpoints. Hosting-platform process health checks must use `/health/live`, which stays successful while the service is safely unpaired. Laravel and operational monitoring use `/health/ready`; it remains unavailable until the WhatsApp session is authenticated and the provider is initialized. The pairing UI is independently gated by `OPENWA_PAIRING_ENABLED=false` and returns `404` when disabled. Do not treat an unpaired service as ready, and do not use readiness as the container liveness check.
 
 `OPENWA_ENABLED` is the Laravel feature flag. It is separate from the Node service's `OPENWA_ALLOW_LIVE_TEST` runtime guard. Both must be explicitly enabled before live event operations can occur. With the Laravel feature flag disabled, event jobs do not create records or make HTTP requests. Booking confirmation always remains authoritative. Free introductory sessions, including the free credit included in a bundle, are eligible. Paid bundle-credit sessions are excluded unless `OPENWA_APPLY_TO_PAID_SESSIONS=true` is explicitly configured.
 
@@ -233,7 +283,7 @@ The Node service exposes separate `/health/live` and `/health/ready` endpoints. 
 
 The record stores provider event ID, call type, UTC start/end, normalized status, attempt timestamps, retry scheduling, sanitized error category/message, and provider lifecycle timestamps. The join URL uses Laravel's encrypted cast and is hidden from model serialization. Do not add it to general booking API resources, logs, audit metadata, or notification-delivery payloads. A cancellation clears the stored join URL after the provider confirms cancellation.
 
-The event row snapshots the assigned teacher ID so a reassignment invalidates the previous revision's call-link endpoint access. The event row is deleted when its booking is deleted. Otherwise it follows the booking record's retention policy; this integration does not introduce a separate retention period. Do not manually purge an event while its provider call may still be active. Cancel it first. The encrypted URL remains personal data and must be covered by the same access, backup, and deletion controls as booking data.
+The event row snapshots the assigned teacher ID so a reassignment invalidates the previous revision's call-link endpoint access. The Laravel event row is deleted when its booking is deleted. Otherwise it follows the booking record's retention policy; this integration does not introduce a separate approved retention period. The encrypted Node event store clears the join URL, original request payload, and external booking reference when cancellation is confirmed, retaining only a minimal idempotency/cancellation tombstone. Active events retain the provider metadata required to operate the call. Do not manually purge an event while its provider call may still be active. Cancel it first. The encrypted URL remains personal data and must be covered by the same access, backup, and deletion controls as booking data.
 
 ### Queued operations and retry behavior
 

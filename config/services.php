@@ -9,12 +9,22 @@ return [
     'openwa' => [
         'enabled' => (bool) env('OPENWA_ENABLED', false),
         'apply_to_paid_sessions' => (bool) env('OPENWA_APPLY_TO_PAID_SESSIONS', false),
+        'rollout_stage' => env('OPENWA_ROLLOUT_STAGE', 'off'),
+        'rollout_customer_emails' => array_values(array_filter(array_map(static fn (string $email): string => strtolower(trim($email)), explode(',', (string) env('OPENWA_ROLLOUT_CUSTOMER_EMAILS', ''))))),
         'base_url' => env('OPENWA_BASE_URL'),
         'service_token' => env('OPENWA_SERVICE_TOKEN'),
         'connect_timeout' => (int) env('OPENWA_CONNECT_TIMEOUT', 5),
         'timeout' => (int) env('OPENWA_TIMEOUT', 30),
         'max_attempts' => (int) env('OPENWA_MAX_ATTEMPTS', 5),
         'retry_delays_seconds' => $openWaRetryDelays,
+        'monitor' => [
+            'stale_event_minutes' => (int) env('OPENWA_MONITOR_STALE_EVENT_MINUTES', 20),
+            'delivery_failure_window_minutes' => (int) env('OPENWA_MONITOR_DELIVERY_FAILURE_WINDOW_MINUTES', 30),
+            'queue_backlog_threshold' => (int) env('OPENWA_MONITOR_QUEUE_BACKLOG_THRESHOLD', 50),
+            'queue_oldest_age_minutes' => (int) env('OPENWA_MONITOR_QUEUE_OLDEST_AGE_MINUTES', 10),
+            'provider_error_threshold' => (int) env('OPENWA_MONITOR_PROVIDER_ERROR_THRESHOLD', 5),
+            'provider_error_window_minutes' => (int) env('OPENWA_MONITOR_PROVIDER_ERROR_WINDOW_MINUTES', 10),
+        ],
     ],
 
     'google_calendar' => [
