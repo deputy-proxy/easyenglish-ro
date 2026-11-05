@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+!.env.example
+data
+sessions
+profiles
+*.log
+npm-audit.json
+audit.json
