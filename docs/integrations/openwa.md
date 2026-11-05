@@ -6,7 +6,7 @@ This is a disposable, isolated proof of concept for testing native scheduled Wha
 
 The PoC runs as a separate Railway service, independent from the EasyEnglish website. The confirmed EasyEnglish plan is Hostinger Cloud Startup, which supports ordinary Node.js web applications but explicitly does not support always-running background workers/bots, Docker, or additional services. OpenWA requires a persistent WhatsApp Web session and a Chromium process, so Cloud Startup is not a supported runtime. Keep Laravel and the public website on Cloud Startup; run OpenWA in a dedicated Railway project with a persistent volume. The PoC uses its own service lifecycle, separate private session-data and encryption-key directories on the volume, and an authenticated HTTPS pairing interface. It must not share Laravel's document root or connect to Laravel booking traffic.
 
-The PoC requires three distinct non-production WhatsApp accounts:
+The eventual real-device acceptance requires three distinct non-production WhatsApp accounts:
 
 1. OpenWA creator/sender, paired to the service.
 2. Customer test recipient, receiving the native event invitation.
@@ -45,7 +45,7 @@ The package lock includes two reviewed npm overrides:
 - `basic-ftp@6.2.6` addresses the upstream high-severity directory-listing denial-of-service advisory in the version range used by the OpenWA dependency tree.
 - `image-size@2.0.4` addresses the upstream high-severity ICNS parser denial-of-service advisory in the version range used by the OpenWA dependency tree.
 
-After those overrides, `npm audit` reports zero high/critical findings and seven low findings. The remaining low finding is prototype poisoning in `deepmerge` (pulled in through `puppeteer-extra`). No user-supplied objects are passed to that merge path in this PoC, but the residual finding must remain documented and reviewed before enabling the service. Do not run `npm audit fix --force`: it proposes a major downgrade of OpenWA to v4.76.0 and would invalidate the v5 API validation.
+After those overrides, `npm audit --audit-level=high` passes with zero high/critical findings and seven low findings. The remaining low finding is prototype poisoning in `deepmerge` (pulled in through `puppeteer-extra`). No user-supplied objects are passed to that merge path in this PoC, but the residual finding must remain documented and reviewed before enabling the service. Do not run `npm audit fix --force`: it proposes a major downgrade of OpenWA to v4.76.0 and would invalidate the v5 API validation.
 
 OpenWA is an unofficial WhatsApp Web automation package. Its use can violate or conflict with WhatsApp's terms and can result in account restrictions. A dedicated disposable account is mandatory. The dependency audit is not a guarantee that the package is safe.
 
@@ -73,7 +73,7 @@ Deploy this PoC as a dedicated Railway service in a separate project named `easy
 - The Docker image installs Debian Chromium and `zstd`; `OPENWA_CHROME_EXECUTABLE` points to `/usr/bin/chromium`. The service listens on Railway's injected `PORT` (8080 in this deployment), and the generated domain must target that same port.
 - The service must remain continuously running. Do not configure a Railway cron schedule or serverless sleep.
 - Railway's container runtime blocks the Linux namespaces Chromium needs for its normal sandbox. The deployed PoC therefore uses `OPENWA_CHROME_NO_SANDBOX=true`, which passes Chromium's `--no-sandbox` and `--disable-setuid-sandbox` flags. The process still runs as the unprivileged `node` user, not root. This weakens browser isolation and is accepted only for this disposable, authenticated PoC. Do not expose browser debugging ports, do not use production WhatsApp/customer data, and do not treat this configuration as approved for a production integration. Reassess the browser isolation model before any production use.
-- A successful local or sandbox preflight does not prove Railway compatibility. The preflight must pass in the deployed Railway container, under the unprivileged `node` user, before pairing.
+- A successful local or sandbox preflight does not prove Railway compatibility. The preflight must pass in the deployed Railway container, under the unprivileged `node` user, before pairing. The Railway service is currently deployed successfully, but available runtime logs do not show explicit preflight output, so deployed-container preflight remains unverified.
 
 ## Security controls
 
@@ -111,4 +111,4 @@ Deploy this PoC as a dedicated Railway service in a separate project named `easy
 
 ## Decision status
 
-**Pending. No GO decision has been made.** Automated tests and package API inspection are not substitutes for the required Hostinger deployment and real-device evidence. Do not start production service implementation or connect OpenWA to booking traffic until issue #209's acceptance criteria have been completed and the product owner has approved the decision.
+**Technical discovery complete; final GO/NO-GO remains pending.** Automated tests and package API inspection support downstream implementation behind a provider adapter, fake provider, and disabled feature flag. Real-device and assembled booking-journey validation is deferred to issue #220. Do not enable real customer traffic or treat this PoC as production-approved before #220 passes and the product owner explicitly approves rollout.
