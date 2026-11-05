@@ -5,7 +5,7 @@ This guide describes the supported deployment shape for Easy English's Laravel 1
 ## Runtime requirements
 
 - PHP 8.4+ with the extensions required by `composer check-platform-reqs` for the locked dependencies. In particular, verify `ctype`, `curl`, `dom`, `fileinfo`, `filter`, `hash`, `intl`, `mbstring`, `openssl`, `PDO`, the selected PDO database driver, `session`, `tokenizer`, `xml`, and `zip` against the actual hosting runtime.
-- Composer 2 and Node.js 22/npm for building assets during deployment. Node is a build-time requirement; production serves the compiled files in `public/build`.
+- Composer 2 and Node.js 22/npm for building Laravel assets during deployment. For Laravel itself, Node is a build-time requirement and production serves compiled files in `public/build`. The separately approved OpenWA proof of concept is a distinct Node.js runtime application; see the [OpenWA PoC deployment and security runbook](../integrations/openwa.md).
 - MySQL/MariaDB for production, unless a deliberate deployment decision establishes another supported database. SQLite is the local/test default only.
 - Writable `storage/` and `bootstrap/cache/` directories; HTTPS; a valid application key; and a database user limited to the application database.
 
@@ -145,7 +145,7 @@ The proposed 12-month session-goal/notes anonymization command is `php artisan b
 - Use verified provider signatures for webhooks, not browser authentication. Rate-limit public endpoints and make webhook/job processing idempotent.
 - Keep production Stripe and WhatsApp secrets out of CI, source control, screenshots, and logs. Test with fakes/mocks or provider test mode.
 - Before launch, complete the security review, privacy/retention policy, Romanian tax/invoicing review, SMTP verification, WhatsApp setup/live tests, and the [launch checklist](../operations/launch-checklist.md) when available.
-See [the WhatsApp integration runbook](../integrations/whatsapp.md) before configuring Meta credentials. See the [staff runbook](../operations/staff-runbook.md) for routine operations and the [launch checklist](../operations/launch-checklist.md) for release gates. Keep `WHATSAPP_ENABLED=false` until approved templates, webhook signatures, opt-in/opt-out behavior, and live delivery are verified.
+See [the WhatsApp integration runbook](../integrations/whatsapp.md) before configuring Meta credentials. The isolated OpenWA scheduled-call experiment is documented separately in [the OpenWA integration runbook](../integrations/openwa.md); it must not be embedded in Laravel or connected to booking traffic before the #209 acceptance gate passes. See the [staff runbook](../operations/staff-runbook.md) for routine operations and the [launch checklist](../operations/launch-checklist.md) for release gates. Keep `WHATSAPP_ENABLED=false` until approved templates, webhook signatures, opt-in/opt-out behavior, and live delivery are verified.
 
 ## Security and access-control baseline
 

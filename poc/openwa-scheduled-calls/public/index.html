@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EasyEnglish OpenWA PoC</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<h1>EasyEnglish OpenWA proof of concept</h1>
+<p>Temporary isolated test service. Use only the dedicated test account and two separate participant accounts.</p>
+<section>
+<h2>1. Pair the dedicated OpenWA account</h2>
+<p id="status">Checking service status…</p>
+<img id="qr" alt="WhatsApp pairing QR code" hidden>
+<p>On the dedicated test phone: WhatsApp → Linked devices → Link a device → scan this QR code.</p>
+</section>
+<section>
+<h2>2. Create a 15-minute scheduled video-call event</h2>
+<form id="eventForm">
+<label for="customer">Customer test account phone (E.164)</label>
+<input id="customer" placeholder="+407xxxxxxxx" required pattern="\+[1-9][0-9]{7,14}">
+<label for="teacher">Teacher test account phone (E.164)</label>
+<input id="teacher" placeholder="+407xxxxxxxx" required pattern="\+[1-9][0-9]{7,14}">
+<label for="startAt">Future start time with Europe/Bucharest offset</label>
+<input id="startAt" type="text" placeholder="2026-11-06T10:00:00+02:00" required pattern="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}">
+<p>Enter ISO 8601 time with the correct Bucharest offset (+02:00 in winter, +03:00 in summer). This avoids browser-local timezone conversion.</p>
+<button type="submit">Create scheduled event and send teacher link</button>
+</form>
+<pre id="result" aria-live="polite"></pre>
+</section>
+<script src="/app.js" defer></script>
+</body>
+</html>

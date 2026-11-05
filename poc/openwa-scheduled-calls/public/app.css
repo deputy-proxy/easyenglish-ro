@@ -1,0 +1,8 @@
+body{font:16px system-ui;max-width:680px;margin:40px auto;padding:0 18px;color:#17202a}
+section{border:1px solid #ddd;border-radius:12px;padding:18px;margin:18px 0}
+label{display:block;margin:12px 0 4px}
+input{width:100%;box-sizing:border-box;padding:10px;border:1px solid #aaa;border-radius:6px}
+button{padding:10px 16px;margin-top:14px;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+#qr{max-width:300px;width:100%;display:block}
+pre{white-space:pre-wrap;overflow-wrap:anywhere}
