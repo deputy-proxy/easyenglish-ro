@@ -22,7 +22,7 @@ Validation errors return HTTP 422 and are rendered into an accessible `role=aler
 
 Accounts with two-factor authentication receive HTTP 409 with a redirect to the existing Fortify challenge. The intended URL preserves the selected slot and the session preserves the chosen locale. After the challenge, the learner returns to the landing-page booking panel, not the dashboard. Contact verification uses authenticated, CSRF-protected JSON endpoints from the same panel; the response replaces only the booking step and refreshes its CSRF token.
 
-Authentication does not reserve the selected slot or decide free-session eligibility. The booking domain revalidates the slot and account eligibility on final submission. An expired/unavailable slot returns a field error and the learner can choose another time. Only after the server confirms a booking or determines that the free offer has already been used does the flow navigate to the booking confirmation or the applicable bundle path.
+Authentication does not reserve the selected slot or decide free-session eligibility. The booking domain revalidates the slot and account eligibility on final submission. An expired/unavailable slot returns a field error and the learner can choose another time. A confirmed booking redirects to the authenticated dashboard with a confirmation status; login or registration alone never triggers that redirect. If the free offer has already been used, the learner follows the separate bundle-selection and checkout path.
 
 A paid-bundle booking requires a valid active entitlement, sufficient credits, matching customer contact details, and an appointment start before bundle expiry. The booking service holds the slot transactionally and the already-paid bundle booking is confirmed through the domain service. The confirmation URL is signed and contains only a public reference.
 
@@ -42,6 +42,10 @@ The booking form links to public privacy and cancellation pages and displays the
 
 After login, the learner sees Overview, Calendar, and Progress views. Overview shows upcoming sessions, active bundles, and remaining credits. Calendar loads the same server-generated weekly availability and routes the selected slot back through the existing booking service. Progress shows feedback cards for vocabulary, pronunciation, fluency, grammar, confidence, and any other configured metric; the teacher records baseline, current, and potential scores plus feedback through the Filament Session Feedback resource. Free-introduction-only users see potential development, while bundle users see recorded development and potential.
 
+A confirmed booking redirects to the dashboard only after the booking transaction commits. The upcoming-session card displays the current OpenWA call-link state: not yet started, pending, ready, or failed. A ready link is opened through the authenticated `booking.call-join` route, which rechecks customer/assigned-teacher authorization and the latest booking revision before redirecting to WhatsApp. The join URL is not embedded in dashboard HTML or general booking serialization. Dashboard and join responses are `private, no-store` and use `Referrer-Policy: no-referrer`. Pending or failed call setup never rolls back the confirmed booking; a terminal failure creates a staff alert and the dashboard tells the learner the team will contact them. When OpenWA is disabled and no event exists, the dashboard does not claim a link is ready.
+
+For bundle checkout, only a verified Stripe state activates the entitlement. A pending payment remains pending, a failed or cancelled checkout returns to the purchase page, and a verified success returns the signed-in learner to the dashboard. A browser return URL alone never grants credits.
+
 ## User states
 
 - Availability loading, no times for a day, and load failure.
@@ -49,8 +53,10 @@ After login, the learner sees Overview, Calendar, and Progress views. Overview s
 - Expired or exhausted bundle entitlement.
 - Inline free-introduction contact verification, channel skipping for matching verified account contacts, and read-only email-OR-phone eligibility; incomplete, expired, mismatched, or already-used verification creates no booking or slot hold.
 - Checkout not yet enabled; no order or charge is created.
-- Confirmed booking with a signed reference URL.
+- Confirmed booking redirected to the authenticated dashboard, with call-link state shown independently from booking status.
+- Pending, ready, failed, and not-yet-started call-link states; only the current event revision can be opened.
+- Bundle checkout cancelled, pending, failed, or webhook-confirmed; only webhook/provider reconciliation activates credits.
 
 ## Dependencies / launch gates
 
-Stripe Checkout, transactional email, the WhatsApp Cloud API adapter/outbox, and the email-link/WhatsApp OTP verification flow are implemented. Live SMTP/domain authentication, Meta account/template approval (including the one-parameter `contact_verification` template), and live webhook/delivery verification must be configured before launch. See [verification integration documentation](../integrations/verification.md). The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms.
+Stripe Checkout, transactional email, the WhatsApp Cloud API adapter/outbox, and the email-link/WhatsApp OTP verification flow are implemented. Live SMTP/domain authentication, Meta account/template approval (including the one-parameter `contact_verification` template), and live webhook/delivery verification must be configured before launch. See [verification integration documentation](../integrations/verification.md). The public site must not treat a browser redirect as payment proof or mark unverified contacts as verified. Before launch, complete those integrations and obtain legal review of the privacy and customer terms. The final assembled-system and real-device acceptance matrix is maintained in [public booking journey acceptance](../testing/public-booking-journey-acceptance.md); staging pairing, Android/iOS join tests, backup restore, and explicit product/operations GO remain mandatory before production rollout.

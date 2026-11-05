@@ -81,6 +81,26 @@ class Booking extends Model
         return $this->hasMany(BookingCallEvent::class);
     }
 
+    public function currentCallEvent(): ?BookingCallEvent
+    {
+        $events = $this->relationLoaded('callEvents')
+            ? $this->getRelation('callEvents')->where('provider', 'openwa')
+            : $this->callEvents()->where('provider', 'openwa')->get();
+
+        $latest = $events->sortByDesc('revision')->first();
+
+        if (! $latest instanceof BookingCallEvent
+            || $latest->provider !== 'openwa'
+            || $latest->revision !== ((int) $this->reschedule_count + 1)
+            || $latest->teacher_id !== $this->teacher_id
+            || ! $latest->scheduled_start_at->equalTo($this->starts_at)
+            || ! $latest->scheduled_end_at->equalTo($this->ends_at)) {
+            return null;
+        }
+
+        return $latest;
+    }
+
     /** @return HasMany<BookingAudit, $this> */
     public function audits(): HasMany
     {

@@ -57,7 +57,7 @@
                 <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h2><a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_calendar') }} →</a></div>
                 @forelse ($bookings as $booking)
                     <div class="mt-4 flex flex-col gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
-                        <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $booking->session_goal }}</p></div>
+                        <div class="min-w-0 flex-1"><p class="font-semibold text-zinc-900 dark:text-white">{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $booking->session_goal }}</p>@include('public.dashboard-call-link', ['booking' => $booking])</div>
                         <span class="w-fit rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{{ __( 'public.booking_status_'.$booking->status, [], app()->getLocale()) === 'public.booking_status_'.$booking->status ? ucfirst(str_replace('_', ' ', $booking->status)) : __('public.booking_status_'.$booking->status) }}</span>
                     </div>
                 @empty
@@ -117,7 +117,7 @@
                 @endif
                 <h3 class="mt-8 text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h3>
                 @forelse ($bookings as $booking)
-                    <div class="mt-3 flex flex-wrap justify-between gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800"><span>{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</span><span class="text-sm text-zinc-500">{{ $booking->session_goal }}</span></div>
+                    <div class="mt-3 flex flex-wrap justify-between gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800"><div><span>{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</span><p class="text-sm text-zinc-500">{{ $booking->session_goal }}</p>@include('public.dashboard-call-link', ['booking' => $booking])</div></div>
                 @empty
                     <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_upcoming') }}</p>
                 @endforelse
