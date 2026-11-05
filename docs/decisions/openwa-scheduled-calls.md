@@ -12,9 +12,14 @@ The product requirement is a 15-minute introductory session. A customer and assi
 
 ## Approved deployment boundary
 
-The disposable PoC is approved to run as a separate Node.js application on the existing EasyEnglish Hostinger production server. It must use a temporary HTTPS subdomain, independent process lifecycle, separate private persistent encrypted session-data and encryption-key storage, an ephemeral browser profile, and a protected pairing interface. It must not run inside Laravel, share Laravel's document root, or connect to booking traffic.
+The EasyEnglish production website runs on Hostinger Cloud Startup. Hostinger confirms that managed Web/Cloud Node.js hosting does not support always-running background workers/bots, Docker, or additional services. Since OpenWA requires a persistent WhatsApp Web session and Chromium, Cloud Startup is not an approved runtime. Keep Laravel on Cloud Startup and deploy the disposable PoC as a separate Railway service in a dedicated `easyenglish-openwa` project. The Railway service uses a Docker image with Chromium and zstd, a single replica, and a persistent volume for encrypted session state. It must not run inside Laravel, share Laravel's document root, or connect to booking traffic.
 
 Only three distinct non-production WhatsApp accounts may be used: paired creator, customer recipient, and teacher participant.
+
+## Hosting evidence
+
+- [Hostinger Node.js limits for Web and Cloud plans](https://www.hostinger.com/support/hostinger-node-js-limits-for-web-and-cloud-plans/) state that always-running background workers/bots, custom ports, Docker, and additional services are not supported on managed Web/Cloud plans.
+- [Hostinger Node.js hosting options](https://www.hostinger.com/support/node-js-hosting-options-at-hostinger/) distinguishes managed Web/Cloud apps from VPS deployments. Railway is selected here to host the isolated persistent Node.js/Chromium service.
 
 ## Technical evidence
 
@@ -39,11 +44,11 @@ Do not use `npm audit fix --force`; it proposes downgrading OpenWA to v4.76.0, w
 - OpenWA 5.10.0 import and `create` export verified in the development sandbox.
 - Twenty-six Node tests pass.
 - API type declarations inspected for event creation, retrieval, cancellation, and session encryption configuration.
-- The actual Hostinger runtime and browser sandbox have not yet been tested.
+- The actual Railway container runtime and browser sandbox have not yet been tested.
 
 ## Outstanding evidence
 
-- Hostinger preflight for Node, Chrome/Chromium sandbox, zstd, and persistent storage.
+- Railway container preflight for Node, Chromium sandbox, zstd, and persistent volume storage.
 - Authenticated QR pairing using the dedicated creator account.
 - Session restore after process restart.
 - Native customer event invitation and event metadata.
