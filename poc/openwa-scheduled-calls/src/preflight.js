@@ -16,7 +16,8 @@ async function executable(command) {
 }
 async function checkBrowser(binary) {
   try {
-    const result = await execFileAsync(binary, ['--headless', '--disable-gpu', '--dump-dom', 'about:blank'], { timeout: 20000, maxBuffer: 1024 * 1024 });
+    const args = ['--headless', '--disable-gpu', ...(process.env.OPENWA_CHROME_NO_SANDBOX === 'true' ? ['--no-sandbox', '--disable-setuid-sandbox'] : []), '--dump-dom', 'about:blank'];
+    const result = await execFileAsync(binary, args, { timeout: 20000, maxBuffer: 1024 * 1024 });
     return result.stdout.includes('<html') || result.stdout.includes('<HTML');
   } catch (error) {
     console.error('Browser launch failed: ' + error.message.split('\n')[0]);
@@ -57,6 +58,7 @@ async function main() {
 
   const chrome = (config && config.chromeExecutable) || await executable('google-chrome') || await executable('chromium') || await executable('chromium-browser') || await executable('chrome');
   console.log('Chrome/Chromium: ' + (chrome || 'not found'));
+  console.log('Chrome sandbox: ' + (process.env.OPENWA_CHROME_NO_SANDBOX === 'true' ? 'disabled for restricted container runtime' : 'enabled'));
   if (!chrome) failures.push('Install Chrome/Chromium or set OPENWA_CHROME_EXECUTABLE to its absolute path.');
   else if (!(await checkBrowser(chrome))) failures.push('Chrome/Chromium could not launch headlessly with its current sandbox configuration.');
 

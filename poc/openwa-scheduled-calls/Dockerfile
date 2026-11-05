@@ -8,6 +8,7 @@ ENV NODE_ENV=production \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
+    chromium-sandbox \
     ca-certificates \
     fonts-liberation \
     gosu \
@@ -21,6 +22,6 @@ COPY --chown=node:node . .
 COPY docker-entrypoint.sh /usr/local/bin/openwa-entrypoint
 RUN chmod 0755 /usr/local/bin/openwa-entrypoint
 
-EXPOSE 3100
+EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/openwa-entrypoint"]
 CMD ["node", "src/server.js"]
