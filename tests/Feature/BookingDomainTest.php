@@ -17,6 +17,7 @@ use App\Services\Booking\BookingService;
 use App\Services\Booking\BundleEntitlementService;
 use App\Services\Booking\CancellationPolicyService;
 use App\Services\Booking\PaymentStateService;
+use App\Services\Verification\FreeSessionEligibilityService;
 use Carbon\CarbonImmutable;
 use Filament\Panel;
 use Illuminate\Support\Facades\Queue;
@@ -146,6 +147,67 @@ test('free introduction requires verified contact details and only one claim per
     expect(fn () => $service->holdSlot(bookingCustomer(['email' => 'another@example.com']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
     expect(fn () => $service->holdSlot(bookingCustomer(['email' => 'third@example.com', 'phone' => '0722 123 456']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
     expect(fn () => $service->holdSlot(bookingCustomer(['email' => 'invalid-phone@example.com', 'phone' => '-------']), $start->addMinutes(30), null, true, true, true))->toThrow(ValidationException::class);
+});
+
+test('final booking transaction rechecks eligibility after two earlier preflight reads', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day);
+    $eligibility = app(FreeSessionEligibilityService::class);
+    $firstCustomer = bookingCustomer();
+    $secondCustomer = bookingCustomer(['email' => 'second-person@example.com']);
+
+    expect($eligibility->check($firstCustomer['email'], $firstCustomer['phone'])['eligible'])->toBeTrue()
+        ->and($eligibility->check($secondCustomer['email'], $secondCustomer['phone'])['eligible'])->toBeTrue();
+
+    app(BookingService::class)->holdSlot(
+        $firstCustomer,
+        CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'),
+        null,
+        true,
+        true,
+        true,
+    );
+
+    expect(fn () => app(BookingService::class)->holdSlot(
+        $secondCustomer,
+        CarbonImmutable::parse('2026-10-27 09:30', 'Europe/Bucharest'),
+        null,
+        true,
+        true,
+        true,
+    ))->toThrow(ValidationException::class);
+
+    expect(FreeSessionClaim::query()->count())->toBe(1)
+        ->and(Booking::query()->count())->toBe(1);
+});
+
+test('a reusable teacher-cancelled claim cannot override another non-reusable email-or-phone claim', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day);
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'shared-email@example.com',
+        'customer_phone' => '+40722123456',
+        'status' => 'teacher_cancelled',
+        'verified_at' => now(),
+    ]);
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'shared-email@example.com',
+        'customer_phone' => '+40722123457',
+        'status' => 'used',
+        'verified_at' => now(),
+        'used_at' => now(),
+    ]);
+
+    expect(fn () => app(BookingService::class)->holdSlot(
+        bookingCustomer(['email' => 'shared-email@example.com', 'phone' => '+40722123456']),
+        CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest'),
+        null,
+        true,
+        true,
+        true,
+    ))->toThrow(ValidationException::class);
+
+    expect(Booking::query()->count())->toBe(0);
 });
 
 test('bundle activation grants credits for three calendar months and respects the shared free offer', function () {

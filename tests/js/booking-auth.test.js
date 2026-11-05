@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { submitBookingAuthForm } from '../../resources/js/booking/booking-auth.js';
+import { requiresPhoneReverification } from '../../resources/js/booking/phone-change.js';
 
 function makeForm() {
     const button = {
@@ -75,6 +76,28 @@ test('exposes an accessible loading state and disables the submit button while t
     await pending;
     assert.equal(form.button.disabled, false);
     assert.equal(form.attributes['aria-busy'], undefined);
+});
+
+test('submits the clicked inline verification action instead of the form default action', async () => {
+    const form = makeForm();
+    form.action = '/book';
+    form.method = 'post';
+    const submitter = Object.assign(form.button, { formAction: '/verification/phone', formMethod: 'post' });
+    let request;
+    let submittedBy;
+
+    await submitBookingAuthForm(form, {
+        submitter,
+        formDataFactory: (target, button) => { submittedBy = button; return { form: target }; },
+        fetcher: async (url, options) => {
+            request = { url, ...options };
+            return response(200, { status: 'eligible', next_step: 'eligible', html: '<form></form>' });
+        },
+    });
+
+    assert.equal(request.url, '/verification/phone');
+    assert.equal(request.method, 'POST');
+    assert.equal(submittedBy, submitter);
 });
 
 test('renders validation failures without navigating away', async () => {
@@ -158,4 +181,33 @@ test('prevents duplicate submissions while a previous request is pending', async
     const result = await submitBookingAuthForm(form, { fetcher: async () => { fetchCount++; } });
     assert.equal(result.status, 'already_submitting');
     assert.equal(fetchCount, 0);
+});
+
+
+test('requires phone reverification only when a verified WhatsApp contact changes', () => {
+    assert.equal(requiresPhoneReverification('+40 722 123 456', '+40722123456', { contactsVerified: true, emailOnly: false }), false);
+    assert.equal(requiresPhoneReverification('+40722123457', '+40722123456', { contactsVerified: true, emailOnly: false }), true);
+    assert.equal(requiresPhoneReverification('+40722123457', '+40722123456', { contactsVerified: true, emailOnly: true }), false);
+    assert.equal(requiresPhoneReverification('+40722123457', '+40722123456', { contactsVerified: false, emailOnly: false }), false);
+});
+
+test('preserves structured verification error states from the server', async (t) => {
+    const cases = [
+        [422, { status: 'expired', message: 'Expired.', errors: { challenge: ['Expired.'] } }, 'expired'],
+        [422, { status: 'invalid_code', message: 'Invalid code.', errors: { phone_code: ['Invalid code.'] } }, 'invalid_code'],
+        [422, { status: 'attempts_locked', message: 'Locked.', errors: { phone_code: ['Locked.'] } }, 'attempts_locked'],
+        [429, { status: 'resend_wait', message: 'Wait.' }, 'resend_wait'],
+        [503, { status: 'delivery_failed', message: 'Delivery failed.' }, 'delivery_failed'],
+    ];
+
+    for (const [status, payload, expected] of cases) {
+        await t.test(expected, async () => {
+            const result = await submitBookingAuthForm(makeForm(), {
+                formDataFactory: () => ({}),
+                fetcher: async () => response(status, payload),
+            });
+            assert.equal(result.status, expected);
+            assert.equal(result.message, payload.message);
+        });
+    }
 });

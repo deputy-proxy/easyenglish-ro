@@ -2,28 +2,32 @@
 
 ## Purpose and policy
 
-The standalone 15-minute free introductory session requires verification of both the customer's email address and WhatsApp phone number before a booking is created. This is a guest flow; customers do not need to create an account. Paid bundle checkout remains a separate path and does not require attending or claiming the free session first. The included free bundle credit is governed by the shared free-session eligibility rules.
+The standalone 15-minute free introductory session requires an authenticated learner account and verification of every contact channel required by the active configuration before booking. The default mode requires both the account email address and WhatsApp phone number; `email_only` requires only the account email. Verification is completed in the landing-page booking panel. Paid bundle checkout remains a separate path and does not require claiming the standalone free offer first. The included free bundle credit is governed by the same shared free-session claim rules.
 
 Verification messages are transactional only. The WhatsApp service-message consent checkbox remains separate from marketing consent. A submitted contact value, a sent/queued message, or a provider's acceptance response is not proof of ownership.
 
 ## Email flow
 
-1. The customer enters an email and phone number on the free booking form and requests verification.
-2. The application creates a 30-minute challenge and emails a six-digit code plus a single-use backup link.
+1. The learner signs in or creates an account, then enters or confirms the phone number in the booking panel. The email address is taken from the authenticated account and cannot be substituted in the verification request.
+2. The application creates a 30-minute challenge and emails a six-digit code plus a single-use backup link only when the account email is not already verified.
 3. The email code is stored as an HMAC, expires with the challenge, and allows at most five incorrect attempts.
-4. The code confirmation endpoint checks the session-bound challenge, expiry, code hash, and single-use state before setting `email_verified_at`. The signed backup link remains available if needed.
-5. The customer returns to the form to finish the WhatsApp step.
+4. The JSON confirmation endpoint checks the authenticated account, session-owned challenge, current contact values, expiry, code hash, and single-use state before setting `email_verified_at`. The signed backup link is also bound to the authenticated account and challenge in the same browser session.
+5. The updated server-rendered booking step is returned in JSON; the learner stays on the landing page and proceeds to any remaining required channel.
 
 ## WhatsApp phone flow
 
-1. The application sends a six-digit OTP using the configured WhatsApp Cloud API Authentication template `easyenglish_activation`. Email delivery independently sends a separate six-digit OTP.
+1. The application sends a six-digit OTP using the configured WhatsApp Cloud API Authentication template `easyenglish_activation` only when the submitted phone is not already verified on the account. An already-verified phone is skipped only when its normalized value exactly matches the current submitted number.
 2. The challenge stores an HMAC of the OTP, not the code itself. The OTP expires with the 30-minute challenge.
-3. A maximum of five incorrect attempts is allowed. The code is single-use. The request endpoint has an IP throttle, a per-contact hourly limit, and a 60-second resend cooldown.
-4. Provider acceptance is not treated as verification; only a correct code submitted by the customer sets `phone_verified_at`.
+3. A maximum of five incorrect attempts is allowed. The code is single-use. The request endpoint has an IP throttle, per-account and per-contact hourly limits, and a 60-second resend cooldown.
+4. Provider acceptance is not treated as verification; only a correct code submitted by the authenticated learner sets `phone_verified_at` and updates the account phone to the verified normalized value.
 
 ## Booking enforcement
 
-The booking submission validates the challenge ID, expiry, completion state, email, and normalized phone number on the server. The booking service independently requires both verification flags for the standalone free offer and serializes booking/claim mutations using the existing booking mutex. The existing shared free-session claim prevents the same email or phone from claiming the free offer more than once. No booking or slot hold is created when verification is missing, invalid, expired, or mismatched.
+All start/confirm endpoints require an authenticated session, CSRF protection, per-IP throttling, and a challenge ID stored in that session. The challenge email must match the authenticated account; confirmation also checks the current submitted phone against the challenge phone. A changed phone cannot reuse the previous challenge and must be verified again. Starting a replacement challenge invalidates any other active challenge for that account, including one issued to an earlier phone number. The email and phone channels already verified on the account are skipped only when their current values still match.
+
+After the required channels are verified, the application performs a read-only eligibility lookup against `FreeSessionClaim`, matching normalized email **OR** normalized phone. A claim is reusable only when its status is `teacher_cancelled` and it has no booking, matching the existing `BookingService` exception. The response reveals only `eligible` or `already_used`; it does not disclose another account or claim. The lookup creates no booking, slot hold, teacher assignment, or claim.
+
+The verification JSON endpoints return a server-rendered booking step and one of `verification_required`, `eligible`, or `already_used`. Error responses have explicit states for `invalid_code`, `expired`, `challenge_used`, `already_verified`, `attempts_locked`, `resend_wait`, `rate_limited`, `contact_changed`, and `delivery_failed`, with localized messages and field errors. The browser keeps the current step and selected slot in place. If a learner edits an already-verified WhatsApp number, the client hides the final booking action and requires consent plus a new OTP before continuing. The learner must explicitly submit the booking form after eligibility is confirmed. Final booking creation independently rechecks channel verification and the shared email-OR-phone claim inside the existing booking mutex/transaction, so a stale eligibility response cannot bypass a concurrent claim. No booking or slot hold is created when verification is missing, invalid, expired, mismatched, or the offer has already been claimed.
 
 ## Required configuration
 
@@ -44,4 +48,6 @@ Verification challenges expire after 30 minutes. Do not log tokens, OTPs, email 
 - [ ] Approve and configure the WhatsApp verification template in Romanian and English.
 - [ ] Confirm delivery and OTP entry on real devices, including expired codes, incorrect codes, resend cooldowns and provider outages.
 - [ ] Confirm production mail and WhatsApp secrets are present without printing them in logs.
-- [ ] Run the complete automated test suite and verify the free booking cannot be created before both checks pass.
+- [ ] Run the complete automated test suite and verify the free booking cannot be created before every required channel is verified.
+- [ ] Verify the inline JSON flow stays on the landing page, skips only matching verified account contacts, and performs a read-only eligibility check.
+- [ ] Verify eligibility checks create no booking, slot hold, teacher assignment, or free-session claim, and that final booking creation rechecks eligibility transactionally.
