@@ -1,7 +1,8 @@
 export async function submitBookingAuthForm(form, {
     fetcher = (...args) => globalThis.fetch(...args),
     csrfToken = globalThis.document?.querySelector('meta[name="csrf-token"]')?.content ?? '',
-    formDataFactory = (target) => new globalThis.FormData(target),
+    formDataFactory = (target, submitter) => submitter ? new globalThis.FormData(target, submitter) : new globalThis.FormData(target),
+    submitter = null,
     onState = () => {},
     onSuccess = () => {},
     onError = () => {},
@@ -11,7 +12,7 @@ export async function submitBookingAuthForm(form, {
         return { status: 'already_submitting' };
     }
 
-    const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+    const submitButton = submitter ?? form.querySelector('button[type="submit"], input[type="submit"]');
     const wasDisabled = submitButton?.disabled ?? false;
 
     form.dataset.submitting = 'true';
@@ -25,9 +26,11 @@ export async function submitBookingAuthForm(form, {
     onState('submitting');
 
     try {
-        const response = await fetcher(form.action, {
-            method: 'POST',
-            body: formDataFactory(form),
+        const action = submitter?.formAction || form.action;
+        const method = submitter?.formMethod || form.method || 'POST';
+        const response = await fetcher(action, {
+            method: method.toUpperCase(),
+            body: formDataFactory(form, submitter),
             credentials: 'same-origin',
             headers: {
                 Accept: 'application/json',
@@ -55,7 +58,7 @@ export async function submitBookingAuthForm(form, {
         }
 
         if (response.status === 429) {
-            const result = { status: 'rate_limited', message: payload?.message };
+            const result = { ...(payload ?? {}), status: payload?.status ?? 'rate_limited', message: payload?.message };
             onState(result.status);
             onError(result);
 
@@ -70,7 +73,7 @@ export async function submitBookingAuthForm(form, {
         }
 
         if (response.status === 422) {
-            const result = { ...(payload ?? {}), status: 'validation_error' };
+            const result = { ...(payload ?? {}), status: payload?.status ?? 'validation_error' };
             onState(result.status);
             onError(result);
 
@@ -85,8 +88,8 @@ export async function submitBookingAuthForm(form, {
             return result;
         }
 
-        if (!response.ok || payload?.status !== 'authenticated' || typeof payload.html !== 'string') {
-            const result = { status: 'server_error', message: payload?.message };
+        if (!response.ok || typeof payload?.status !== 'string' || typeof payload.html !== 'string') {
+            const result = { ...(payload ?? {}), status: payload?.status ?? 'server_error', message: payload?.message };
             onState(result.status);
             onError(result);
 

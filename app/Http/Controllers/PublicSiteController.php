@@ -20,6 +20,7 @@ use App\Services\Booking\CancellationPolicyService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Progress\ProgressChartData;
 use App\Services\Verification\ContactVerificationService;
+use App\Services\Verification\FreeSessionEligibilityService;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -30,7 +31,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -38,7 +38,7 @@ use Illuminate\View\View;
 
 class PublicSiteController extends Controller
 {
-    public function home(Request $request): View
+    public function home(Request $request, FreeSessionEligibilityService $eligibilityService): View
     {
         $this->applyLocale($request);
 
@@ -52,11 +52,24 @@ class PublicSiteController extends Controller
             $verification = null;
         }
 
+        $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        $formData = $request->session()->get('contact_verification_form_data', []);
         $oldPhone = $request->old('phone');
+        $phone = is_string($oldPhone)
+            ? $oldPhone
+            : ($verification->customer_phone ?? (is_array($formData) && is_string($formData['phone'] ?? null) ? $formData['phone'] : (string) data_get($user, 'phone', '')));
+        $phoneAlreadyVerified = $user !== null && $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize($phone);
+        $whatsappConsent = $user !== null && WhatsAppContact::query()
+            ->where('phone', PhoneNumber::normalize($phone))
+            ->first()?->canReceiveServiceMessages() === true;
         $contactsVerified = $user !== null
             && $user->email_verified_at !== null
-            && $user->phone_verified_at !== null
-            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($oldPhone) ? $oldPhone : (string) $user->phone);
+            && ($emailOnly || $phoneAlreadyVerified);
+        $eligibilityPhone = $verification->customer_phone ?? $phone;
+        $eligibility = $contactsVerified
+            ? $eligibilityService->check((string) $user->email, $eligibilityPhone)
+            : null;
 
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
@@ -66,6 +79,10 @@ class PublicSiteController extends Controller
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
             'contactsVerified' => $contactsVerified,
             'verification' => $verification,
+            'eligibility' => $eligibility,
+            'phoneAlreadyVerified' => $phoneAlreadyVerified,
+            'whatsappConsent' => $whatsappConsent,
+            'bookingFormData' => $formData,
         ]);
     }
 
@@ -182,24 +199,50 @@ class PublicSiteController extends Controller
         ]);
     }
 
-    public function startContactVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
-    {
+    public function startContactVerification(
+        Request $request,
+        ContactVerificationService $verificationService,
+        FreeSessionEligibilityService $eligibilityService,
+    ): RedirectResponse|JsonResponse {
         $this->applyLocale($request);
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:254'],
             'phone' => ['required', 'string', 'max:32', 'regex:/^\\+?[0-9\\s().-]{7,32}$/'],
-            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'return_to' => ['required', 'in:booking,purchase'],
             'bundle_id' => ['nullable', 'integer', 'required_if:return_to,purchase'],
         ]);
-        $digits = preg_replace('/\D+/', '', $validated['phone']) ?? '';
+
+        $email = mb_strtolower(trim((string) $user->email));
+        if ($email !== mb_strtolower(trim($validated['email']))) {
+            $exception = ValidationException::withMessages(['email' => __('public.verification_contact_changed')]);
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
+            }
+            throw $exception;
+        }
+
+        $phone = PhoneNumber::normalize($validated['phone']);
+        $digits = preg_replace('/\\D+/', '', $validated['phone']) ?? '';
         if (strlen($digits) < 7 || strlen($digits) > 15) {
             throw ValidationException::withMessages(['phone' => __('public.phone_invalid')]);
         }
+
+        $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        $emailAlreadyVerified = $user->email_verified_at !== null;
+        $phoneAlreadyVerified = $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === $phone;
+
+        $hasWhatsAppConsent = WhatsAppContact::query()->where('phone', $phone)->first()?->canReceiveServiceMessages() === true;
+        $consent = $request->validate([
+            'whatsapp_service_consent' => [$emailOnly || $phoneAlreadyVerified || $hasWhatsAppConsent ? 'nullable' : 'accepted'],
+        ]);
+
         if ($validated['return_to'] === 'booking') {
             $request->validate([
                 'type' => ['required', 'in:intro'],
-                'name' => ['required', 'string', 'max:160'],
                 'starts_at' => ['required', 'date'],
                 'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
                 'session_goal' => ['required', 'string', 'max:500'],
@@ -207,17 +250,32 @@ class PublicSiteController extends Controller
                 'accepted_policy' => ['accepted'],
             ]);
         }
+
         $bundleId = null;
         if ($validated['return_to'] === 'purchase') {
             $bundle = BundleDefinition::query()->where('is_active', true)->findOrFail((int) $validated['bundle_id']);
             $bundleId = $bundle->id;
         }
+
+        if (($consent['whatsapp_service_consent'] ?? null) === '1') {
+            WhatsAppContact::recordConsent($phone, 'contact_verification');
+        }
+
         try {
-            if (($validated['whatsapp_service_consent'] ?? null) === '1') {
-                WhatsAppContact::recordConsent($validated['phone'], 'contact_verification');
-            }
-            $challenge = $verificationService->start($validated['email'], $validated['phone'], app()->getLocale(), $validated['return_to'], $bundleId);
+            $challenge = $verificationService->start(
+                $email,
+                $phone,
+                app()->getLocale(),
+                $validated['return_to'],
+                $bundleId,
+                $emailAlreadyVerified,
+                $phoneAlreadyVerified,
+            );
         } catch (ValidationException $exception) {
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
+            }
+
             throw $exception;
         } catch (\Throwable $exception) {
             $reason = $exception->getMessage();
@@ -231,137 +289,265 @@ class PublicSiteController extends Controller
                 'reason' => mb_substr($reason, 0, 500),
             ]);
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'status' => 'delivery_failed',
+                    'message' => __('public.verification_delivery_failed'),
+                ], 503);
+            }
+
             return back()->withInput()->withErrors(['verification' => __('public.verification_delivery_failed')]);
         }
+
         $request->session()->put('contact_verification_id', $challenge->id);
         $request->session()->put('contact_verification_form_data', $request->only([
-            'name', 'email', 'phone', 'english_level', 'session_goal', 'notes', 'starts_at',
-            'accepted_policy', 'whatsapp_service_consent', 'purchase_token', 'type', 'bundle_id', 'return_to',
+            'email', 'phone', 'english_level', 'session_goal', 'notes', 'starts_at',
+            'accepted_policy', 'whatsapp_service_consent', 'type', 'bundle_id', 'return_to',
         ]));
+        $request->session()->flash('_old_input', ['phone' => $phone]);
+
+        if ($request->expectsJson() && $validated['return_to'] === 'booking') {
+            $message = $challenge->isComplete()
+                ? __('public.verification_all_complete')
+                : __('public.verification_sent');
+
+            return $this->bookingVerificationStepResponse($request, $challenge, $eligibilityService, $message);
+        }
 
         return back()->withInput()->with('status', __('public.verification_sent'));
     }
 
-    private function completeVerifiedFreeBooking(Request $request, ContactVerificationChallenge $challenge, AvailabilityService $availability, BookingService $bookings): ?RedirectResponse
-    {
-        if ($challenge->return_to !== 'booking' || ! $challenge->isComplete() || ! $request->user()) {
-            return null;
-        }
-
-        $form = $request->session()->get('contact_verification_form_data');
-        if (! is_array($form) || ! is_string($form['starts_at'] ?? null) || ! is_string($form['accepted_policy'] ?? null)) {
-            return null;
-        }
-
-        $validated = Validator::make($form, [
-            'name' => ['required', 'string', 'max:160'],
-            'email' => ['required', 'email', 'max:254'],
-            'phone' => ['required', 'string', 'max:32'],
-            'type' => ['required', 'in:intro'],
-            'starts_at' => ['required', 'date'],
-            'english_level' => ['required', 'in:A1,A2,B1,B2,C1,C2'],
-            'session_goal' => ['required', 'string', 'max:500'],
-            'notes' => ['nullable', 'string', 'max:5000'],
-            'accepted_policy' => ['accepted'],
-        ])->validate();
-
-        if (mb_strtolower($request->user()->email) !== $challenge->customer_email
-            || PhoneNumber::normalize($validated['phone']) !== $challenge->customer_phone) {
-            throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
-        }
-
-        try {
-            $startsAt = CarbonImmutable::parse($validated['starts_at'], AvailabilityService::TIMEZONE);
-            $availability->assertBookable($startsAt);
-            $booking = $bookings->holdSlot([
-                'name' => $request->user()->name,
-                'email' => $request->user()->email,
-                'phone' => $challenge->customer_phone,
-                'english_level' => $validated['english_level'],
-                'session_goal' => $validated['session_goal'],
-                'notes' => $validated['notes'] ?? null,
-                'accepted_policy_version' => config('easyenglish.policy_version'),
-                'locale' => app()->getLocale(),
-            ], $startsAt, null, true, $challenge->email_verified_at !== null, $challenge->phone_verified_at !== null);
-            $bookings->confirm($booking->id);
-        } catch (ValidationException $exception) {
-            return redirect()->route('booking.create', ['type' => 'intro', 'slot' => $validated['starts_at']])
-                ->withErrors($exception->errors())
-                ->withInput($validated);
-        }
-
-        $challenge->update(['consumed_at' => now()]);
-        $request->session()->forget(['contact_verification_id', 'contact_verification_form_data']);
-
-        return redirect()->route('dashboard')->with('status', __('public.booking_confirmed_dashboard'));
-    }
-
-    public function confirmPhoneVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
-    {
+    public function confirmPhoneVerification(
+        Request $request,
+        ContactVerificationService $verificationService,
+        FreeSessionEligibilityService $eligibilityService,
+    ): RedirectResponse|JsonResponse {
         $this->applyLocale($request);
         $validated = $request->validate([
             'verification_id' => ['required', 'uuid'],
             'phone_code' => ['required', 'digits:6'],
+            'phone' => ['required', 'string', 'max:32'],
         ]);
         $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
-        abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
-        $verificationService->confirmPhone($challenge->id, $validated['phone_code']);
-        $challenge->refresh();
         $user = $request->user();
-        if ($user && mb_strtolower($user->email) === $challenge->customer_email) {
-            $user->forceFill(['phone' => $challenge->customer_phone, 'phone_verified_at' => now()])->save();
+        abort_unless($user !== null && hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
+        abort_unless($challenge->customer_email === mb_strtolower($user->email), 403);
+        if ($challenge->customer_phone !== PhoneNumber::normalize($validated['phone'])) {
+            $exception = ValidationException::withMessages(['phone' => __('public.verification_contact_changed')]);
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
+            }
+            throw $exception;
         }
 
-        $completedBooking = $this->completeVerifiedFreeBooking($request, $challenge, app(AvailabilityService::class), app(BookingService::class));
-        if ($completedBooking !== null) {
-            return $completedBooking;
+        try {
+            $verified = $verificationService->confirmPhone($challenge->id, $validated['phone_code']);
+        } catch (ValidationException $exception) {
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
+            }
+
+            throw $exception;
+        }
+        $user->forceFill(['phone' => $verified->customer_phone, 'phone_verified_at' => now()])->save();
+        $request->session()->flash('_old_input', ['phone' => $verified->customer_phone]);
+
+        if ($request->expectsJson()) {
+            return $this->bookingVerificationStepResponse($request, $verified, $eligibilityService, __('public.verification_phone_success'));
         }
 
-        return back()->withInput()->with('status', __('public.verification_phone_success'));
+        return $this->verificationFallbackRedirect($request, $challenge, __('public.verification_phone_success'));
     }
 
-    public function confirmEmailCodeVerification(Request $request, ContactVerificationService $verificationService): RedirectResponse
-    {
+    public function confirmEmailCodeVerification(
+        Request $request,
+        ContactVerificationService $verificationService,
+        FreeSessionEligibilityService $eligibilityService,
+    ): RedirectResponse|JsonResponse {
         $this->applyLocale($request);
         $validated = $request->validate([
             'verification_id' => ['required', 'uuid'],
             'email_code' => ['required', 'digits:6'],
+            'phone' => ['required', 'string', 'max:32'],
         ]);
         $challenge = ContactVerificationChallenge::query()->whereKey((string) $validated['verification_id'])->firstOrFail();
-        abort_unless(hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
-        $verified = $verificationService->confirmEmailCode($challenge->id, $validated['email_code']);
         $user = $request->user();
-        if ($user && mb_strtolower($user->email) === $verified->customer_email) {
-            $user->forceFill(['email_verified_at' => now()])->save();
+        abort_unless($user !== null && hash_equals((string) $request->session()->get('contact_verification_id'), $challenge->id), 403);
+        abort_unless($challenge->customer_email === mb_strtolower($user->email), 403);
+        if ($challenge->customer_phone !== PhoneNumber::normalize($validated['phone'])) {
+            $exception = ValidationException::withMessages(['verification' => __('public.verification_contact_changed')]);
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
+            }
+            throw $exception;
         }
 
-        if (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only') {
-            $completedBooking = $this->completeVerifiedFreeBooking($request, $verified, app(AvailabilityService::class), app(BookingService::class));
-            if ($completedBooking !== null) {
-                return $completedBooking;
+        try {
+            $verified = $verificationService->confirmEmailCode($challenge->id, $validated['email_code']);
+        } catch (ValidationException $exception) {
+            if ($request->expectsJson()) {
+                return $this->verificationJsonError($exception);
             }
+
+            throw $exception;
         }
+        $user->forceFill(['email_verified_at' => now()])->save();
+        $request->session()->flash('_old_input', ['phone' => $verified->customer_phone]);
+
+        if ($request->expectsJson()) {
+            return $this->bookingVerificationStepResponse($request, $verified, $eligibilityService, __('public.verification_email_success'));
+        }
+
+        return $this->verificationFallbackRedirect($request, $verified, __('public.verification_email_success'));
+    }
+
+    public function confirmEmailVerification(
+        Request $request,
+        string $challenge,
+        string $token,
+        ContactVerificationService $verificationService,
+        FreeSessionEligibilityService $eligibilityService,
+    ): RedirectResponse {
+        $this->applyLocale($request);
+        if (! $request->hasValidSignature()) {
+            return redirect()->route('home')->withErrors(['verification' => __('public.verification_email_invalid')]);
+        }
+
+        $user = $request->user();
+        abort_unless($user !== null && hash_equals((string) $request->session()->get('contact_verification_id'), $challenge), 403);
+        $candidate = ContactVerificationChallenge::query()->findOrFail($challenge);
+        abort_unless($candidate->customer_email === mb_strtolower($user->email), 403);
+        $verified = $verificationService->confirmEmail($challenge, $token);
+        $user->forceFill(['email_verified_at' => now()])->save();
+        $request->session()->put('locale', $verified->locale);
+        app()->setLocale($verified->locale);
+        $savedForm = $request->session()->get('contact_verification_form_data', []);
+        $slot = is_array($savedForm) && is_string($savedForm['starts_at'] ?? null) ? $savedForm['starts_at'] : null;
+        $message = __('public.verification_email_success');
 
         if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
             $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
             if ($bundle) {
                 return redirect()->route('purchase', ['bundle' => $bundle, 'verification_id' => $verified->id])
-                    ->with('status', __('public.verification_email_success'));
+                    ->with('status', $message);
             }
         }
 
-        $formData = $request->session()->get('contact_verification_form_data', []);
-        $bookingParameters = ['type' => 'intro', 'verification_id' => $verified->id];
-        if (is_array($formData) && is_string($formData['starts_at'] ?? null)) {
-            $bookingParameters['slot'] = $formData['starts_at'];
+        if ($verified->isComplete()) {
+            $phoneMatches = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only'
+                || ($user->phone_verified_at !== null && PhoneNumber::normalize((string) $user->phone) === $verified->customer_phone);
+            if ($phoneMatches) {
+                $eligibility = $eligibilityService->check((string) $user->email, $verified->customer_phone);
+                $message = __($eligibility['eligible'] ? 'public.verification_eligible' : 'public.verification_already_used');
+            }
         }
 
-        return redirect()->route('booking.create', $bookingParameters)
-            ->withInput(is_array($formData) ? $formData : [])
-            ->with('status', __('public.verification_email_success'));
+        if (is_array($savedForm)) {
+            $request->session()->flash('_old_input', $savedForm);
+        }
+
+        return redirect()->route('home', is_string($slot) ? ['slot' => $slot] : [])
+            ->with('status', $message);
     }
 
-    public function registerForFreeBooking(Request $request, CreateNewUser $users): RedirectResponse|JsonResponse
+    private function verificationJsonError(ValidationException $exception): JsonResponse
+    {
+        $errors = $exception->errors();
+        $field = array_key_first($errors) ?? 'verification';
+        $message = $errors[$field][0] ?? __('public.verification_generic_error');
+        $status = 'validation_error';
+        $httpStatus = 422;
+
+        if ($message === __('public.verification_rate_limited')) {
+            $status = 'rate_limited';
+            $httpStatus = 429;
+        } elseif ($message === __('public.verification_resend_wait')) {
+            $status = 'resend_wait';
+            $httpStatus = 429;
+        } elseif ($field === 'challenge' && str_contains(mb_strtolower($message), 'expir')) {
+            $status = 'expired';
+        } elseif ($field === 'challenge' && (str_contains(mb_strtolower($message), 'already been used') || str_contains(mb_strtolower($message), 'deja folosit'))) {
+            $status = 'challenge_used';
+        } elseif ($field === 'challenge' && $message === __('public.verification_channel_already_verified')) {
+            $status = 'already_verified';
+        } elseif (in_array($message, [__('public.verification_email_locked'), __('public.verification_phone_locked')], true)) {
+            $status = 'attempts_locked';
+        } elseif (in_array($field, ['email_code', 'phone_code'], true)
+            && ! in_array($message, [__('public.verification_email_locked'), __('public.verification_phone_locked')], true)) {
+            $status = 'invalid_code';
+        } elseif ($message === __('public.verification_contact_changed')) {
+            $status = 'contact_changed';
+        }
+
+        return response()->json([
+            'status' => $status,
+            'errors' => $errors,
+            'message' => $message,
+        ], $httpStatus);
+    }
+
+    private function verificationFallbackRedirect(Request $request, ContactVerificationChallenge $challenge, string $message): RedirectResponse
+    {
+        if ($challenge->return_to === 'purchase' && $challenge->return_bundle_id !== null) {
+            $bundle = BundleDefinition::query()->where('is_active', true)->find($challenge->return_bundle_id);
+            if ($bundle) {
+                return redirect()->route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id])
+                    ->with('status', $message);
+            }
+        }
+
+        $slot = $request->session()->get('contact_verification_form_data.starts_at');
+
+        return redirect()->route('home', is_string($slot) ? ['slot' => $slot] : [])
+            ->with('status', $message);
+    }
+
+    private function bookingVerificationStepResponse(
+        Request $request,
+        ?ContactVerificationChallenge $challenge,
+        FreeSessionEligibilityService $eligibilityService,
+        string $message,
+    ): JsonResponse {
+        $user = $request->user();
+        abort_unless($user !== null, 401);
+        $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        $phone = $challenge->customer_phone ?? (string) $user->phone;
+        $phoneAlreadyVerified = $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize($phone);
+        $whatsappConsent = WhatsAppContact::query()->where('phone', PhoneNumber::normalize($phone))
+            ->first()?->canReceiveServiceMessages() === true;
+        $contactsVerified = $user->email_verified_at !== null && ($emailOnly || $phoneAlreadyVerified);
+        $eligibility = $contactsVerified ? $eligibilityService->check((string) $user->email, $phone) : null;
+        $verification = $challenge && $challenge->isUsable()
+            && $challenge->customer_email === mb_strtolower($user->email)
+            ? $challenge
+            : null;
+        $form = $request->session()->get('contact_verification_form_data', []);
+        $form = is_array($form) ? $form : [];
+        $slot = is_string($form['starts_at'] ?? null) ? $form['starts_at'] : '';
+        $request->session()->flash('_old_input', array_merge($form, ['phone' => $phone]));
+        $html = view('public.partials.booking-authenticated-form', [
+            'contactsVerified' => $contactsVerified,
+            'verification' => $verification,
+            'bookingSlot' => $slot,
+            'eligibility' => $eligibility,
+            'phoneAlreadyVerified' => $phoneAlreadyVerified,
+            'whatsappConsent' => $whatsappConsent,
+            'bookingFormData' => $form,
+        ])->render();
+
+        return response()->json([
+            'status' => $eligibility['status'] ?? 'verification_required',
+            'next_step' => $eligibility['status'] ?? 'contact_verification',
+            'slot' => $slot,
+            'locale' => app()->getLocale(),
+            'message' => $message,
+            'eligibility' => $eligibility,
+            'html' => $html,
+        ]);
+    }
+
+    public function registerForFreeBooking(Request $request, CreateNewUser $users, FreeSessionEligibilityService $eligibilityService): RedirectResponse|JsonResponse
     {
         $this->applyLocale($request);
         $validated = $request->validate([
@@ -390,14 +576,33 @@ class PublicSiteController extends Controller
             throw ValidationException::withMessages(['email' => __('validation.unique', ['attribute' => 'email'])]);
         }
 
+        if (config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only'
+            && ($validated['whatsapp_service_consent'] ?? null) === '1') {
+            WhatsAppContact::recordConsent($validated['phone'], 'registration');
+        }
+
         Auth::login($user);
         $request->session()->regenerate();
+        $request->session()->put('contact_verification_form_data', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'english_level' => $user->english_level,
+            'session_goal' => $user->session_goal,
+            'notes' => $user->session_notes,
+            'starts_at' => $validated['starts_at'],
+            'accepted_policy' => $validated['accepted_policy'],
+            'whatsapp_service_consent' => $validated['whatsapp_service_consent'] ?? null,
+            'type' => 'intro',
+            'return_to' => 'booking',
+        ]);
 
         if ($request->expectsJson()) {
             return $this->authenticatedBookingStepResponse(
                 $request,
                 $validated['starts_at'],
                 __('public.account_created_continue_booking'),
+                $eligibilityService,
                 201,
             );
         }
@@ -407,7 +612,7 @@ class PublicSiteController extends Controller
         return redirect()->route('home')->withInput($validated)->with('status', __('public.account_created_continue_booking'));
     }
 
-    public function loginForFreeBooking(Request $request): RedirectResponse|JsonResponse
+    public function loginForFreeBooking(Request $request, FreeSessionEligibilityService $eligibilityService): RedirectResponse|JsonResponse
     {
         $this->applyLocale($request);
         $validated = $request->validate([
@@ -448,12 +653,25 @@ class PublicSiteController extends Controller
         }
 
         $request->session()->regenerate();
+        $request->session()->forget('contact_verification_id');
+        $request->session()->put('contact_verification_form_data', [
+            'name' => Auth::user()->name,
+            'email' => Auth::user()->email,
+            'phone' => Auth::user()->phone,
+            'english_level' => Auth::user()->english_level,
+            'session_goal' => Auth::user()->session_goal,
+            'notes' => Auth::user()->session_notes,
+            'starts_at' => $validated['starts_at'],
+            'type' => 'intro',
+            'return_to' => 'booking',
+        ]);
 
         if ($request->expectsJson()) {
             return $this->authenticatedBookingStepResponse(
                 $request,
                 $validated['starts_at'],
                 __('public.booking_signed_in_continue_booking'),
+                $eligibilityService,
             );
         }
 
@@ -495,8 +713,9 @@ class PublicSiteController extends Controller
 
         $verificationChallenge = null;
         $accountContactsVerified = $request->user()->email_verified_at !== null
-            && $request->user()->phone_verified_at !== null
-            && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
+            && (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only'
+                || ($request->user()->phone_verified_at !== null
+                    && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone'])));
         if ($validated['type'] === 'intro') {
             $challengeId = $validated['verification_id'] ?? $request->session()->get('contact_verification_id');
             $candidate = is_string($challengeId) ? ContactVerificationChallenge::query()->find($challengeId) : null;
@@ -537,42 +756,6 @@ class PublicSiteController extends Controller
         }
 
         return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null));
-    }
-
-    public function confirmEmailVerification(Request $request, string $challenge, string $token, ContactVerificationService $verificationService): RedirectResponse
-    {
-        $this->applyLocale($request);
-        if (! $request->hasValidSignature()) {
-            return redirect()->route('booking.create', ['type' => 'intro'])
-                ->withErrors(['verification' => __('public.verification_email_invalid')]);
-        }
-        $verified = $verificationService->confirmEmail($challenge, $token);
-        $request->session()->put('locale', $verified->locale);
-        app()->setLocale($verified->locale);
-        $request->session()->put('contact_verification_id', $verified->id);
-        if (config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only') {
-            $completedBooking = $this->completeVerifiedFreeBooking($request, $verified, app(AvailabilityService::class), app(BookingService::class));
-            if ($completedBooking !== null) {
-                return $completedBooking;
-            }
-        }
-
-        if ($verified->return_to === 'purchase' && $verified->return_bundle_id !== null) {
-            $bundle = BundleDefinition::query()->where('is_active', true)->find($verified->return_bundle_id);
-            if ($bundle) {
-                return redirect()->route('purchase', ['bundle' => $bundle, 'verification_id' => $verified->id])
-                    ->with('status', __('public.verification_email_success'));
-            }
-        }
-
-        $savedForm = $request->session()->get('contact_verification_form_data', []);
-        $slot = is_array($savedForm) && is_string($savedForm['starts_at'] ?? null) ? $savedForm['starts_at'] : null;
-
-        return redirect()->route('booking.create', array_filter([
-            'type' => 'intro',
-            'verification_id' => $verified->id,
-            'slot' => $verified->return_to === 'booking' ? $slot : null,
-        ]))->with('status', __('public.verification_email_success'));
     }
 
     public function confirmed(Request $request, string $reference): View
@@ -909,8 +1092,13 @@ class PublicSiteController extends Controller
         return view('public.policy', ['page' => $page]);
     }
 
-    private function authenticatedBookingStepResponse(Request $request, string $startsAt, string $message, int $statusCode = 200): JsonResponse
-    {
+    private function authenticatedBookingStepResponse(
+        Request $request,
+        string $startsAt,
+        string $message,
+        FreeSessionEligibilityService $eligibilityService,
+        int $statusCode = 200,
+    ): JsonResponse {
         $user = $request->user();
         abort_unless($user !== null, 401);
 
@@ -922,19 +1110,30 @@ class PublicSiteController extends Controller
             $verification = null;
         }
 
+        $formData = $request->session()->get('contact_verification_form_data', []);
         $oldPhone = $request->old('phone');
-        $contactsVerified = $user->email_verified_at !== null
-            && $user->phone_verified_at !== null
-            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($oldPhone) ? $oldPhone : (string) $user->phone);
+        $eligibilityPhone = $verification->customer_phone
+            ?? (is_array($formData) && is_string($formData['phone'] ?? null) ? $formData['phone'] : (is_string($oldPhone) ? $oldPhone : (string) $user->phone));
+        $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        $phoneAlreadyVerified = $user->phone_verified_at !== null
+            && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize($eligibilityPhone);
+        $contactsVerified = $user->email_verified_at !== null && ($emailOnly || $phoneAlreadyVerified);
+        $whatsappConsent = WhatsAppContact::query()->where('phone', PhoneNumber::normalize($eligibilityPhone))
+            ->first()?->canReceiveServiceMessages() === true;
+        $eligibility = $contactsVerified ? $eligibilityService->check((string) $user->email, $eligibilityPhone) : null;
         $html = view('public.partials.booking-authenticated-form', [
             'contactsVerified' => $contactsVerified,
             'verification' => $verification,
+            'eligibility' => $eligibility,
             'bookingSlot' => $startsAt,
+            'phoneAlreadyVerified' => $phoneAlreadyVerified,
+            'whatsappConsent' => $whatsappConsent,
+            'bookingFormData' => $formData,
         ])->render();
 
         return response()->json([
             'status' => 'authenticated',
-            'next_step' => $contactsVerified ? 'booking' : 'contact_verification',
+            'next_step' => $eligibility['status'] ?? 'contact_verification',
             'slot' => $startsAt,
             'locale' => app()->getLocale(),
             'message' => $message,

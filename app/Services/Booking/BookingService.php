@@ -78,12 +78,18 @@ class BookingService
                         ? 'Email must be verified before claiming the free introduction.'
                         : 'Email and phone must be verified before claiming the free introduction.']);
                 }
-                $reusableClaim = FreeSessionClaim::query()->where(function ($query) use ($customer): void {
+                $matchingClaims = FreeSessionClaim::query()->where(function ($query) use ($customer): void {
                     $query->where('customer_email', mb_strtolower($customer['email']))->orWhere('customer_phone', $customer['phone']);
-                })->lockForUpdate()->first();
-                if ($reusableClaim !== null && ($reusableClaim->status !== 'teacher_cancelled' || $reusableClaim->booking_id !== null)) {
+                })->lockForUpdate()->get();
+                $hasNonReusableClaim = $matchingClaims->contains(
+                    fn (FreeSessionClaim $existingClaim): bool => $existingClaim->status !== 'teacher_cancelled' || $existingClaim->booking_id !== null,
+                );
+                if ($hasNonReusableClaim) {
                     throw ValidationException::withMessages(['free_introduction' => 'The free introductory session has already been claimed for these contact details.']);
                 }
+                $reusableClaim = $matchingClaims->first(
+                    fn (FreeSessionClaim $existingClaim): bool => $existingClaim->status === 'teacher_cancelled' && $existingClaim->booking_id === null,
+                );
             } else {
                 $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($entitlementId);
                 if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($startsAt->utc()) || ($entitlement->credits_remaining < 1 && $entitlement->free_credits_remaining < 1)) {

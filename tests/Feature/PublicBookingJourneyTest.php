@@ -6,6 +6,7 @@ use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\Faq;
 use App\Models\User;
+use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
@@ -655,7 +656,11 @@ test('registration submits asynchronously and returns the authenticated contact-
         ->and($response->json('html'))->toContain('name="_token"')
         ->and($response->json('html'))->toContain('data-booking-starts-at')
         ->and($response->json('html'))->toContain($slot)
-        ->and($response->json('html'))->toContain('Verify your contact details');
+        ->and($response->json('html'))->toContain('Verify your contact details')
+        ->and($response->json('html'))->toContain('name="accepted_policy"')
+        ->and($response->json('html'))->not->toContain('name="whatsapp_service_consent"');
+
+    expect(WhatsAppContact::query()->where('phone', '+40722123456')->first()?->canReceiveServiceMessages())->toBeTrue();
 });
 
 test('existing account login submits asynchronously and advances directly to booking when contacts are already verified', function () {
@@ -677,7 +682,7 @@ test('existing account login submits asynchronously and advances directly to boo
 
     $response->assertOk()
         ->assertJsonPath('status', 'authenticated')
-        ->assertJsonPath('next_step', 'booking')
+        ->assertJsonPath('next_step', 'eligible')
         ->assertJsonPath('slot', $slot)
         ->assertJsonMissingPath('redirect_url');
 

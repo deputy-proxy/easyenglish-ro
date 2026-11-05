@@ -12,6 +12,7 @@ use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Verification\ContactVerificationService;
+use App\Services\Verification\FreeSessionEligibilityService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -104,6 +105,7 @@ test('verification start stores hashes and sends a WhatsApp code without logging
 });
 
 test('public verification form starts the email and WhatsApp steps', function () {
+    $this->actingAs(User::factory()->create(['email' => 'new-learner@example.com']));
     $this->from('/book?type=intro')->post(route('verification.start'), [
         'return_to' => 'booking',
         'type' => 'intro',
@@ -124,6 +126,7 @@ test('public verification form starts the email and WhatsApp steps', function ()
 });
 
 test('bundle checkout can start verification and preserves the bundle destination', function () {
+    $this->actingAs(User::factory()->create(['email' => 'bundle-verification@example.com']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $this->from(route('purchase', $bundle))->post(route('verification.start'), [
         'return_to' => 'purchase',
@@ -191,16 +194,14 @@ test('email verification route validates the signed single-use link and returns 
     ]);
 
     $savedSlot = '2026-10-27T09:00:00+02:00';
-    $this->withSession(['contact_verification_form_data' => [
+    $this->withSession(['contact_verification_id' => $challenge->id, 'contact_verification_form_data' => [
         'name' => 'Test Learner',
         'email' => 'learner@example.com',
         'phone' => '+40722123456',
         'session_goal' => 'Work conversations',
         'starts_at' => $savedSlot,
-    ]])->get($url)->assertRedirect(route('booking.create', [
-        'type' => 'intro', 'verification_id' => $challenge->id, 'slot' => $savedSlot,
-    ]));
-    $this->get(route('booking.create', ['type' => 'intro', 'verification_id' => $challenge->id, 'slot' => $savedSlot]))
+    ]])->get($url)->assertRedirect(route('home', ['slot' => $savedSlot]));
+    $this->get(route('home', ['slot' => $savedSlot]))
         ->assertOk()
         ->assertSee('value="Test Learner"', false)
         ->assertSee('value="Work conversations"', false);
@@ -217,7 +218,7 @@ test('email verification return to a bundle shows the separate free-session offe
     ]);
 
     config(['services.stripe.checkout_enabled' => true, 'services.stripe.secret' => 'sk_test_fake', 'services.stripe.webhook_secret' => 'whsec_test']);
-    $this->get($url)->assertRedirect(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]));
+    $this->withSession(['contact_verification_id' => $challenge->id])->get($url)->assertRedirect(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]));
     $this->get(route('purchase', ['bundle' => $bundle, 'verification_id' => $challenge->id]))
         ->assertOk()
         ->assertSee(__('public.purchase_free_intro_notice'))
@@ -369,4 +370,553 @@ test('verified challenge cannot be reused with a different email or phone', func
         ])->assertSessionHasErrors('verification');
 
     expect(Booking::query()->count())->toBe(0);
+});
+
+test('contact verification endpoints require the authenticated account and session-owned challenge', function () {
+    $challenge = makeVerificationChallenge();
+    $url = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(10), [
+        'challenge' => $challenge->id,
+        'token' => 'email-token',
+    ]);
+
+    $this->postJson(route('verification.start'), [])->assertUnauthorized();
+    $this->postJson(route('verification.email-code.confirm'), [])->assertUnauthorized();
+    $this->postJson(route('verification.phone.confirm'), [])->assertUnauthorized();
+    $this->getJson($url)->assertUnauthorized();
+});
+
+test('inline verification skips an email channel already verified on the current account', function () {
+    $user = User::factory()->create([
+        'email' => 'verified-email@example.com',
+        'phone' => '+40722123460',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+    ]);
+    $slot = now()->addDays(2)->toIso8601String();
+
+    $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => $slot,
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'verification_required')
+        ->assertJsonPath('next_step', 'contact_verification')
+        ->assertJsonPath('slot', $slot)
+        ->assertJsonPath('eligibility', null);
+    expect($response->json('html'))->toContain(__('public.verification_status_verified'));
+
+    $challenge = ContactVerificationChallenge::query()->where('customer_email', $user->email)->firstOrFail();
+    expect($challenge->email_verified_at)->not->toBeNull()
+        ->and($challenge->email_sent_at)->toBeNull()
+        ->and($challenge->phone_verified_at)->toBeNull()
+        ->and($challenge->phone_sent_at)->not->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toHaveCount(1)
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('inline phone confirmation returns eligibility without creating a booking, hold, or claim', function () {
+    $user = User::factory()->create([
+        'email' => 'verified-email-phone-pending@example.com',
+        'phone' => '+40722123461',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+    ]);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->withSession([
+        'locale' => 'en',
+        'contact_verification_id' => $challenge->id,
+        'contact_verification_form_data' => ['starts_at' => '2026-11-12T09:00:00+02:00'],
+    ])->postJson(route('verification.phone.confirm'), [
+        'verification_id' => $challenge->id,
+        'phone_code' => '123456',
+        'phone' => $user->phone,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'eligible')
+        ->assertJsonPath('next_step', 'eligible')
+        ->assertJsonPath('eligibility.eligible', true)
+        ->assertJsonMissingPath('eligibility.email')
+        ->assertJsonMissingPath('eligibility.phone');
+
+    expect($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and($challenge->fresh()->phone_verified_at)->not->toBeNull()
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('inline email and phone verification returns the next state without automatically booking', function () {
+    $user = User::factory()->create([
+        'email' => 'both-channels@example.com',
+        'phone' => '+40722123462',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+    ]);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'email_code_hash' => hash_hmac('sha256', '654321', (string) config('app.key')),
+    ]);
+    $session = ['locale' => 'en', 'contact_verification_id' => $challenge->id];
+
+    $emailResponse = $this->actingAs($user)->withSession($session)->postJson(route('verification.email-code.confirm'), [
+        'verification_id' => $challenge->id,
+        'email_code' => '654321',
+        'phone' => $user->phone,
+    ]);
+    $emailResponse->assertOk()->assertJsonPath('status', 'verification_required')
+        ->assertJsonPath('next_step', 'contact_verification');
+    expect($user->fresh()->email_verified_at)->not->toBeNull()
+        ->and($user->fresh()->phone_verified_at)->toBeNull()
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+
+    $phoneResponse = $this->postJson(route('verification.phone.confirm'), [
+        'verification_id' => $challenge->id,
+        'phone_code' => '123456',
+        'phone' => $user->phone,
+    ]);
+    $phoneResponse->assertOk()->assertJsonPath('status', 'eligible')
+        ->assertJsonPath('eligibility.eligible', true);
+
+    expect($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('email-only inline verification does not require WhatsApp consent or send a WhatsApp message', function () {
+    config([
+        'services.contact_verification.mode' => 'email_only',
+        'services.whatsapp.enabled' => false,
+        'services.whatsapp.access_token' => null,
+        'services.whatsapp.phone_number_id' => null,
+    ]);
+    $user = User::factory()->create([
+        'email' => 'email-only-inline@example.com',
+        'phone' => '+40722123463',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+    ]);
+
+    $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertOk()->assertJsonPath('status', 'verification_required');
+    $challenge = ContactVerificationChallenge::query()->where('customer_email', $user->email)->firstOrFail();
+    expect($challenge->email_sent_at)->not->toBeNull()
+        ->and($challenge->phone_sent_at)->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
+
+    $challenge->update(['email_code_hash' => hash_hmac('sha256', '654321', (string) config('app.key'))]);
+    $emailConfirmed = $this->postJson(route('verification.email-code.confirm'), [
+        'verification_id' => $challenge->id,
+        'email_code' => '654321',
+        'phone' => $user->phone,
+    ]);
+    $emailConfirmed->assertOk()->assertJsonPath('status', 'eligible')
+        ->assertJsonPath('eligibility.eligible', true);
+    expect($emailConfirmed->json('html'))->not->toContain('data-phone-change-controls');
+
+    expect($user->fresh()->email_verified_at)->not->toBeNull()
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('verification rejects a phone changed after the challenge was issued', function () {
+    $user = User::factory()->create([
+        'email' => 'phone-changed@example.com',
+        'phone' => '+40722123464',
+        'email_verified_at' => now(),
+    ]);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => '+40722123464',
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)->withSession(['contact_verification_id' => $challenge->id])
+        ->postJson(route('verification.phone.confirm'), [
+            'verification_id' => $challenge->id,
+            'phone_code' => '123456',
+            'phone' => '+40722123465',
+        ])->assertUnprocessable()->assertJsonPath('status', 'contact_changed')->assertJsonValidationErrors(['phone']);
+
+    expect($user->fresh()->phone)->toBe('+40722123464')
+        ->and($user->fresh()->phone_verified_at)->toBeNull()
+        ->and(Booking::query()->count())->toBe(0);
+});
+
+test('verification challenge cannot be confirmed from another authenticated account', function () {
+    $challenge = makeVerificationChallenge();
+    $otherUser = User::factory()->create(['email' => 'other-account@example.com']);
+
+    $this->actingAs($otherUser)->withSession(['contact_verification_id' => $challenge->id])
+        ->postJson(route('verification.phone.confirm'), [
+            'verification_id' => $challenge->id,
+            'phone_code' => '123456',
+            'phone' => $challenge->customer_phone,
+        ])->assertForbidden();
+
+    expect($challenge->fresh()->phone_verified_at)->toBeNull();
+});
+
+test('free-session eligibility uses normalized email OR phone and reuses only teacher-cancelled claims without bookings', function () {
+    $eligibility = app(FreeSessionEligibilityService::class);
+
+    expect($eligibility->check('New-Learner@example.com', '+40 722 123 456'))
+        ->toBe(['status' => 'eligible', 'eligible' => true]);
+
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'different@example.com',
+        'customer_phone' => '+40722123456',
+        'status' => 'used',
+        'verified_at' => now(),
+        'used_at' => now(),
+    ]);
+    expect($eligibility->check('new-learner@example.com', '+40722123456'))
+        ->toBe(['status' => 'already_used', 'eligible' => false]);
+
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'other-phone@example.com',
+        'customer_phone' => '+40722123457',
+        'status' => 'teacher_cancelled',
+        'verified_at' => now(),
+    ]);
+    expect($eligibility->check('other-phone@example.com', '+40722123457'))
+        ->toBe(['status' => 'eligible', 'eligible' => true]);
+
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'other-phone@example.com',
+        'customer_phone' => '+40722123458',
+        'status' => 'no_show',
+        'verified_at' => now(),
+        'used_at' => now(),
+    ]);
+    expect($eligibility->check('other-phone@example.com', '+40722123457'))
+        ->toBe(['status' => 'already_used', 'eligible' => false]);
+});
+
+test('inline verification skips a phone channel already verified for the exact current phone', function () {
+    $user = User::factory()->create([
+        'email' => 'verified-phone@example.com',
+        'phone' => '+40722123466',
+        'email_verified_at' => null,
+        'phone_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertOk()->assertJsonPath('status', 'verification_required');
+    $challenge = ContactVerificationChallenge::query()->where('customer_email', $user->email)->firstOrFail();
+    expect($challenge->phone_verified_at)->not->toBeNull()
+        ->and($challenge->phone_sent_at)->toBeNull()
+        ->and($challenge->email_verified_at)->toBeNull()
+        ->and($challenge->email_sent_at)->not->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
+});
+
+test('a previously verified phone is not skipped when the learner submits a different number', function () {
+    $user = User::factory()->create([
+        'email' => 'changed-verified-phone@example.com',
+        'phone' => '+40722123467',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
+        'email' => $user->email,
+        'phone' => '+40722123468',
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertOk()->assertJsonPath('status', 'verification_required');
+    $challenge = ContactVerificationChallenge::query()->where('customer_phone', '+40722123468')->firstOrFail();
+    expect($challenge->phone_verified_at)->toBeNull()
+        ->and($challenge->phone_sent_at)->not->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toHaveCount(1);
+});
+
+test('the landing page performs a read-only eligibility check for already verified contacts', function () {
+    $user = User::factory()->create([
+        'email' => 'already-verified@example.com',
+        'phone' => '+40722123469',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-free-session-eligibility="eligible"', false)
+        ->assertSee(__('public.verification_eligible'))
+        ->assertSee('data-phone-change-controls', false)
+        ->assertSee('data-contacts-verified="true"', false);
+
+    expect(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'someone-else@example.com',
+        'customer_phone' => $user->phone,
+        'status' => 'used',
+        'verified_at' => now(),
+        'used_at' => now(),
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee('data-free-session-eligibility="already_used"', false)
+        ->assertSee(__('public.verification_already_used'))
+        ->assertDontSee(__('public.booking_submit_intro'));
+
+    expect(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(1);
+});
+
+test('final inline verification returns only an already-used outcome when either identifier has a prior claim', function () {
+    $user = User::factory()->create([
+        'email' => 'claim-owner@example.com',
+        'phone' => '+40722123470',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+    ]);
+    FreeSessionClaim::query()->create([
+        'customer_email' => 'another-account@example.com',
+        'customer_phone' => $user->phone,
+        'status' => 'used',
+        'verified_at' => now(),
+        'used_at' => now(),
+    ]);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->withSession(['contact_verification_id' => $challenge->id])
+        ->postJson(route('verification.phone.confirm'), [
+            'verification_id' => $challenge->id,
+            'phone_code' => '123456',
+            'phone' => $user->phone,
+        ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'already_used')
+        ->assertJsonPath('eligibility.eligible', false)
+        ->assertJsonMissingPath('eligibility.email')
+        ->assertJsonMissingPath('eligibility.phone');
+
+    expect($response->json('html'))->toContain(__('public.verification_already_used'))
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(1);
+});
+
+test('inline verification returns distinct invalid, expired, consumed, and locked challenge states', function () {
+    $user = User::factory()->create([
+        'email' => 'challenge-states@example.com',
+        'phone' => '+40722123471',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+    ]);
+    $invalid = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+    ]);
+    $this->actingAs($user)->withSession(['contact_verification_id' => $invalid->id])
+        ->postJson(route('verification.email-code.confirm'), [
+            'verification_id' => $invalid->id,
+            'email_code' => '000000',
+            'phone' => $user->phone,
+        ])->assertUnprocessable()->assertJsonPath('status', 'invalid_code');
+
+    $expired = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'expires_at' => now()->subSecond(),
+    ]);
+    $this->withSession(['contact_verification_id' => $expired->id])
+        ->postJson(route('verification.phone.confirm'), [
+            'verification_id' => $expired->id,
+            'phone_code' => '123456',
+            'phone' => $user->phone,
+        ])->assertUnprocessable()->assertJsonPath('status', 'expired');
+
+    $used = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'consumed_at' => now(),
+    ]);
+    $usedResponse = $this->withSession(['contact_verification_id' => $used->id])
+        ->postJson(route('verification.phone.confirm'), [
+            'verification_id' => $used->id,
+            'phone_code' => '123456',
+            'phone' => $user->phone,
+        ]);
+    $usedResponse->assertUnprocessable()->assertJsonPath('status', 'challenge_used');
+
+    $locked = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'email_attempts' => 5,
+    ]);
+    $this->withSession(['contact_verification_id' => $locked->id])
+        ->postJson(route('verification.email-code.confirm'), [
+            'verification_id' => $locked->id,
+            'email_code' => '123456',
+            'phone' => $user->phone,
+        ])->assertUnprocessable()->assertJsonPath('status', 'attempts_locked');
+});
+
+test('verification start returns explicit resend and hourly rate-limit states', function () {
+    $user = User::factory()->create([
+        'email' => 'throttled-verification@example.com',
+        'phone' => '+40722123472',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+    ]);
+    $payload = [
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ];
+
+    $emailLimitKey = 'contact-verification:email:'.hash('sha256', $user->email);
+    RateLimiter::hit($emailLimitKey, 3600);
+    RateLimiter::hit($emailLimitKey, 3600);
+    RateLimiter::hit($emailLimitKey, 3600);
+    RateLimiter::hit($emailLimitKey, 3600);
+    RateLimiter::hit($emailLimitKey, 3600);
+    $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), $payload)
+        ->assertTooManyRequests()->assertJsonPath('status', 'rate_limited');
+
+    RateLimiter::clear($emailLimitKey);
+    ContactVerificationChallenge::query()->create([
+        'id' => (string) Str::uuid(),
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'locale' => 'en',
+        'return_to' => 'booking',
+        'email_token_hash' => hash('sha256', 'existing-token'),
+        'email_code_hash' => hash_hmac('sha256', '123456', (string) config('app.key')),
+        'phone_code_hash' => hash_hmac('sha256', '123456', (string) config('app.key')),
+        'email_sent_at' => now(),
+        'phone_sent_at' => now(),
+        'expires_at' => now()->addMinutes(30),
+    ]);
+
+    $this->postJson(route('verification.start'), $payload)
+        ->assertTooManyRequests()->assertJsonPath('status', 'resend_wait');
+});
+
+test('verification delivery failure returns an explicit state and never verifies a channel', function () {
+    $user = User::factory()->create([
+        'email' => 'delivery-failure@example.com',
+        'phone' => '+40722123473',
+        'email_verified_at' => now(),
+    ]);
+    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('provider unavailable'));
+    app()->instance(WhatsAppGateway::class, $gateway);
+
+    $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ]);
+
+    $response->assertStatus(503)->assertJsonPath('status', 'delivery_failed');
+    $challenge = ContactVerificationChallenge::query()->where('customer_email', $user->email)->firstOrFail();
+    expect($challenge->isUsable())->toBeFalse()
+        ->and($user->fresh()->phone_verified_at)->toBeNull()
+        ->and(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('starting verification for a changed phone invalidates the previous account challenge', function () {
+    $user = User::factory()->create([
+        'email' => 'replace-challenge@example.com',
+        'phone' => '+40722123474',
+        'email_verified_at' => now(),
+        'phone_verified_at' => null,
+    ]);
+    $payload = [
+        'email' => $user->email,
+        'phone' => '+40722123474',
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'starts_at' => now()->addDays(2)->toIso8601String(),
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ];
+
+    $first = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), $payload);
+    $first->assertOk();
+    $firstChallenge = ContactVerificationChallenge::query()->where('customer_phone', '+40722123474')->firstOrFail();
+
+    $payload['phone'] = '+40722123475';
+    $second = $this->postJson(route('verification.start'), $payload);
+    $second->assertOk()->assertJsonPath('status', 'verification_required');
+    $secondChallenge = ContactVerificationChallenge::query()->where('customer_phone', '+40722123475')->firstOrFail();
+
+    expect($firstChallenge->fresh()->isUsable())->toBeFalse()
+        ->and($firstChallenge->fresh()->consumed_at)->not->toBeNull()
+        ->and($secondChallenge->isUsable())->toBeTrue()
+        ->and(session('contact_verification_id'))->toBe($secondChallenge->id);
 });

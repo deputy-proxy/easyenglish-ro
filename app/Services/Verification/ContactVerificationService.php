@@ -18,27 +18,40 @@ class ContactVerificationService
 {
     public function __construct(private readonly WhatsAppGateway $whatsapp) {}
 
-    public function start(string $email, string $phone, string $locale, string $returnTo = 'booking', ?int $returnBundleId = null): ContactVerificationChallenge
-    {
+    public function start(
+        string $email,
+        string $phone,
+        string $locale,
+        string $returnTo = 'booking',
+        ?int $returnBundleId = null,
+        bool $emailAlreadyVerified = false,
+        bool $phoneAlreadyVerified = false,
+    ): ContactVerificationChallenge {
         ContactVerificationChallenge::query()->where('expires_at', '<', now()->subDay())->delete();
         $email = mb_strtolower(trim($email));
         $phone = PhoneNumber::normalize($phone);
         $emailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
-        if (! $emailOnly && (! (bool) config('services.whatsapp.enabled')
+        $verifyEmail = ! $emailAlreadyVerified;
+        $verifyPhone = ! $emailOnly && ! $phoneAlreadyVerified;
+
+        if ($verifyPhone && (! (bool) config('services.whatsapp.enabled')
             || ! is_string(config('services.whatsapp.access_token')) || config('services.whatsapp.access_token') === ''
             || ! is_string(config('services.whatsapp.phone_number_id')) || config('services.whatsapp.phone_number_id') === '')) {
             throw new RuntimeException('WhatsApp verification delivery is not configured.');
         }
-        if (! app()->environment('testing') && $this->usesNonDeliveringMailer((string) config('mail.default'))) {
+        if ($verifyEmail && ! app()->environment('testing') && $this->usesNonDeliveringMailer((string) config('mail.default'))) {
             throw new RuntimeException('Email verification requires a real delivery transport; log/array transports can expose or discard verification secrets.');
         }
+
+        $accountLimitKey = 'contact-verification:account:'.hash('sha256', $email);
         $emailLimitKey = 'contact-verification:email:'.hash('sha256', $email);
         $phoneLimitKey = 'contact-verification:phone:'.hash('sha256', $phone);
-        if (RateLimiter::tooManyAttempts($emailLimitKey, 5) || RateLimiter::tooManyAttempts($phoneLimitKey, 5)) {
+        if (RateLimiter::tooManyAttempts($accountLimitKey, 5)
+            || ($verifyEmail && RateLimiter::tooManyAttempts($emailLimitKey, 5))
+            || ($verifyPhone && RateLimiter::tooManyAttempts($phoneLimitKey, 5))) {
             throw ValidationException::withMessages(['verification' => __('public.verification_rate_limited')]);
         }
-        RateLimiter::hit($emailLimitKey, 3600);
-        RateLimiter::hit($phoneLimitKey, 3600);
+
         $existing = ContactVerificationChallenge::query()
             ->where('customer_email', $email)
             ->where('customer_phone', $phone)
@@ -49,18 +62,32 @@ class ContactVerificationService
 
         $emailSentAt = $existing?->getRawOriginal('email_sent_at');
         $phoneSentAt = $existing?->getRawOriginal('phone_sent_at');
-        if ($existing && ((is_string($emailSentAt) && CarbonImmutable::parse($emailSentAt)->gt(now()->subSeconds(60)))
-            || (is_string($phoneSentAt) && CarbonImmutable::parse($phoneSentAt)->gt(now()->subSeconds(60))))) {
+        if ($existing && (($verifyEmail && is_string($emailSentAt) && CarbonImmutable::parse($emailSentAt)->gt(now()->subSeconds(60)))
+            || ($verifyPhone && is_string($phoneSentAt) && CarbonImmutable::parse($phoneSentAt)->gt(now()->subSeconds(60))))) {
             throw ValidationException::withMessages(['verification' => __('public.verification_resend_wait')]);
         }
 
         $template = config('services.whatsapp.templates.contact_verification');
-        if (! $emailOnly && (! is_string($template) || $template === '')) {
+        if ($verifyPhone && (! is_string($template) || $template === '')) {
             throw new RuntimeException('The WhatsApp contact-verification template is not configured.');
         }
+
+        RateLimiter::hit($accountLimitKey, 3600);
+        if ($verifyEmail) {
+            RateLimiter::hit($emailLimitKey, 3600);
+        }
+        if ($verifyPhone) {
+            RateLimiter::hit($phoneLimitKey, 3600);
+        }
+
+        ContactVerificationChallenge::query()
+            ->where('customer_email', $email)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => now()]);
+
         $token = Str::random(64);
         $emailCode = (string) random_int(100000, 999999);
-        $code = $emailOnly ? '' : (string) random_int(100000, 999999);
+        $phoneCode = (string) random_int(100000, 999999);
         $challenge = ContactVerificationChallenge::query()->create([
             'id' => (string) Str::uuid(),
             'customer_email' => $email,
@@ -68,45 +95,48 @@ class ContactVerificationService
             'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
             'return_to' => $returnTo === 'purchase' && $returnBundleId !== null ? 'purchase' : 'booking',
             'return_bundle_id' => $returnTo === 'purchase' ? $returnBundleId : null,
-            'email_token_hash' => hash('sha256', $token),
-            'email_code_hash' => hash_hmac('sha256', $emailCode, (string) config('app.key')),
+            'email_token_hash' => hash('sha256', $verifyEmail ? $token : Str::random(64)),
+            'email_code_hash' => hash_hmac('sha256', $verifyEmail ? $emailCode : Str::random(32), (string) config('app.key')),
+            'email_verified_at' => $emailAlreadyVerified ? now() : null,
             'email_attempts' => 0,
-            'phone_code_hash' => hash_hmac('sha256', $code !== '' ? $code : Str::random(32), (string) config('app.key')),
+            'phone_code_hash' => hash_hmac('sha256', $verifyPhone ? $phoneCode : Str::random(32), (string) config('app.key')),
+            'phone_verified_at' => $phoneAlreadyVerified ? now() : null,
             'expires_at' => now()->addMinutes(30),
             'phone_attempts' => 0,
         ]);
 
-        $emailUrl = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(30), [
-            'challenge' => $challenge->id,
-            'token' => $token,
-        ]);
-        $subject = $challenge->locale === 'en' ? 'Verify your Easy English email' : 'Verifică adresa de e-mail Easy English';
-        $body = $challenge->locale === 'en'
-            ? "Your Easy English verification code is {$emailCode}.\n\nIt expires in 30 minutes. Enter it on the verification form, or use this backup link: {$emailUrl}\n\nDo not share this code. If you did not request it, you can ignore this message."
-            : "Codul tău de verificare Easy English este {$emailCode}.\n\nExpiră în 30 de minute. Introdu-l în formularul de verificare sau folosește acest link de rezervă: {$emailUrl}\n\nNu comunica acest cod nimănui. Dacă nu ai solicitat verificarea, poți ignora acest mesaj.";
-
         try {
-            Mail::raw($body, function ($message) use ($email, $subject): void {
-                $message->to($email)->subject($subject);
-            });
-            if (! $emailOnly) {
+            if ($verifyEmail) {
+                $emailUrl = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(30), [
+                    'challenge' => $challenge->id,
+                    'token' => $token,
+                ]);
+                $subject = $challenge->locale === 'en' ? 'Verify your Easy English email' : 'Verifică adresa de e-mail Easy English';
+                $body = $challenge->locale === 'en'
+                    ? "Your Easy English verification code is {$emailCode}.\n\nIt expires in 30 minutes. Enter it on the verification form, or use this backup link: {$emailUrl}\n\nDo not share this code. If you did not request it, you can ignore this message."
+                    : "Codul tău de verificare Easy English este {$emailCode}.\n\nExpiră în 30 de minute. Introdu-l în formularul de verificare sau folosește acest link de rezervă: {$emailUrl}\n\nNu comunica acest cod nimănui. Dacă nu ai solicitat verificarea, poți ignora acest mesaj.";
+
+                Mail::raw($body, function ($message) use ($email, $subject): void {
+                    $message->to($email)->subject($subject);
+                });
+            }
+
+            if ($verifyPhone) {
                 $language = config('services.whatsapp.contact_verification_template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en' : 'ro');
                 $this->whatsapp->sendTemplate($phone, (string) $template, $language, [
                     [
                         'type' => 'body',
-                        'parameters' => [['type' => 'text', 'text' => $code]],
+                        'parameters' => [['type' => 'text', 'text' => $phoneCode]],
                     ],
                     [
                         'type' => 'button',
-                        // Native COPY_CODE authentication templates use the URL subtype when sent.
                         'sub_type' => 'url',
                         'index' => '0',
-                        'parameters' => [['type' => 'text', 'text' => $code]],
+                        'parameters' => [['type' => 'text', 'text' => $phoneCode]],
                     ],
                 ], 'contact-verification:'.$challenge->id);
             }
         } catch (\Throwable $exception) {
-            // Invalidate a partially delivered challenge so a single channel cannot leave it usable.
             $challenge->forceFill([
                 'email_token_hash' => hash('sha256', Str::random(64)),
                 'email_code_hash' => hash_hmac('sha256', Str::random(32), (string) config('app.key')),
@@ -116,7 +146,11 @@ class ContactVerificationService
 
             throw $exception;
         }
-        $challenge->update(['email_sent_at' => now(), 'phone_sent_at' => $emailOnly ? null : now()]);
+
+        $challenge->update([
+            'email_sent_at' => $verifyEmail ? now() : null,
+            'phone_sent_at' => $verifyPhone ? now() : null,
+        ]);
 
         return $challenge->refresh();
     }
@@ -171,8 +205,14 @@ class ContactVerificationService
     {
         $result = DB::transaction(function () use ($challengeId, $code): array {
             $challenge = ContactVerificationChallenge::query()->whereKey($challengeId)->lockForUpdate()->firstOrFail();
-            if (! $challenge->isUsable() || $challenge->email_verified_at !== null) {
-                return ['error' => 'invalid'];
+            if ($challenge->consumed_at !== null) {
+                return ['error' => 'used'];
+            }
+            if (CarbonImmutable::parse($challenge->getRawOriginal('expires_at'))->isPast()) {
+                return ['error' => 'expired'];
+            }
+            if ($challenge->email_verified_at !== null) {
+                return ['error' => 'already_verified'];
             }
             if ($challenge->email_attempts >= 5) {
                 return ['error' => 'locked'];
@@ -193,8 +233,15 @@ class ContactVerificationService
         });
 
         if (isset($result['error'])) {
-            $key = $result['error'] === 'locked' ? 'verification_email_locked' : 'verification_email_invalid_code';
-            throw ValidationException::withMessages(['email_code' => __($key)]);
+            $key = match ($result['error']) {
+                'locked' => 'verification_email_locked',
+                'expired' => 'verification_challenge_expired',
+                'used' => 'verification_challenge_used',
+                'already_verified' => 'verification_channel_already_verified',
+                default => 'verification_email_invalid_code',
+            };
+            $field = in_array($result['error'], ['expired', 'used', 'already_verified'], true) ? 'challenge' : 'email_code';
+            throw ValidationException::withMessages([$field => __('public.'.$key)]);
         }
 
         return $result['challenge'];
@@ -204,8 +251,14 @@ class ContactVerificationService
     {
         $result = DB::transaction(function () use ($challengeId, $code): array {
             $challenge = ContactVerificationChallenge::query()->whereKey($challengeId)->lockForUpdate()->firstOrFail();
-            if (! $challenge->isUsable() || $challenge->phone_verified_at !== null) {
-                return ['error' => 'invalid'];
+            if ($challenge->consumed_at !== null) {
+                return ['error' => 'used'];
+            }
+            if (CarbonImmutable::parse($challenge->getRawOriginal('expires_at'))->isPast()) {
+                return ['error' => 'expired'];
+            }
+            if ($challenge->phone_verified_at !== null) {
+                return ['error' => 'already_verified'];
             }
             if ($challenge->phone_attempts >= 5) {
                 return ['error' => 'locked'];
@@ -225,8 +278,15 @@ class ContactVerificationService
         });
 
         if (isset($result['error'])) {
-            $key = $result['error'] === 'locked' ? 'verification_phone_locked' : 'verification_phone_invalid';
-            throw ValidationException::withMessages(['phone_code' => __($key)]);
+            $key = match ($result['error']) {
+                'locked' => 'verification_phone_locked',
+                'expired' => 'verification_challenge_expired',
+                'used' => 'verification_challenge_used',
+                'already_verified' => 'verification_channel_already_verified',
+                default => 'verification_phone_invalid',
+            };
+            $field = in_array($result['error'], ['expired', 'used', 'already_verified'], true) ? 'challenge' : 'phone_code';
+            throw ValidationException::withMessages([$field => __('public.'.$key)]);
         }
 
         return $result['challenge'];

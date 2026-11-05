@@ -1,4 +1,5 @@
 import { submitBookingAuthForm } from '../booking/booking-auth';
+import { normalizePhoneDigits, requiresPhoneReverification } from '../booking/phone-change';
 
 export function initializeAvailabilityBookingTransition(gsap) {
     const root = document.querySelector('[data-availability]');
@@ -147,9 +148,54 @@ export function initializeAvailabilityBookingTransition(gsap) {
         lastTrigger = null;
     };
 
+    formPanel.addEventListener('input', (event) => {
+        const phoneInput = event.target.closest('input[name="phone"]');
+        const form = phoneInput?.closest('form[data-booking-verification-form]');
+        if (!form) return;
+
+        const currentDigits = normalizePhoneDigits(phoneInput.value);
+        const previousDigits = form.dataset.lastPhoneDigits ?? normalizePhoneDigits(form.dataset.verifiedPhone);
+        const contactsVerified = form.dataset.contactsVerified === 'true';
+        const emailOnly = form.dataset.emailOnly === 'true';
+        const phoneChanged = currentDigits !== normalizePhoneDigits(form.dataset.verifiedPhone);
+        const changed = requiresPhoneReverification(phoneInput.value, form.dataset.verifiedPhone, {
+            contactsVerified,
+            emailOnly,
+        });
+        const emailOnlyChanged = contactsVerified && emailOnly && phoneChanged;
+        const consent = form.querySelector('[data-phone-change-consent]');
+        if (currentDigits !== previousDigits && consent) consent.checked = false;
+        form.dataset.lastPhoneDigits = currentDigits;
+        const controls = form.querySelector('[data-phone-change-controls]');
+        const finalSubmit = form.querySelector('[data-booking-final-submit]');
+        const eligibility = form.querySelector('[data-free-session-eligibility]');
+
+        if (controls) controls.hidden = !changed;
+        if (consent) consent.required = changed;
+        if (finalSubmit) {
+            finalSubmit.hidden = changed || (! emailOnlyChanged && form.dataset.initialEligible !== 'true');
+        }
+        if (eligibility) eligibility.hidden = changed || emailOnlyChanged;
+
+        if (feedback && changed) {
+            feedback.textContent = formPanel.dataset.bookingPhoneChangedMessage ?? '';
+            feedback.hidden = feedback.textContent === '';
+        } else if (feedback && emailOnlyChanged) {
+            feedback.textContent = formPanel.dataset.bookingPhoneChangedEmailOnlyMessage ?? '';
+            feedback.hidden = feedback.textContent === '';
+        } else if (feedback) {
+            feedback.textContent = '';
+            feedback.hidden = true;
+        }
+    }, options);
+
     formPanel.addEventListener('submit', async (event) => {
         const form = event.target.closest('form[data-booking-async-form]');
         if (!form || !formPanel.contains(form)) return;
+        const submitter = event.submitter;
+        const isAuthForm = form.hasAttribute('data-booking-auth-form');
+        const hasVerificationAction = submitter?.hasAttribute('formaction') ?? false;
+        if (!isAuthForm && !hasVerificationAction) return;
 
         event.preventDefault();
         const errorContainer = form.querySelector('[data-booking-form-errors]');
@@ -160,6 +206,7 @@ export function initializeAvailabilityBookingTransition(gsap) {
 
         await submitBookingAuthForm(form, {
             csrfToken: document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            submitter,
             onState: (state) => {
                 const messages = {
                     submitting: formPanel.dataset.bookingSubmittingMessage,

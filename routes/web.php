@@ -16,10 +16,10 @@ Route::get('/book', [PublicSiteController::class, 'bookingForm'])->name('booking
 Route::post('/book/register', [PublicSiteController::class, 'registerForFreeBooking'])->middleware(['guest', 'throttle:10,1'])->name('booking.register');
 Route::post('/book/login', [PublicSiteController::class, 'loginForFreeBooking'])->middleware(['guest', 'throttle:10,1'])->name('booking.login');
 Route::post('/book', [PublicSiteController::class, 'submitBooking'])->middleware(['auth', 'throttle:10,1'])->name('booking.submit');
-Route::post('/verification/start', [PublicSiteController::class, 'startContactVerification'])->middleware('throttle:10,1')->name('verification.start');
-Route::post('/verification/email-code', [PublicSiteController::class, 'confirmEmailCodeVerification'])->middleware('throttle:10,1')->name('verification.email-code.confirm');
-Route::post('/verification/phone', [PublicSiteController::class, 'confirmPhoneVerification'])->middleware('throttle:10,1')->name('verification.phone.confirm');
-Route::get('/verification/email/{challenge}/{token}', [PublicSiteController::class, 'confirmEmailVerification'])->middleware('throttle:10,1')->name('verification.email.confirm');
+Route::post('/verification/start', [PublicSiteController::class, 'startContactVerification'])->middleware(['auth', 'throttle:10,1'])->name('verification.start');
+Route::post('/verification/email-code', [PublicSiteController::class, 'confirmEmailCodeVerification'])->middleware(['auth', 'throttle:10,1'])->name('verification.email-code.confirm');
+Route::post('/verification/phone', [PublicSiteController::class, 'confirmPhoneVerification'])->middleware(['auth', 'throttle:10,1'])->name('verification.phone.confirm');
+Route::get('/verification/email/{challenge}/{token}', [PublicSiteController::class, 'confirmEmailVerification'])->middleware(['auth', 'throttle:10,1'])->name('verification.email.confirm');
 Route::get('/booking/{reference}/call-link', [BookingCallEventController::class, 'show'])->middleware(['auth', 'throttle:20,1'])->name('booking.call-link');
 Route::get('/booking/{reference}/manage', [PublicSiteController::class, 'manageBooking'])->middleware(['signed', 'throttle:60,1'])->name('booking.manage');
 Route::post('/booking/{reference}/cancel', [PublicSiteController::class, 'cancelBooking'])->middleware(['signed', 'throttle:20,1'])->name('booking.cancel');
