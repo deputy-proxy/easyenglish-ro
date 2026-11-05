@@ -1,11 +1,9 @@
-export function decideEventRequest(record, idempotencyKey) {
-  if (!record) return { type: 'create' };
-
-  if (record.idempotencyKey === idempotencyKey) {
-    if (record.status === 'submitted') return { type: 'replay', response: record.response };
-    return { type: 'pending', status: record.status, eventId: record.eventId || null };
-  }
-
-  if (record.cancelled) return { type: 'create' };
-  return { type: 'conflict' };
+import { createHash } from 'node:crypto';
+export function hashRequest(input) { return createHash('sha256').update(JSON.stringify(input)).digest('hex'); }
+export function decideEventRequest(records, key, requestHash) {
+  const existing = records.find((record) => record.idempotencyKey === key);
+  if (!existing) return { type: 'create' };
+  if (existing.requestHash !== requestHash) return { type: 'key_conflict' };
+  if (existing.status === 'scheduled') return { type: 'replay', record: existing };
+  return { type: 'pending', record: existing };
 }

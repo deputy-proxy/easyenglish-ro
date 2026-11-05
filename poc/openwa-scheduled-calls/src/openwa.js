@@ -1,11 +1,7 @@
 import { create, ev } from '@open-wa/wa-automate';
 
-export async function startOpenWa(config, callbacks) {
-  ev.on('launch.auth.qr.generated', ({ qr }) => callbacks.onQr(qr));
-  ev.on('launch.auth.qr.scanned', () => callbacks.onQrScanned());
-  ev.on('launch.auth.qr.expired', () => callbacks.onQrExpired());
-
-  const client = await create({
+export function buildOpenWaOptions(config) {
+  return {
     sessionId: config.sessionId,
     sessionDataPath: config.sessionDataPath,
     sessionDataEncryptionKeyFile: config.encryptionKeyFile,
@@ -14,7 +10,7 @@ export async function startOpenWa(config, callbacks) {
     qrLogSkip: true,
     qrFormat: 'png',
     qrMax: 10,
-    ephemeral: true,
+    ephemeral: false,
     skipSessionSave: false,
     logConsole: false,
     logConsoleErrors: false,
@@ -22,8 +18,18 @@ export async function startOpenWa(config, callbacks) {
     safeMode: true,
     ...(config.chromeExecutable ? { executablePath: config.chromeExecutable } : {}),
     ...(config.chromeNoSandbox ? { chromiumArgs: ['--no-sandbox', '--disable-setuid-sandbox'], allowDangerousBrowserArgs: true } : {}),
-  });
+  };
+}
 
+export async function startOpenWa(config, callbacks) {
+  ev.on('launch.auth.qr.generated', ({ qr }) => callbacks.onQr(qr));
+  ev.on('launch.auth.qr.scanned', () => callbacks.onQrScanned());
+  ev.on('launch.auth.qr.expired', () => callbacks.onQrExpired());
+  ev.on('session.connection.reconnecting', () => callbacks.onReconnectStart?.());
+  ev.on('session.connection.reconnected', ({ downtimeMs } = {}) => callbacks.onReconnectRecovered?.(downtimeMs));
+  const client = await create(buildOpenWaOptions(config));
+  client.onStateChanged((connectionState) => callbacks.onConnectionState?.(connectionState));
+  client.onLogout(() => callbacks.onLogout?.());
   callbacks.onAuthenticated(client);
   return client;
 }
