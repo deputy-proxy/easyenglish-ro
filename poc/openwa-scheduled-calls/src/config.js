@@ -44,6 +44,7 @@ export function readConfig(env = process.env) {
     pairingPassword,
     publicBaseUrl,
     chromeExecutable: env.OPENWA_CHROME_EXECUTABLE || null,
+    chromeNoSandbox: env.OPENWA_CHROME_NO_SANDBOX === 'true',
     allowLiveTest: env.OPENWA_ALLOW_LIVE_TEST === 'true',
   });
 }

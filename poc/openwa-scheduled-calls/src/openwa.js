@@ -21,6 +21,7 @@ export async function startOpenWa(config, callbacks) {
     blockCrashLogs: true,
     safeMode: true,
     ...(config.chromeExecutable ? { executablePath: config.chromeExecutable } : {}),
+    ...(config.chromeNoSandbox ? { chromiumArgs: ['--no-sandbox', '--disable-setuid-sandbox'], allowDangerousBrowserArgs: true } : {}),
   });
 
   callbacks.onAuthenticated(client);

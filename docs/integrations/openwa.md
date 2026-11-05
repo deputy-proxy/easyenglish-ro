@@ -56,7 +56,7 @@ Deploy this PoC as a dedicated Railway service in a separate project named `easy
 1. Create a Railway project named `easyenglish-openwa` in the existing Proxy Applications workspace, with a `production` environment.
 2. Create an empty service named `openwa-poc` and set its root directory to `/poc/openwa-scheduled-calls` in the repository. Use the included `Dockerfile`.
 3. Attach a Railway volume at `/data` (1 GB is sufficient for this PoC's session and encrypted result record). The volume must be in the same region as the service. Do not run multiple replicas: the WhatsApp session is single-writer state.
-4. Configure these variables on the service: `NODE_ENV=production`, `HOST=0.0.0.0`, `OPENWA_SESSION_ID=easyenglish-openwa-poc`, `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, `OPENWA_CHROME_EXECUTABLE=/usr/bin/chromium`, `OPENWA_SESSION_ENCRYPTION_KEY` (fresh base64-encoded 32-byte random key), `OPENWA_PAIRING_USERNAME`, `OPENWA_PAIRING_PASSWORD` (at least 32 random characters), `OPENWA_PUBLIC_BASE_URL` (the generated Railway HTTPS domain), and `OPENWA_ALLOW_LIVE_TEST=false`.
+4. Configure these variables on the service: `NODE_ENV=production`, `HOST=0.0.0.0`, `OPENWA_SESSION_ID=easyenglish-openwa-poc`, `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, `OPENWA_CHROME_EXECUTABLE=/usr/bin/chromium`, `OPENWA_CHROME_NO_SANDBOX=true` (Railway container runtime requires this; see security note below), `OPENWA_SESSION_ENCRYPTION_KEY` (fresh base64-encoded 32-byte random key), `OPENWA_PAIRING_USERNAME`, `OPENWA_PAIRING_PASSWORD` (at least 32 random characters), `OPENWA_PUBLIC_BASE_URL` (the generated Railway HTTPS domain), and `OPENWA_ALLOW_LIVE_TEST=false`.
 5. Generate a Railway HTTPS domain for the service and set that exact URL as `OPENWA_PUBLIC_BASE_URL`. Route the domain to the service's `PORT`; Railway injects this variable at runtime.
 6. Configure `/health/live` as the Railway healthcheck path and set restart policy to `ALWAYS`. Keep replicas at one. Do not enable serverless sleep for this persistent-session service.
 7. Run `npm run preflight` in the deployed container after variables and volume are configured. Confirm Node version, Chromium headless launch, zstd, HTTPS configuration, encryption key, and volume write permissions.
@@ -70,10 +70,10 @@ Deploy this PoC as a dedicated Railway service in a separate project named `easy
 
 - The service is intentionally single-replica because one WhatsApp Web session and its persisted browser state must have one active writer.
 - `/data/session` and `/data/keys` are separate private directories on the same Railway volume. The encryption key remains in Railway service variables and is written to the volume with mode 0600; the session and key directories are mode 0700.
-- The Docker image installs Debian Chromium and `zstd`; `OPENWA_CHROME_EXECUTABLE` points to `/usr/bin/chromium`.
+- The Docker image installs Debian Chromium and `zstd`; `OPENWA_CHROME_EXECUTABLE` points to `/usr/bin/chromium`. The service listens on Railway's injected `PORT` (8080 in this deployment), and the generated domain must target that same port.
 - The service must remain continuously running. Do not configure a Railway cron schedule or serverless sleep.
+- Railway's container runtime blocks the Linux namespaces Chromium needs for its normal sandbox. The deployed PoC therefore uses `OPENWA_CHROME_NO_SANDBOX=true`, which passes Chromium's `--no-sandbox` and `--disable-setuid-sandbox` flags. The process still runs as the unprivileged `node` user, not root. This weakens browser isolation and is accepted only for this disposable, authenticated PoC. Do not expose browser debugging ports, do not use production WhatsApp/customer data, and do not treat this configuration as approved for a production integration. Reassess the browser isolation model before any production use.
 - A successful local or sandbox preflight does not prove Railway compatibility. The preflight must pass in the deployed Railway container, under the unprivileged `node` user, before pairing.
-- Do not add `--no-sandbox` blindly. If Chromium cannot launch in Railway, investigate the sandbox/runtime failure before enabling live pairing.
 
 ## Security controls
 
@@ -92,7 +92,7 @@ Deploy this PoC as a dedicated Railway service in a separate project named `easy
 
 | Test | Expected result | Status |
 |---|---|---|
-| Railway runtime preflight | Node, zstd, Chrome sandbox, HTTPS, encrypted key, and persistent storage pass | Pending Railway deployment |
+| Railway runtime preflight | Node, zstd, Chromium headless launch with documented container sandbox setting, HTTPS, encrypted key, and persistent volume storage pass | Pending deployed-container preflight |
 | Pair dedicated creator account | QR is displayed only behind authenticated HTTPS page | Pending |
 | Restore session after restart | Authenticated state returns without re-pairing | Pending |
 | Create future 15-minute video event | Native event invitation appears in customer chat | Pending |

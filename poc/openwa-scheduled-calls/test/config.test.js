@@ -20,6 +20,10 @@ test('requires a separate encryption-key directory', () => {
 test('requires session and key directories outside application root', () => assert.throws(() => readConfig({ ...base, OPENWA_APP_ROOT: '/private/openwa' }), /outside the Node application root/));
 test('requires a valid 32-byte base64 encryption key', () => assert.throws(() => readConfig({ ...base, OPENWA_SESSION_ENCRYPTION_KEY: 'short' }), /32-byte/));
 test('requires strong pairing password', () => assert.throws(() => readConfig({ ...base, OPENWA_PAIRING_PASSWORD: 'weak' }), /32 characters/));
+test('disables Chromium sandbox only when explicitly configured', () => {
+  assert.equal(readConfig(base).chromeNoSandbox, false);
+  assert.equal(readConfig({ ...base, OPENWA_CHROME_NO_SANDBOX: 'true' }).chromeNoSandbox, true);
+});
 test('accepts valid config and resolves separate private paths', () => {
   const config = readConfig(base);
   assert.equal(config.sessionDataPath, '/private/openwa/session/session.data.json');
