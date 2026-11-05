@@ -9,6 +9,10 @@ final readonly class OpenWaConfig
     /** @param list<int> $retryDelaysSeconds */
     public function __construct(
         public bool $enabled,
+        public bool $applyToPaidSessions,
+        public string $rolloutStage,
+        /** @var list<string> */
+        public array $rolloutCustomerEmails,
         public ?string $baseUrl,
         public ?string $serviceToken,
         public int $connectTimeoutSeconds,
@@ -21,6 +25,25 @@ final readonly class OpenWaConfig
     public static function fromArray(array $values): self
     {
         $enabled = (bool) ($values['enabled'] ?? false);
+        $applyToPaidSessions = (bool) ($values['apply_to_paid_sessions'] ?? false);
+        $rolloutStage = is_string($values['rollout_stage'] ?? null) ? $values['rollout_stage'] : 'off';
+        $rolloutCustomerEmails = $values['rollout_customer_emails'] ?? [];
+        if (! in_array($rolloutStage, ['off', 'internal_test', 'staff_pilot', 'limited_customer', 'general'], true)) {
+            throw new InvalidArgumentException('OpenWA rollout stage must be off, internal_test, staff_pilot, limited_customer, or general.');
+        }
+        if (! is_array($rolloutCustomerEmails) || ! array_is_list($rolloutCustomerEmails)) {
+            throw new InvalidArgumentException('OpenWA rollout customer allowlist must be a list of email addresses.');
+        }
+        $rolloutCustomerEmails = array_values(array_unique(array_map(static function (mixed $email): string {
+            if (! is_string($email) || filter_var(trim($email), FILTER_VALIDATE_EMAIL) === false) {
+                throw new InvalidArgumentException('OpenWA rollout allowlist entries must be valid email addresses.');
+            }
+
+            return strtolower(trim($email));
+        }, $rolloutCustomerEmails)));
+        if ($enabled && in_array($rolloutStage, ['internal_test', 'limited_customer'], true) && $rolloutCustomerEmails === []) {
+            throw new InvalidArgumentException('The selected OpenWA rollout stage requires at least one allowlisted customer email.');
+        }
         $baseUrl = isset($values['base_url']) && is_string($values['base_url']) ? rtrim(trim($values['base_url']), '/') : null;
         $serviceToken = isset($values['service_token']) && is_string($values['service_token']) ? trim($values['service_token']) : null;
         $connectTimeout = (int) ($values['connect_timeout'] ?? 5);
@@ -59,6 +82,6 @@ final readonly class OpenWaConfig
             return (int) $delay;
         }, $retryDelays);
 
-        return new self($enabled, $baseUrl, $serviceToken, $connectTimeout, $timeout, $maxAttempts, $retryDelays);
+        return new self($enabled, $applyToPaidSessions, $rolloutStage, $rolloutCustomerEmails, $baseUrl, $serviceToken, $connectTimeout, $timeout, $maxAttempts, $retryDelays);
     }
 }

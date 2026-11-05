@@ -55,7 +55,25 @@
 - [ ] Test provider rejection, timeout, duplicate/out-of-order status webhooks, retries, unconfigured credentials, and opt-out while a message is queued.
 - [ ] Keep `WHATSAPP_ENABLED=false` until live delivery and opt-out verification pass; CI must continue to use fakes/mocks.
 
-## 6. Scheduler, queue, monitoring, and recovery
+## 6. OpenWA scheduled-call service
+
+- [ ] Confirm the dedicated Railway `openwa-poc` service is healthy on its latest deployment, with `/health/live` returning `200` and one replica only. The 5 GB `openwa-session-data` volume is mounted at `/data` in `europe-west4-drams3a`.
+- [ ] Confirm the Docker entrypoint executes preflight once and then starts `node src/server.js`; deploy logs must include the listener-started line and no repeated preflight loop.
+- [ ] Configure Railway volume backups: daily (6-day retention), weekly (27-day retention), and monthly (89-day retention). Confirm AES-256 at-rest encryption, understand that restores are limited to the same project/environment, preserve the matching session encryption key secret, and test a non-production restore. Add an independent encrypted copy if cross-project disaster recovery is required.
+- [ ] Configure `OPENWA_SERVICE_TOKEN` as a Railway secret and the matching value as a Hostinger application secret. Verify missing/invalid token returns `503`/`401` and valid Bearer authentication works; never place the token in browser code or logs.
+- [ ] Use the Railway public HTTPS domain from Hostinger. Do not use `*.railway.internal` from Hostinger; Railway private networking is scoped to services in the same Railway project/environment.
+- [ ] Verify `/health/ready` returns `503` when unpaired/disconnected and `200` only after the dedicated account is authenticated. Verify `/health/live` remains `200` while safely unpaired.
+- [ ] Keep `OPENWA_ENABLED=false`, `OPENWA_ALLOW_LIVE_TEST=false`, and `OPENWA_PAIRING_ENABLED=false` until #220 passes and explicit product/operations approval is recorded. Pairing UI must return `404` while disabled.
+- [ ] During the approved #220 test only, enable pairing temporarily with Basic authentication, use the dedicated non-production account, then disable pairing UI and verify QR/status routes return `404`. Never pair a personal or primary business account.
+- [ ] Verify `openwa:monitor` runs every minute through the Hostinger scheduler and alerts/recovery notifications reach staff for readiness loss, elevated provider-error rates, stale call-event operations, failed notification deliveries, and queue backlog. Verify terminal call-event failures produce staff alerts and booking audit records.
+- [ ] Test restart/reconnect, logout/re-authentication, backup restore, emergency disconnect, and queue recovery with the dedicated test account as part of #220.
+- [ ] Exercise rollout stages in order: internal test allowlist, staff-only pilot, limited-customer allowlist, then general. Verify `OPENWA_ROLLOUT_STAGE=off` stops new events while preserving existing links and allowing cancellation/reconciliation.
+- [ ] Confirm customer and assigned teacher receive the same current join link only after provider readiness; confirm teacher-only details are never included in customer messages.
+- [ ] Exercise the documented manual-call fallback when a link is unavailable 30 minutes before a session; record the outcome and ensure the booking remains valid.
+- [ ] Approve retention/deletion rules for encrypted join links and provider event metadata. Verify cancellation clears join URLs and original destination payloads from the Node event store; do not enable automatic retention writes before legal/accounting approval.
+- [ ] Record provider terms/compatibility review, risk acceptance, technical owner, operational owner, backup/restore evidence, and explicit GO/NO-GO approval.
+
+## 7. Scheduler, queue, monitoring, and recovery
 
 - [ ] Add the Hostinger scheduler cron using the actual account's absolute paths and PHP binary; confirm `php artisan schedule:list` matches expectations.
 - [ ] Verify actual cron cadence and execution/time limits on the target Hostinger plan. Record date, measured cadence, timeout limits, command output, and safe worker batch sizes below. **Not yet verified by CI or local testing.**
@@ -75,13 +93,13 @@
 - Backup restore test date/result: **pending**
 - Rollback test date/result: **pending**
 
-## 7. Accessibility and content review
+## 8. Accessibility and content review
 
 - [ ] Test keyboard-only navigation, visible focus, form labels, required-field/error announcements, contrast, reduced-motion behavior if applicable, and responsive layout at narrow mobile/tablet/desktop widths.
 - [ ] Review the entire public journey in Romanian and English, including loading, empty availability, expired slot, validation, checkout failure, payment pending, and confirmation states.
 - [ ] Confirm all displayed dates/times state or clearly imply Europe/Bucharest and avoid misleading availability claims.
 
-## 8. CI and release record
+## 9. CI and release record
 
 - [ ] `composer ci:check` passes locally on the release commit.
 - [ ] `npm ci && npm run build` passes locally on the release commit.
