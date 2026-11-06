@@ -12,7 +12,7 @@ This is the entry point for the authenticated customer experience documentation.
 
 Booking remains a separate prominent action that opens the existing availability calendar. It is not duplicated as a sixth dashboard section.
 
-The Profile, Security, and Appearance settings routes use the same branded dashboard header and visual system as the customer workspace. Their settings navigation remains within the shared shell, with a direct return to My account. Existing Fortify, verification, password-confirmation, passkey, two-factor, and appearance-preference behavior is preserved.
+My account is one top-level destination in the same primary dashboard navigation as My sessions. Its overview links to three dedicated views: Profile, Appearance, and Security. Each view retains the shared dashboard header and primary navigation, with My account active; there is no secondary settings navigation or settings-specific sidebar. Existing Fortify, verification, password-confirmation, passkey, two-factor, and appearance-preference behavior is preserved.
 
 ## Detailed specifications
 

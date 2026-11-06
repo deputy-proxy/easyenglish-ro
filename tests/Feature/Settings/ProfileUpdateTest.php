@@ -148,6 +148,10 @@ test('profile settings use the branded dashboard shell', function () {
         ->assertSee('dashboard-panel')
         ->assertSee('EasyEnglish')
         ->assertSee(route('dashboard', ['view' => 'account']), false)
+        ->assertSee(__('public.dashboard_primary_navigation'))
+        ->assertSee(__('public.dashboard_account'))
+        ->assertSee('aria-current="page"', false)
+        ->assertDontSee('aria-label="Settings"', false)
         ->assertDontSee('Repository')
         ->assertDontSee('Documentation');
 });
