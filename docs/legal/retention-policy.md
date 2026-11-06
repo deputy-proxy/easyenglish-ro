@@ -45,3 +45,7 @@ A documented exception process must exist for litigation holds, complaints, open
 - [ ] Exceptions/legal holds and staff authorization documented.
 - [ ] Retention command tested against boundary dates, repeated runs, and preservation of financial/audit records.
 - [ ] `DATA_RETENTION_ENABLED` remains false until sign-off is recorded.
+
+## Customer account ownership links
+
+Bookings and bundle entitlements use nullable customer-account foreign keys. Deleting an account clears these links without cascading deletion of transactional records, payment history, credit-ledger entries, feedback, progress reports, or original booking and purchase snapshots. A later account must not inherit these records solely by reusing an email address or phone number. Any subsequent anonymization must be performed as a separate audited retention operation and must preserve records subject to statutory financial or contractual retention. See the [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md).

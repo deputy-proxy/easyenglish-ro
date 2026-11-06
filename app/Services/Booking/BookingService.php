@@ -29,7 +29,7 @@ class BookingService
     public function __construct(private readonly AvailabilityService $availability, private readonly NotificationOutboxService $notifications, private readonly CancellationPolicyService $policy) {}
 
     /** @param array{name:string,email:string,phone:string,english_level:string,session_goal:string,notes?:?string,accepted_policy_version:string} $customer */
-    public function holdSlot(array $customer, CarbonImmutable $startsAt, ?int $entitlementId = null, bool $freeIntroduction = false, bool $emailVerified = false, bool $phoneVerified = false): Booking
+    public function holdSlot(array $customer, CarbonImmutable $startsAt, ?int $entitlementId = null, bool $freeIntroduction = false, bool $emailVerified = false, bool $phoneVerified = false, ?int $customerUserId = null): Booking
     {
         $customer = Validator::make($customer, [
             'name' => ['required', 'string', 'max:160'],
@@ -49,7 +49,7 @@ class BookingService
         $customer['phone'] = PhoneNumber::normalize($customer['phone']);
         $customer['locale'] = $customer['locale'] ?? 'ro';
 
-        return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified): Booking {
+        return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified, $customerUserId): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
             $assignedTeacher = null;
@@ -92,6 +92,12 @@ class BookingService
                 );
             } else {
                 $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($entitlementId);
+                if ($entitlement->customer_user_id !== null && $entitlement->customer_user_id !== $customerUserId) {
+                    throw ValidationException::withMessages(['bundle' => 'This bundle belongs to a different customer account.']);
+                }
+                if ($entitlement->customer_user_id === null && $customerUserId !== null) {
+                    $entitlement->forceFill(['customer_user_id' => $customerUserId])->save();
+                }
                 if ($entitlement->status !== 'active' || $entitlement->expires_at === null || $entitlement->expires_at->lessThanOrEqualTo($startsAt->utc()) || ($entitlement->credits_remaining < 1 && $entitlement->free_credits_remaining < 1)) {
                     throw ValidationException::withMessages(['bundle' => 'This bundle has no usable credits or is outside its validity period.']);
                 }
@@ -115,6 +121,7 @@ class BookingService
             $booking = Booking::query()->create([
                 'public_reference' => (string) Str::uuid(),
                 'bundle_entitlement_id' => $entitlement?->id,
+                'customer_user_id' => $customerUserId,
                 'teacher_id' => $assignedTeacher?->id,
                 'teacher_assigned_at' => $assignedTeacher ? now() : null,
                 'customer_name' => trim($customer['name']),

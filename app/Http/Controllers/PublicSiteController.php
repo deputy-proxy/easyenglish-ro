@@ -750,7 +750,7 @@ class PublicSiteController extends Controller
             'notes' => $validated['notes'] ?? null,
             'accepted_policy_version' => config('easyenglish.policy_version'),
             'locale' => app()->getLocale(),
-        ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', ($verificationChallenge?->email_verified_at !== null) || $accountContactsVerified, ($verificationChallenge?->phone_verified_at !== null) || $accountContactsVerified);
+        ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', ($verificationChallenge?->email_verified_at !== null) || $accountContactsVerified, ($verificationChallenge?->phone_verified_at !== null) || $accountContactsVerified, $request->user()->id);
         $bookings->confirm($booking->id);
         if ($verificationChallenge) {
             $verificationChallenge->update(['consumed_at' => now()]);
@@ -934,7 +934,7 @@ class PublicSiteController extends Controller
                 && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge, $accountContactsVerified);
+            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user());
         } catch (\Throwable $exception) {
             Log::warning('Stripe Checkout could not be started.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
 
@@ -1022,17 +1022,17 @@ class PublicSiteController extends Controller
     public function dashboard(Request $request, ProgressChartData $progressChartData): Response
     {
         $this->applyLocale($request);
-        $email = mb_strtolower((string) $request->user()->email);
+        $customer = $request->user();
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
             ->with(['callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
-            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->ownedBy($customer)
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('starts_at', '>=', $now)
             ->orderBy('starts_at')
             ->get();
         $pastBookings = Booking::query()
-            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->ownedBy($customer)
             ->whereIn('status', ['completed', 'confirmed'])
             ->where('starts_at', '<', $now)
             ->orderByDesc('starts_at')
@@ -1040,20 +1040,36 @@ class PublicSiteController extends Controller
             ->get();
         $entitlements = BundleEntitlement::query()
             ->with('definition')
-            ->whereRaw('LOWER(customer_email) = ?', [$email])
+            ->ownedBy($customer)
             ->whereIn('status', ['active', 'pending_payment'])
             ->orderByDesc('created_at')
             ->get();
         $activeEntitlements = $entitlements->where('status', 'active');
         $remainingCredits = $activeEntitlements->sum(fn (BundleEntitlement $entitlement): int => $entitlement->credits_remaining + $entitlement->free_credits_remaining);
-        $hasUsedFreeOffer = FreeSessionClaim::query()->whereRaw('LOWER(customer_email) = ?', [$email])->exists();
+        $ownedBookingIds = Booking::query()->ownedBy($customer)->select('id');
+        $ownedEntitlementIds = BundleEntitlement::query()->ownedBy($customer)->select('id');
+        $hasUsedFreeOffer = FreeSessionClaim::query()
+            ->where(function ($query) use ($customer, $ownedBookingIds, $ownedEntitlementIds): void {
+                $query->whereIn('booking_id', $ownedBookingIds)
+                    ->orWhereIn('bundle_entitlement_id', $ownedEntitlementIds);
+
+                if ($customer->email_verified_at !== null && $customer->phone_verified_at !== null && $customer->phone !== null) {
+                    $query->orWhere(function ($legacy) use ($customer): void {
+                        $legacy->whereNull('booking_id')
+                            ->whereNull('bundle_entitlement_id')
+                            ->whereRaw('LOWER(customer_email) = ?', [mb_strtolower($customer->email)])
+                            ->where('customer_phone', $customer->phone);
+                    });
+                }
+            })
+            ->exists();
         $calendarEntitlement = $activeEntitlements->first(fn (BundleEntitlement $entitlement): bool => ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0);
         $calendarBookingUrl = $calendarEntitlement
             ? URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $calendarEntitlement->id], now()->addDays(7))
             : (! $hasUsedFreeOffer ? route('booking.create', ['type' => 'intro']) : route('home').'#bundles');
         $feedback = SessionFeedback::query()
             ->with('booking')
-            ->whereHas('booking', fn ($query) => $query->whereRaw('LOWER(customer_email) = ?', [$email]))
+            ->whereIn('booking_id', Booking::query()->ownedBy($customer)->select('id'))
             ->get();
         $progressChart = $progressChartData->build($feedback, [
             'vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence',
@@ -1061,7 +1077,7 @@ class PublicSiteController extends Controller
         $latestProgressReport = ProgressReport::query()
             ->with('booking')
             ->whereNotNull('shared_at')
-            ->whereHas('booking', fn ($query) => $query->whereRaw('LOWER(customer_email) = ?', [$email]))
+            ->whereIn('booking_id', Booking::query()->ownedBy($customer)->select('id'))
             ->orderByDesc('shared_at')
             ->first();
         $feedback = $feedback->sortByDesc(fn (SessionFeedback $item): int => $item->booking->starts_at->getTimestamp())

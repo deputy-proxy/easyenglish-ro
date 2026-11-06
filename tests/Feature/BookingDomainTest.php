@@ -560,3 +560,27 @@ test('signed customer cancellation endpoint cannot be used without a valid signa
 
     expect($booking->fresh()->status)->toBe('cancelled');
 });
+
+test('authenticated free-introduction bookings persist the durable customer account owner', function () {
+    $startsAt = CarbonImmutable::parse('2026-10-27 09:00', 'Europe/Bucharest');
+    addAvailabilityWindow($startsAt);
+    $user = User::factory()->create([
+        'email' => 'learner@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $booking = app(BookingService::class)->holdSlot(
+        bookingCustomer(),
+        $startsAt,
+        null,
+        true,
+        true,
+        true,
+        $user->id,
+    );
+
+    expect($booking->customer_user_id)->toBe($user->id)
+        ->and($user->fresh()->customerBookings()->whereKey($booking->id)->exists())->toBeTrue();
+});

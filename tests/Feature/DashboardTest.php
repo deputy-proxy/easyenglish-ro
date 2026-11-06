@@ -13,6 +13,7 @@ function makeDashboardCallEvent(User $customer, string $status, array $bookingOv
     $startsAt = now()->addDay()->startOfHour();
     $booking = Booking::query()->create(array_merge([
         'public_reference' => (string) Str::uuid(),
+        'customer_user_id' => $customer->id,
         'teacher_id' => $teacher->id,
         'teacher_assigned_at' => now(),
         'customer_name' => $customer->name,
@@ -62,6 +63,7 @@ test('calendar and progress dashboard views show the learner’s own sessions an
     $user = User::factory()->create(['email' => 'dashboard-learner@example.com']);
     $booking = Booking::query()->create([
         'public_reference' => (string) Str::uuid(),
+        'customer_user_id' => $user->id,
         'customer_name' => $user->name,
         'customer_email' => $user->email,
         'customer_phone' => '+40722123456',
@@ -107,6 +109,7 @@ test('progress dashboard plots complete session assessments as separate radar ch
     $makeBooking = function (int $daysAgo) use ($user): Booking {
         return Booking::query()->create([
             'public_reference' => (string) Str::uuid(),
+            'customer_user_id' => $user->id,
             'customer_name' => $user->name,
             'customer_email' => $user->email,
             'customer_phone' => '+40722123456',
@@ -240,4 +243,63 @@ test('dashboard exposes only the current scheduled call link for the authenticat
 
     expect($ready['booking']->currentCallEvent()?->id)->toBe($ready['event']->id)
         ->and($stale['booking']->currentCallEvent())->toBeNull();
+});
+
+test('explicit customer ownership preserves dashboard history after an email change', function () {
+    $user = User::factory()->create(['email' => 'before-change@example.com']);
+    $booking = Booking::query()->create([
+        'public_reference' => (string) Str::uuid(),
+        'customer_user_id' => $user->id,
+        'customer_name' => $user->name,
+        'customer_email' => $user->email,
+        'customer_phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Persistent ownership history',
+        'accepted_policy_version' => 'test-policy',
+        'starts_at' => now()->subDay(),
+        'ends_at' => now()->subDay()->addMinutes(15),
+        'duration_minutes' => 15,
+        'status' => 'completed',
+        'locale' => 'en',
+    ]);
+
+    $user->forceFill(['email' => 'after-change@example.com', 'email_verified_at' => now()])->save();
+
+    $this->actingAs($user)->withSession(['locale' => 'en'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertViewHas('pastBookings', fn ($bookings): bool => $bookings->contains('id', $booking->id));
+
+    expect($booking->fresh()->customer_user_id)->toBe($user->id)
+        ->and($booking->fresh()->customer_email)->toBe('before-change@example.com');
+});
+
+test('an explicitly owned booking is never exposed to another account through matching snapshots', function () {
+    $owner = User::factory()->create(['email' => 'record-owner@example.com']);
+    $other = User::factory()->create([
+        'email' => 'snapshot-match@example.com',
+        'phone' => '+40722123456',
+        'phone_verified_at' => now(),
+    ]);
+
+    Booking::query()->create([
+        'public_reference' => (string) Str::uuid(),
+        'customer_user_id' => $owner->id,
+        'customer_name' => $other->name,
+        'customer_email' => $other->email,
+        'customer_phone' => $other->phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Must remain private to owner',
+        'accepted_policy_version' => 'test-policy',
+        'starts_at' => now()->addDay(),
+        'ends_at' => now()->addDay()->addMinutes(15),
+        'duration_minutes' => 15,
+        'status' => 'confirmed',
+        'locale' => 'en',
+    ]);
+
+    $this->actingAs($other)->withSession(['locale' => 'en'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertViewHas('bookings', fn ($bookings): bool => $bookings->doesntContain('id', Booking::query()->where('session_goal', 'Must remain private to owner')->value('id')));
 });

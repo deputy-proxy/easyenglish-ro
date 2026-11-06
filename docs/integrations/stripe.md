@@ -66,3 +66,7 @@ Do not edit credit balances directly to work around a pending refund. If a Strip
 8. Only after the checklist passes, set `STRIPE_CHECKOUT_ENABLED=true` with live-mode credentials and the live webhook signing secret.
 
 For local tests, use the fake gateway in `tests/Support/FakeStripeGateway.php`. Never use production credentials in CI.
+
+## Customer account ownership
+
+A bundle entitlement created during an authenticated checkout stores the authenticated customer's user ID in customer_user_id. Stripe webhook activation, payment reconciliation, refunds, and credit-ledger operations continue to reference the entitlement and do not replace its customer identity or historical contact snapshots. Guest checkouts remain supported. See the canonical [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md) and the [legacy record reconciliation runbook](../operations/customer-record-reconciliation.md).

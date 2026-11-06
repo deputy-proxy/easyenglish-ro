@@ -623,7 +623,8 @@ test('already verified customer accounts can purchase a bundle without repeating
         ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
 
     $entitlement = BundleEntitlement::query()->where('checkout_request_key', $token)->firstOrFail();
-    expect($entitlement->customer_email_verified_at)->not->toBeNull()
+    expect($entitlement->customer_user_id)->toBe($user->id)
+        ->and($entitlement->customer_email_verified_at)->not->toBeNull()
         ->and($entitlement->customer_phone_verified_at)->not->toBeNull();
 
     $fake = app(FakeStripeGateway::class);
