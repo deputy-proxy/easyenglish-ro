@@ -88,3 +88,8 @@ The dashboard does not replace teacher routes or the Filament staff panel.
 The layout uses responsive Tailwind grids, wraps navigation on small screens, retains dark-mode styles, and exposes navigation landmarks and current-page state. The overview uses explicit empty states for no upcoming session, no usable bundle, no current level, and no recent activity. A progress highlight is omitted entirely when there is insufficient complete assessment data.
 
 No analytics, tracking, or inferred activity events are introduced.
+
+
+## Related product specifications
+
+See the [dashboard integration overview](dashboard-integration.md) for the shared customer/teacher information architecture, role boundaries, shared data contracts, query-performance review, and release acceptance checklist.

@@ -17,8 +17,16 @@ use Illuminate\View\View;
 
 class TeacherAvailabilityController extends Controller
 {
+    private function applyLocale(Request $request): void
+    {
+        $locale = $request->session()->get('locale', 'en');
+        app()->setLocale(in_array($locale, ['en', 'ro'], true) ? $locale : 'en');
+    }
+
     public function index(Request $request): View
     {
+        $this->applyLocale($request);
+
         /** @var User $teacher */
         $teacher = $request->user();
 
@@ -26,12 +34,14 @@ class TeacherAvailabilityController extends Controller
             'rules' => $teacher->availabilityRules()->orderBy('weekday')->orderBy('starts_at')->get(),
             'exceptions' => $teacher->availabilityExceptions()->orderBy('starts_at')->get(),
             'calendar' => $teacher->teacherCalendar,
-            'weekdays' => [0 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'],
+            'weekdays' => __('public.teacher_weekdays'),
         ]);
     }
 
     public function updateAvailability(Request $request): RedirectResponse
     {
+        $this->applyLocale($request);
+
         /** @var User $teacher */
         $teacher = $request->user();
         $rawAvailability = $request->input('availability', []);
@@ -54,7 +64,7 @@ class TeacherAvailabilityController extends Controller
 
         foreach ($validated['availability'] as $interval) {
             if ($interval['starts_at'] === $interval['ends_at']) {
-                throw ValidationException::withMessages(['availability' => 'Each working interval must have a different start and end time.']);
+                throw ValidationException::withMessages(['availability' => __('public.teacher_interval_time_invalid')]);
             }
         }
 
@@ -71,11 +81,13 @@ class TeacherAvailabilityController extends Controller
             }
         });
 
-        return back()->with('status', 'Your weekly availability has been saved.');
+        return back()->with('status', __('public.teacher_availability_saved'));
     }
 
     public function storeException(Request $request): RedirectResponse
     {
+        $this->applyLocale($request);
+
         /** @var User $teacher */
         $teacher = $request->user();
         $validated = $request->validate([
@@ -94,20 +106,24 @@ class TeacherAvailabilityController extends Controller
             'created_by' => $teacher->id,
         ]);
 
-        return back()->with('status', 'Your availability exception has been saved.');
+        return back()->with('status', __('public.teacher_exception_saved'));
     }
 
     public function destroyException(Request $request, AvailabilityException $exception): RedirectResponse
     {
+        $this->applyLocale($request);
+
         abort_unless($exception->user_id === $request->user()->id, 404);
         $exception->delete();
 
-        return back()->with('status', 'The availability exception has been removed.');
+        return back()->with('status', __('public.teacher_exception_removed'));
     }
 
     public function connectGoogleCalendar(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
-        abort_unless(config('services.google_calendar.client_id') && config('services.google_calendar.client_secret'), 503, 'Google Calendar is not configured.');
+        $this->applyLocale($request);
+
+        abort_unless(config('services.google_calendar.client_id') && config('services.google_calendar.client_secret'), 503, __('public.teacher_calendar_not_configured'));
         $state = Str::random(48);
         $request->session()->put('google_calendar_oauth_state', $state);
 
@@ -116,11 +132,13 @@ class TeacherAvailabilityController extends Controller
 
     public function googleCalendarCallback(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
+        $this->applyLocale($request);
+
         $expectedState = $request->session()->pull('google_calendar_oauth_state');
         abort_unless(is_string($expectedState) && is_string($request->query('state')) && hash_equals($expectedState, $request->query('state')), 403);
 
         if ($request->filled('error')) {
-            return redirect()->route('teacher.availability')->withErrors(['calendar' => 'Google Calendar authorization was not completed.']);
+            return redirect()->route('teacher.availability')->withErrors(['calendar' => __('public.teacher_calendar_auth_cancelled')]);
         }
 
         $validated = $request->validate(['code' => ['required', 'string', 'max:4096']]);
@@ -128,16 +146,18 @@ class TeacherAvailabilityController extends Controller
             $connection = $calendar->connect($request->user(), $validated['code']);
             SyncTeacherCalendar::dispatch($connection->id);
         } catch (\Throwable) {
-            return redirect()->route('teacher.availability')->withErrors(['calendar' => 'Google Calendar could not be connected. Check the integration configuration and try again.']);
+            return redirect()->route('teacher.availability')->withErrors(['calendar' => __('public.teacher_calendar_connect_error')]);
         }
 
-        return redirect()->route('teacher.availability')->with('status', 'Google Calendar connected. Your first availability sync has been queued.');
+        return redirect()->route('teacher.availability')->with('status', __('public.teacher_calendar_connect_status'));
     }
 
     public function disconnectGoogleCalendar(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
+        $this->applyLocale($request);
+
         $calendar->disconnect($request->user());
 
-        return back()->with('status', 'Google Calendar disconnected.');
+        return back()->with('status', __('public.teacher_calendar_disconnect_status'));
     }
 }
