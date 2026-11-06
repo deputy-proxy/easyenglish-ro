@@ -11,7 +11,7 @@ The customer identity foundation and all customer/teacher dashboard implementati
 | Purchases, payments, and credits | #223 | [Customer purchases and payments](customer-purchases-and-payments.md) |
 | Learner profile and goals | #224 | [Learner profile](learner-profile.md) |
 | Assessments and progress reports | #225 | [Learner progress and assessments](learner-progress-and-assessments.md) |
-| Customer navigation and overview | #226 | [Customer dashboard overview](customer-dashboard-overview.md) |
+| Customer navigation and overview | #226 | [Customer dashboard](customer-dashboard.md) and [customer dashboard overview](customer-dashboard-overview.md) |
 | Support and account access | #227 | [Customer support and account access](customer-support-and-account-access.md) |
 | Teacher workspace | #228 | [Teacher dashboard](teacher-dashboard.md) |
 
