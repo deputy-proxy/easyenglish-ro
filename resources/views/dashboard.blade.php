@@ -17,7 +17,7 @@
         @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
 
         <nav class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_overview') }}">
-            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress')] as $view => $label)
+            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'purchases' => __('public.dashboard_purchases'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress')] as $view => $label)
                 <a href="{{ route('dashboard', ['view' => $view]) }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === $view ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
             @endforeach
         </nav>
@@ -41,15 +41,16 @@
                 </article>
                 <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                     <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_your_bundles') }}</p>
-                    @forelse ($entitlements->where('status', 'active') as $entitlement)
+                    @forelse ($usableEntitlements as $entitlement)
                         <div class="mt-3 flex items-start justify-between gap-3">
-                            <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $entitlement->definition->localizedName($entitlement->locale) }}</p><p class="mt-1 text-sm text-zinc-500">{{ $entitlement->credits_remaining + $entitlement->free_credits_remaining }} {{ __('public.dashboard_remaining_credits') }}</p></div>
+                            <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $entitlement->bundle_name_snapshot ?: __('public.dashboard_purchase_bundle_name_unavailable') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $entitlement->credits_remaining + $entitlement->free_credits_remaining }} {{ __('public.dashboard_remaining_credits') }}</p></div>
                             <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ $entitlement->expires_at?->timezone('Europe/Bucharest')->format('d.m.Y') }}</span>
                         </div>
                     @empty
                         <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_bundles') }}</p>
                     @endforelse
-                    <a href="{{ route('home') }}#bundles" class="mt-4 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_buy_bundle') }} →</a>
+                    <a href="{{ route('dashboard', ['view' => 'purchases']) }}" wire:navigate class="mt-3 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_purchases') }} →</a>
+                    <a href="{{ route('home') }}#bundles" class="mt-2 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_buy_bundle') }} →</a>
                 </article>
             </section>
 
@@ -66,6 +67,8 @@
             </section>
         @elseif ($activeView === 'sessions')
             @include('public.dashboard-sessions')
+        @elseif ($activeView === 'purchases')
+            @include('public.dashboard-purchases')
         @elseif ($activeView === 'calendar')
             <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>

@@ -686,13 +686,13 @@ class BookingService
             return;
         }
 
-        $entitlement = BundleEntitlement::query()->with('definition')->where('status', 'active')
+        $entitlement = BundleEntitlement::query()->where('status', 'active')
             ->where(function ($query) use ($email, $phone): void {
                 $query->where('customer_email', mb_strtolower($email))->orWhere('customer_phone', $phone);
             })->orderBy('activated_at')->orderBy('id')->lockForUpdate()->get()
             ->first(fn (BundleEntitlement $candidate): bool => $candidate->customer_email_verified_at !== null
                 && $candidate->customer_phone_verified_at !== null
-                && $candidate->free_credits_granted < $candidate->definition->included_free_credits);
+                && $candidate->free_credits_granted < $candidate->included_free_credits_snapshot);
         if (! $entitlement) {
             return;
         }

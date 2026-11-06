@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $amount_ron
  * @property int $refunded_amount_ron
  * @property string|null $checkout_url
+ * @property string|null $provider_charge_id
  * @property CarbonImmutable|null $checkout_expires_at
  * @property string $currency
  * @property string $status
@@ -21,7 +22,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Payment extends Model
 {
-    protected $fillable = ['bundle_entitlement_id', 'provider', 'provider_checkout_id', 'checkout_request_key', 'checkout_url', 'checkout_expires_at', 'provider_payment_id', 'amount_ron', 'currency', 'status', 'confirmed_at', 'last_reconciled_at', 'refunded_amount_ron', 'last_error'];
+    protected $fillable = ['bundle_entitlement_id', 'provider', 'provider_checkout_id', 'checkout_request_key', 'checkout_url', 'checkout_expires_at', 'provider_payment_id', 'provider_charge_id', 'amount_ron', 'currency', 'status', 'confirmed_at', 'last_reconciled_at', 'refunded_amount_ron', 'last_error'];
 
     protected function casts(): array
     {
@@ -38,5 +39,11 @@ class Payment extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(PaymentRefund::class);
+    }
+
+    /** @return HasMany<PaymentDispute, $this> */
+    public function disputes(): HasMany
+    {
+        return $this->hasMany(PaymentDispute::class);
     }
 }

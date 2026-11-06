@@ -24,4 +24,7 @@ interface StripeGateway
 
     /** @return array<string, mixed> */
     public function retrieveRefund(string $refundId): array;
+
+    /** @return array<string, mixed> */
+    public function retrieveDispute(string $disputeId): array;
 }

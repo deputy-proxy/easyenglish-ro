@@ -57,7 +57,7 @@ class StripePaymentProcessor
         if ($status === 'complete' && $paymentStatus === 'paid') {
             $current = PaymentStatus::from($payment->status);
             if ($current !== PaymentStatus::Succeeded && $current !== PaymentStatus::Refunded) {
-                $wasTerminal = in_array($current, [PaymentStatus::Expired, PaymentStatus::Failed], true);
+                $wasTerminal = in_array($current, [PaymentStatus::Expired, PaymentStatus::Failed, PaymentStatus::Cancelled], true);
                 $payment = $this->paymentStates->transitionAfterVerifiedProviderEvent($payment, PaymentStatus::Succeeded);
                 if ($wasTerminal) {
                     BookingAudit::query()->create([
@@ -70,6 +70,34 @@ class StripePaymentProcessor
         } elseif ($status === 'expired' && $payment->status === PaymentStatus::Pending->value) {
             $payment = $this->paymentStates->transitionAfterVerifiedProviderEvent($payment, PaymentStatus::Expired);
         }
+
+        return $payment->refresh();
+    }
+
+    /** @param array<string, mixed> $intent */
+    public function recordPaymentIntentCharge(array $intent): ?Payment
+    {
+        $metadata = is_array($intent['metadata'] ?? null) ? $intent['metadata'] : [];
+        $paymentId = filter_var($metadata['payment_id'] ?? null, FILTER_VALIDATE_INT);
+        $intentId = $intent['id'] ?? null;
+        $charge = $intent['latest_charge'] ?? null;
+        $chargeId = is_string($charge) ? $charge : (is_array($charge) && is_string($charge['id'] ?? null) ? $charge['id'] : null);
+
+        if (! is_int($paymentId) || $paymentId < 1 || ! is_string($intentId) || $intentId === '' || $chargeId === null) {
+            throw ValidationException::withMessages(['payment' => 'Stripe PaymentIntent is missing its local payment or charge reference.']);
+        }
+
+        $payment = Payment::query()->findOrFail($paymentId);
+        if (($payment->provider_payment_id !== null && $payment->provider_payment_id !== $intentId)
+            || (int) ($intent['amount_received'] ?? $intent['amount'] ?? -1) !== $payment->amount_ron * 100
+            || strtolower((string) ($intent['currency'] ?? '')) !== strtolower($payment->currency)) {
+            throw ValidationException::withMessages(['payment' => 'Stripe PaymentIntent amount, currency, or reference does not match the stored payment.']);
+        }
+
+        $payment->forceFill([
+            'provider_payment_id' => $intentId,
+            'provider_charge_id' => $chargeId,
+        ])->save();
 
         return $payment->refresh();
     }

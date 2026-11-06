@@ -54,6 +54,10 @@ class StripeCheckoutService
                 [
                     'customer_user_id' => $customerUser?->id,
                     'bundle_definition_id' => $bundle->id,
+                    'bundle_name_snapshot' => $bundle->localizedName(in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
+                    'bundle_description_snapshot' => $bundle->localizedValue($bundle->short_description, in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
+                    'included_free_credits_snapshot' => $bundle->included_free_credits,
+                    'bundle_snapshot_source' => 'purchase',
                     'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
                     'customer_name' => $customer['name'],
                     'customer_email' => $customer['email'],
@@ -134,7 +138,7 @@ class StripeCheckoutService
             }
         }
 
-        if (! $payment || in_array($payment->status, [PaymentStatus::Failed->value, PaymentStatus::Expired->value], true)) {
+        if (! $payment || in_array($payment->status, [PaymentStatus::Failed->value, PaymentStatus::Expired->value, PaymentStatus::Cancelled->value], true)) {
             $attempt = ((int) $entitlement->payments()->max('id')) + 1;
             $payment = $entitlement->payments()->create([
                 'provider' => 'stripe',
@@ -199,7 +203,7 @@ class StripeCheckoutService
 
         $expired = $this->stripe->expireCheckoutSession($sessionId);
         if (($expired['status'] ?? null) === 'expired') {
-            $payment = $this->paymentStates->transitionAfterVerifiedProviderEvent($payment, PaymentStatus::Expired);
+            $payment = $this->paymentStates->transitionAfterVerifiedProviderEvent($payment, PaymentStatus::Cancelled);
         }
 
         return $payment->refresh();
@@ -243,8 +247,8 @@ class StripeCheckoutService
                     'tax_behavior' => 'inclusive',
                     'unit_amount' => $entitlement->paid_amount_ron * 100,
                     'product_data' => [
-                        'name' => $bundle->localizedName($locale),
-                        'description' => '15-minute English conversation sessions. All applicable taxes are included.',
+                        'name' => $entitlement->bundle_name_snapshot ?: $bundle->localizedName($locale),
+                        'description' => $entitlement->bundle_description_snapshot ?: 'English conversation sessions. All applicable taxes are included.',
                     ],
                 ],
             ]],

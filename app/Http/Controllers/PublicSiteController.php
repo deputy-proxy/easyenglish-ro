@@ -7,8 +7,10 @@ use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
+use App\Models\CreditTransaction;
 use App\Models\Faq;
 use App\Models\FreeSessionClaim;
+use App\Models\Payment;
 use App\Models\ProgressReport;
 use App\Models\SessionFeedback;
 use App\Models\Testimonial;
@@ -17,6 +19,7 @@ use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\CancellationPolicyService;
+use App\Services\Payments\CustomerPurchasePresenter;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Progress\ProgressChartData;
 use App\Services\Verification\ContactVerificationService;
@@ -1019,7 +1022,7 @@ class PublicSiteController extends Controller
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
-    public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy): Response
+    public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy, CustomerPurchasePresenter $purchasePresenter): Response
     {
         $this->applyLocale($request);
         $customer = $request->user();
@@ -1032,14 +1035,18 @@ class PublicSiteController extends Controller
             ->orderBy('starts_at')
             ->limit(20)
             ->get();
-        $entitlements = BundleEntitlement::query()
-            ->with('definition')
+        $usableEntitlements = BundleEntitlement::query()
             ->ownedBy($customer)
-            ->whereIn('status', ['active', 'pending_payment'])
+            ->where('status', 'active')
+            ->where(function ($query): void {
+                $query->where('credits_remaining', '>', 0)->orWhere('free_credits_remaining', '>', 0);
+            })
+            ->where(function ($query) use ($now): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', $now);
+            })
             ->orderByDesc('created_at')
             ->get();
-        $activeEntitlements = $entitlements->where('status', 'active');
-        $remainingCredits = $activeEntitlements->sum(fn (BundleEntitlement $entitlement): int => $entitlement->credits_remaining + $entitlement->free_credits_remaining);
+        $remainingCredits = $usableEntitlements->sum(fn (BundleEntitlement $entitlement): int => $entitlement->credits_remaining + $entitlement->free_credits_remaining);
         $ownedBookingIds = Booking::query()->ownedBy($customer)->select('id');
         $ownedEntitlementIds = BundleEntitlement::query()->ownedBy($customer)->select('id');
         $hasUsedFreeOffer = FreeSessionClaim::query()
@@ -1057,7 +1064,7 @@ class PublicSiteController extends Controller
                 }
             })
             ->exists();
-        $calendarEntitlement = $activeEntitlements->first(fn (BundleEntitlement $entitlement): bool => ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0);
+        $calendarEntitlement = $usableEntitlements->first(fn (BundleEntitlement $entitlement): bool => ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0);
         $calendarBookingUrl = $calendarEntitlement
             ? URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $calendarEntitlement->id], now()->addDays(7))
             : (! $hasUsedFreeOffer ? route('booking.create', ['type' => 'intro']) : route('home').'#bundles');
@@ -1078,7 +1085,7 @@ class PublicSiteController extends Controller
             ->unique('metric_key')
             ->values();
         $activeView = $request->query('view', 'overview');
-        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions'], true)) {
+        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases'], true)) {
             $activeView = 'overview';
         }
 
@@ -1139,12 +1146,92 @@ class PublicSiteController extends Controller
             }
         }
 
+        $purchaseEntitlements = null;
+        $paymentHistory = null;
+        $creditHistory = null;
+        $purchaseStatuses = [];
+        $paymentStatuses = [];
+        $creditReconciliation = [];
+
+        if ($activeView === 'purchases') {
+            $ownedEntitlementIds = fn () => BundleEntitlement::query()->ownedBy($customer)->select('id');
+
+            $purchaseEntitlements = BundleEntitlement::query()
+                ->ownedBy($customer)
+                ->with('payments.refunds')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->paginate(10, ['*'], 'purchases_page')
+                ->withQueryString();
+
+            foreach ($purchaseEntitlements as $purchaseEntitlement) {
+                $purchaseStatuses[$purchaseEntitlement->id] = $purchasePresenter->entitlementStatus($purchaseEntitlement);
+            }
+
+            $paymentHistory = Payment::query()
+                ->whereIn('bundle_entitlement_id', $ownedEntitlementIds())
+                ->with(['entitlement:id,bundle_name_snapshot', 'refunds', 'disputes'])
+                ->orderByRaw('CASE WHEN confirmed_at IS NULL THEN 1 ELSE 0 END')
+                ->orderByDesc('confirmed_at')
+                ->orderByDesc('created_at')
+                ->paginate(10, ['*'], 'payments_page')
+                ->withQueryString();
+
+            foreach ($paymentHistory as $payment) {
+                $paymentStatuses[$payment->id] = $purchasePresenter->paymentStatus($payment);
+            }
+
+            $creditHistory = CreditTransaction::query()
+                ->whereIn('bundle_entitlement_id', $ownedEntitlementIds())
+                ->with([
+                    'booking:id,customer_user_id,bundle_entitlement_id,public_reference,session_goal,starts_at,status',
+                    'entitlement:id,bundle_name_snapshot',
+                ])
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->paginate(15, ['*'], 'credits_page')
+                ->withQueryString();
+
+            $purchaseIds = $purchaseEntitlements->getCollection()->pluck('id');
+            if ($purchaseIds->isNotEmpty()) {
+                $latestTransactionIds = CreditTransaction::query()
+                    ->selectRaw('MAX(id)')
+                    ->whereIn('bundle_entitlement_id', $purchaseIds)
+                    ->groupBy('bundle_entitlement_id', 'credit_type');
+
+                $latestTransactions = CreditTransaction::query()
+                    ->whereIn('id', $latestTransactionIds)
+                    ->get(['bundle_entitlement_id', 'credit_type', 'balance_after'])
+                    ->groupBy('bundle_entitlement_id');
+
+                foreach ($purchaseEntitlements as $purchaseEntitlement) {
+                    $latest = $latestTransactions->get($purchaseEntitlement->id, collect())->keyBy('credit_type');
+                    $paidLatest = $latest->get('paid');
+                    $freeLatest = $latest->get('free');
+                    $paidMatches = $paidLatest !== null
+                        ? (int) $paidLatest->balance_after === $purchaseEntitlement->credits_remaining
+                        : $purchaseEntitlement->credits_remaining === 0;
+                    $freeMatches = $freeLatest !== null
+                        ? (int) $freeLatest->balance_after === $purchaseEntitlement->free_credits_remaining
+                        : $purchaseEntitlement->free_credits_remaining === 0;
+
+                    $creditReconciliation[$purchaseEntitlement->id] = $paidMatches && $freeMatches ? 'matched' : 'legacy_gap';
+                }
+            }
+        }
+
         return response()->view('dashboard', [
             'bookings' => $bookings,
             'sessionBookings' => $sessionBookings,
             'sessionActions' => $sessionActions,
             'sessionGroup' => $sessionGroup,
-            'entitlements' => $entitlements,
+            'usableEntitlements' => $usableEntitlements,
+            'purchaseEntitlements' => $purchaseEntitlements,
+            'paymentHistory' => $paymentHistory,
+            'creditHistory' => $creditHistory,
+            'purchaseStatuses' => $purchaseStatuses,
+            'paymentStatuses' => $paymentStatuses,
+            'creditReconciliation' => $creditReconciliation,
             'remainingCredits' => $remainingCredits,
             'activeView' => $activeView,
             'calendarBookingUrl' => $calendarBookingUrl,
@@ -1152,7 +1239,7 @@ class PublicSiteController extends Controller
             'feedback' => $feedback,
             'progressChart' => $progressChart,
             'latestProgressReport' => $latestProgressReport,
-            'hasActiveBundle' => $activeEntitlements->isNotEmpty(),
+            'hasActiveBundle' => $usableEntitlements->isNotEmpty(),
         ])->header('Cache-Control', 'private, no-store, max-age=0')
             ->header('Referrer-Policy', 'no-referrer');
     }
