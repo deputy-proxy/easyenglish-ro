@@ -18,6 +18,8 @@ test('account view exposes existing account settings and masks the customer phon
         ->assertSee(route('profile.edit'), false)
         ->assertSee(route('security.edit'), false)
         ->assertSee(route('appearance.edit'), false)
+        ->assertSee(__('public.dashboard_primary_navigation'))
+        ->assertDontSee('aria-label="Settings"', false)
         ->assertDontSee('+40722123456');
 });
 

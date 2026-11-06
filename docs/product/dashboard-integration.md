@@ -109,3 +109,8 @@ The implementation and automated integration checks do not themselves prove prod
 6. Record staging acceptance before promoting the dashboard release to production.
 
 Staging and real-device acceptance are operational release gates, not claims made by the automated test suite. See the [launch checklist](../operations/launch-checklist.md), [staff runbook](../operations/staff-runbook.md), and [Hostinger deployment runbook](../deployment/hostinger.md).
+
+
+### My account navigation
+
+My account is a single top-level customer dashboard destination. Its overview links to dedicated Profile, Appearance, and Security views. These views reuse the same primary dashboard navigation and shell as My sessions, keeping My account active; no secondary settings navigation or settings sidebar is rendered.

@@ -14,6 +14,7 @@
             </div>
             <a href="{{ route('dashboard', ['view' => 'account']) }}" class="inline-flex min-h-11 items-center justify-center self-start rounded-full border border-ink px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-ink hover:text-white dark:border-zinc-500 dark:text-zinc-100 dark:hover:bg-zinc-800 sm:self-auto">{{ __('public.dashboard_back_to_overview') }}</a>
         </header>
+        @include('public.partials.customer-dashboard-navigation', ['activeView' => 'account'])
         {{ $slot }}
     </main>
     @persist('toast')
