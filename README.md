@@ -268,3 +268,4 @@ These are configuration, compliance, or operational tasks rather than unresolved
 ## Product documentation
 
 - [Customer support and account access](docs/product/customer-support-and-account-access.md)
+- [Teacher dashboard](docs/product/teacher-dashboard.md)

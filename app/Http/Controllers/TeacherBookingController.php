@@ -13,6 +13,10 @@ class TeacherBookingController
 {
     public function show(Request $request, string $reference): View
     {
+        $locale = $request->session()->get('locale', 'en');
+        $locale = in_array($locale, ['en', 'ro'], true) ? $locale : 'en';
+        app()->setLocale($locale);
+
         $booking = $this->assignedBooking($request, $reference);
         $feedback = SessionFeedback::query()->where('booking_id', $booking->id)->get()->keyBy('metric_key');
         $callEvent = $booking->callEvents()
@@ -74,8 +78,10 @@ class TeacherBookingController
 
     private function assignedBooking(Request $request, string $reference): Booking
     {
+        abort_unless($request->user()->teacher_active, 403);
+
         return Booking::query()
-            ->with(['teacher', 'entitlement.definition'])
+            ->select(['id', 'public_reference', 'teacher_id', 'customer_name', 'english_level', 'session_goal', 'starts_at', 'ends_at', 'duration_minutes', 'status', 'reschedule_count'])
             ->where('public_reference', $reference)
             ->where('teacher_id', $request->user()->id)
             ->firstOrFail();

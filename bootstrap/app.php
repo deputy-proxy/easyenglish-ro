@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveTeacher;
 use App\Http\Middleware\EnsureTeacher;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->alias(['teacher' => EnsureTeacher::class]);
+        $middleware->alias(['teacher' => EnsureTeacher::class, 'teacher.active' => EnsureActiveTeacher::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

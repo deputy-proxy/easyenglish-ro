@@ -134,3 +134,17 @@ Credit history may identify a legacy ledger gap when the current entitlement bal
 ## Customer support contact channels
 
 Configure EASYENGLISH_CONTACT_EMAIL and/or EASYENGLISH_CONTACT_WHATSAPP in the production environment to expose official dashboard support options. EASYENGLISH_CONTACT_WHATSAPP must be the shared EasyEnglish business number in E.164 format, not a teacher's personal number or the Cloud API sender credential. If a destination is absent or invalid, its action is hidden. The WhatsApp link only opens a prefilled message; the customer sends it manually. Do not represent link opening as message delivery.
+
+## Teacher workspace
+
+Active teachers use the dedicated workspace at /teacher/dashboard. The overview summarizes their own assigned sessions, weekly scheduled workload, feedback tasks, availability exceptions, and Google Calendar freshness. The My sessions view supports date/status filters and pagination. Teachers can open only bookings assigned to their own account. Learner contact details, payment data, unrelated history, and private booking notes are intentionally excluded from teacher views.
+
+Inactive teachers are redirected to the existing availability page and cannot access the teacher dashboard or assigned-session detail/feedback routes until reactivated. Staff who also teach use the teacher workspace for teaching and the separate /admin Filament panel for staff operations; the panel continues to enforce staff authorization.
+
+
+### Teacher workspace escalation
+
+- **Missing or incorrect assignment:** verify the booking's current teacher assignment in the staff booking panel and confirm the booking is in an assigned/confirmed lifecycle state. Do not ask teachers to edit booking ownership or manually update database foreign keys.
+- **Calendar not connected or stale:** direct the teacher to the existing availability page to reconnect or retry synchronization. Staff should verify the Google OAuth configuration and scheduled sync/reconciliation jobs. Never request or copy access/refresh tokens into support messages.
+- **WhatsApp call link pending or failed:** inspect the booking's current OpenWA call-event state in the staff call-event health view. Confirm the booking revision and appointment times before retrying. Do not create a second event manually or copy a protected join URL into tickets or chat.
+- **Feedback task missing or unavailable:** verify that the session is assigned to the teacher, has status confirmed, and its end time has passed. Escalate workflow or data inconsistencies to the booking coordinator; do not bypass the teacher assignment check.

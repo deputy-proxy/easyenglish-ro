@@ -687,13 +687,17 @@ test('repeated call-ready handling creates no duplicate recipient deliveries', f
 });
 
 test('teacher booking page is restricted to the currently assigned teacher and accepts feedback after the session', function () {
-    $booking = makeCallEventTestBooking();
+    $booking = makeCallEventTestBooking(['notes' => 'Private booking note must remain hidden.']);
     $teacher = $booking->teacher;
     $otherTeacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
 
     $this->actingAs($otherTeacher)->get(route('teacher.bookings.show', $booking->public_reference))->assertNotFound();
     $this->actingAs($teacher)->get(route('teacher.bookings.show', $booking->public_reference))->assertOk()
-        ->assertSee($booking->customer_email)
+        ->assertSee($booking->customer_name)
+        ->assertSee($booking->session_goal)
+        ->assertDontSee($booking->customer_email)
+        ->assertDontSee($booking->customer_phone)
+        ->assertDontSee('Private booking note must remain hidden.')
         ->assertSee('Session feedback');
     $this->actingAs($teacher)->post(route('teacher.bookings.feedback', $booking->public_reference), [
         'scores' => ['fluency' => 75], 'feedback' => 'Good progress and clear pronunciation practice.',
