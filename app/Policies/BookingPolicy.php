@@ -19,6 +19,7 @@ class BookingPolicy
 
         return $user->hasVerifiedEmail()
             && $booking->customer_user_id === null
+            && $booking->customer_ownership_revoked_at === null
             && $user->phone_verified_at !== null
             && $user->phone !== null
             && mb_strtolower(trim($user->email)) === mb_strtolower(trim($booking->customer_email))

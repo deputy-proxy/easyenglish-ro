@@ -169,3 +169,31 @@ test('legacy booking compatibility requires both verified email and exact phone 
 
     expect(Booking::query()->ownedBy($user)->whereKey($booking->id)->exists())->toBeFalse();
 });
+
+test('legacy ownership reconciliation never reclaims records revoked by account deletion', function () {
+    $original = User::factory()->create([
+        'email' => 'revoked-owner@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+    $booking = ownershipBooking([
+        'customer_user_id' => $original->id,
+        'customer_email' => $original->email,
+        'customer_phone' => $original->phone,
+    ]);
+
+    $original->delete();
+    $newAccount = User::factory()->create([
+        'email' => 'revoked-owner@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $this->artisan('customers:reconcile-record-ownership', ['--apply' => true])->assertSuccessful();
+
+    expect($booking->fresh()->customer_user_id)->toBeNull()
+        ->and($booking->fresh()->customer_ownership_revoked_at)->not->toBeNull()
+        ->and(Booking::query()->ownedBy($newAccount)->whereKey($booking->id)->exists())->toBeFalse();
+});

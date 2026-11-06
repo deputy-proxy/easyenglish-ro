@@ -7,7 +7,7 @@ users.id is the durable identity for an authenticated customer. The following tr
 - bookings.customer_user_id
 - bundle_entitlements.customer_user_id
 
-Both foreign keys use ON DELETE SET NULL. The original customer name, email, and phone snapshots remain on bookings and entitlements and are not rewritten when a profile changes.
+Both foreign keys use ON DELETE SET NULL. Before a customer account is deleted, the application stamps customer_ownership_revoked_at on its bookings and bundle entitlements. Legacy email/phone fallback queries require this marker to be null, so a new account reusing the same verified contacts cannot reclaim records from an account deleted after this marker was deployed. The original customer name, email, and phone snapshots remain on bookings and entitlements and are not rewritten when a profile changes.
 
 Payments and credit transactions belong to a bundle entitlement. Session feedback and progress reports belong to a booking. Free-session claims normally belong to a booking or bundle entitlement. These records therefore inherit customer ownership through their existing parent relationships; they do not duplicate the customer foreign key. Orphaned legacy free-session claims without either parent are considered by the dashboard only when both the account email and phone are verified and exactly match the stored snapshots.
 
@@ -37,7 +37,7 @@ Call-link authorization follows the same explicit-owner rule, with the strict le
 
 ## Account deletion and anonymization
 
-Deleting a customer account sets customer_user_id to null while preserving booking and entitlement snapshots and all payment, refund, credit-ledger, feedback, and progress-report audit relationships. This avoids cascading deletion of financial and instructional history. The deleted account cannot access those records. A future account using the same contact details must not inherit them automatically.
+Deleting a customer account sets customer_user_id to null while preserving booking and entitlement snapshots and all payment, refund, credit-ledger, feedback, and progress-report audit relationships. This avoids cascading deletion of financial and instructional history. The deleted account cannot access those records. A future account using the same contact details must not inherit them automatically. Records orphaned by account deletion before the revocation marker was deployed cannot be distinguished reliably from older guest/legacy records; they require manual review and must not be auto-linked without additional evidence.
 
 This is a technical retention policy, not a substitute for the published privacy notice and legally reviewed retention schedule. Any anonymization of transactional snapshots must be a separate, audited retention operation that preserves statutory financial records and referential integrity.
 

@@ -4,7 +4,7 @@
 
 Customers purchase a prepaid bundle first, then schedule sessions from its activated credits through a short-lived signed URL. Bundle purchase does **not** reserve an appointment slot. The five-minute hold is an appointment-booking hold only and is not the bundle validity period or Stripe Checkout expiry. When a verified learner has already used the standalone free introduction, the inline booking journey offers the active bundles and links into this same purchase flow. Reviewing bundles, starting checkout, cancelling checkout, or returning from a failed checkout does not create a booking, slot hold, teacher assignment, free-session claim reservation, or call event. Availability is reloaded and checked again when the learner later schedules a session.
 
-The purchase amount is always read from the active `BundleDefinition` on the server. The customer cannot submit a price or credit count. Prices are integer RON amounts and Stripe receives minor units (`price_ron * 100`); the listed prices already include applicable taxes, so do not add an additional tax line.
+When a new entitlement is created, the server snapshots the active BundleDefinition name/description, paid amount, paid-credit quantity, and included-free-credit quantity. The customer cannot submit a price or credit count. Stripe Checkout uses those persisted entitlement values for the line item; retries, webhook reconciliation, activation, and deferred free-credit grants must not recompute a historical purchase from the current catalog. Prices are integer RON amounts and Stripe receives minor units (paid_amount_ron * 100); the listed prices already include applicable taxes, so do not add an additional tax line.
 
 ## Configuration
 
@@ -29,7 +29,11 @@ Subscribe to these events:
 - `checkout.session.async_payment_succeeded`
 - `checkout.session.async_payment_failed`
 - `checkout.session.expired`
+- `payment_intent.succeeded`
 - `payment_intent.payment_failed`
+- `charge.dispute.created`
+- `charge.dispute.updated`
+- `charge.dispute.closed`
 - `refund.created`
 - `refund.updated`
 - `refund.failed`
@@ -44,7 +48,7 @@ The endpoint validates the signature against the unmodified request body before 
 - The success URL is not proof of payment. The server retrieves the session from Stripe and verifies it before activating credits. A delayed/unpaid completed session remains pending until an asynchronous success/failure event or reconciliation resolves it.
 - `php artisan stripe:reconcile` reconciles pending payments and refunds against Stripe's current state. The scheduler runs it every five minutes. Check scheduler/cron execution and Laravel logs before manually retrying an ambiguous payment or refund.
 - API timeouts preserve the same checkout/refund idempotency key. Retry or reconcile the existing attempt instead of creating a second charge or refund.
-- An expired or failed checkout does not create usable credits. A later authoritative paid state can resolve an out-of-order event, and credit activation is idempotent.
+- An expired, cancelled, or failed checkout does not create usable credits. Customer cancellation is stored distinctly from a provider-expired session. A later authoritative paid state can resolve an out-of-order event, and credit activation is idempotent.
 
 ## Refund policy and audit
 
@@ -70,3 +74,16 @@ For local tests, use the fake gateway in `tests/Support/FakeStripeGateway.php`. 
 ## Customer account ownership
 
 A bundle entitlement created during an authenticated checkout stores the authenticated customer's user ID in customer_user_id. Stripe webhook activation, payment reconciliation, refunds, and credit-ledger operations continue to reference the entitlement and do not replace its customer identity or historical contact snapshots. Guest checkouts remain supported. See the canonical [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md) and the [legacy record reconciliation runbook](../operations/customer-record-reconciliation.md).
+
+
+## Customer purchase and payment history
+
+The authenticated dashboard's **My purchases** area is a read-only view over owned bundle entitlements, Payment records, PaymentRefund records, and CreditTransaction rows. Payment state comes from verified Stripe webhooks and server reconciliation, never from the entitlement status alone. The customer-facing status mapping distinguishes pending, succeeded, failed, expired, cancelled, refunded, partially refunded, and refund-pending states. A customer-cancelled Checkout attempt is stored as cancelled; a session that expires without the customer cancellation flow remains expired. A later retry creates a new Payment attempt.
+
+Entitlement purchase snapshots include the localized bundle name/short description, included free-credit quantity, paid amount, paid-credit quantity, and locale. Legacy entitlements are backfilled from the current catalog and marked legacy_backfill; the original catalog wording at the historical purchase time cannot be reconstructed. See the [customer purchases and payments specification](../product/customer-purchases-and-payments.md) for display, credit-ledger reconciliation, authorization, and legacy limitations.
+
+### Receipt and invoice limitations
+
+The current application does not persist a Stripe receipt URL or invoice artifact. The customer portal therefore displays receipt/invoice unavailable and must not invent a download or construct provider URLs. Romanian invoice/tax document issuance remains a separate accounting/provider integration.
+
+Stripe dispute events are stored in payment_disputes and linked to a local payment by its verified PaymentIntent or charge reference. The integration retrieves the current dispute from Stripe when processing each event, so out-of-order webhook delivery does not overwrite a newer provider state with stale event data. The customer portal distinguishes response-required/under-review disputes, early warnings, won/lost outcomes, prevented disputes, and disputes closed after a refund. A failed payment or refund is never treated as a chargeback. Subscribe to the dispute events listed above; otherwise the local dispute view will not receive updates.

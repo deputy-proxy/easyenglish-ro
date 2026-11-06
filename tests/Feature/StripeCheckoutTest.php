@@ -13,11 +13,15 @@ use App\Models\CreditTransaction;
 use App\Models\FreeSessionClaim;
 use App\Models\NotificationDelivery;
 use App\Models\Payment;
+use App\Models\PaymentDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Notifications\NotificationMessageFactory;
 use App\Services\Notifications\WhatsAppMessageFactory;
+use App\Services\Payments\CustomerPurchasePresenter;
+use App\Services\Payments\StripeCheckoutService;
+use App\Services\Payments\StripePaymentProcessor;
 use App\Services\Payments\StripeRefundService;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -254,12 +258,27 @@ test('cancelled bundle checkout returns to the purchase page without creating a 
         ->assertSee('lang="en"', false)
         ->assertSee(__('public.purchase_cancelled_notice'));
 
-    expect($purchase['payment']->fresh()->status)->toBe('expired')
+    expect($purchase['payment']->fresh()->status)->toBe('cancelled')
         ->and($purchase['entitlement']->fresh()->status)->toBe('pending_payment')
         ->and($purchase['entitlement']->fresh()->credits_remaining)->toBe(0)
         ->and(Booking::query()->count())->toBe(0)
         ->and(FreeSessionClaim::query()->count())->toBe(0)
         ->and(BookingCallEvent::query()->count())->toBe(0);
+
+    $retry = app(StripeCheckoutService::class)->start(
+        $purchase['bundle'],
+        ['name' => $purchase['entitlement']->customer_name, 'email' => $purchase['entitlement']->customer_email, 'phone' => $purchase['entitlement']->customer_phone],
+        $purchase['token'],
+        'en',
+        null,
+        true,
+        auth()->user(),
+    );
+
+    expect($retry->id)->not->toBe($purchase['payment']->id)
+        ->and($retry->status)->toBe('pending')
+        ->and($purchase['payment']->fresh()->status)->toBe('cancelled')
+        ->and($purchase['entitlement']->fresh()->payments()->count())->toBe(2);
 });
 
 test('unpaid checkout return stays pending and does not activate bundle credits', function () {
@@ -634,4 +653,106 @@ test('already verified customer accounts can purchase a bundle without repeating
     expect($entitlement->fresh()->status)->toBe('active')
         ->and($entitlement->fresh()->free_credits_granted)->toBe(0)
         ->and($entitlement->fresh()->free_credits_remaining)->toBe(0);
+});
+
+test('pending checkout keeps its purchase snapshots and activates from purchased credits after catalog edits', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->forceFill([
+        'name_en' => 'Snapshot English Bundle',
+        'short_description' => ['en' => 'Description captured at checkout.'],
+        'paid_credits' => 4,
+        'included_free_credits' => 1,
+    ])->save();
+
+    $purchase = startStripePurchase($this, locale: 'en');
+    $entitlement = $purchase['entitlement']->refresh();
+
+    expect($entitlement->bundle_name_snapshot)->toBe('Snapshot English Bundle')
+        ->and($entitlement->bundle_description_snapshot)->toBe('Description captured at checkout.')
+        ->and($entitlement->included_free_credits_snapshot)->toBe(1)
+        ->and($entitlement->bundle_snapshot_source)->toBe('purchase');
+
+    $bundle->forceFill([
+        'name_en' => 'Renamed Current Catalog Bundle',
+        'short_description' => ['en' => 'A newer catalog description.'],
+        'price_ron' => 234,
+        'paid_credits' => 8,
+        'included_free_credits' => 3,
+    ])->save();
+
+    $paidSession = array_merge($purchase['session'], ['status' => 'complete', 'payment_status' => 'paid']);
+    $payment = app(StripePaymentProcessor::class)->reconcileSession($paidSession);
+    $entitlement->refresh();
+
+    expect($payment?->status)->toBe('succeeded')
+        ->and($entitlement->status)->toBe('active')
+        ->and($entitlement->paid_amount_ron)->toBe(156)
+        ->and($entitlement->paid_credits)->toBe(4)
+        ->and($entitlement->credits_remaining)->toBe(4)
+        ->and($entitlement->included_free_credits_snapshot)->toBe(1)
+        ->and($entitlement->bundle_name_snapshot)->toBe('Snapshot English Bundle')
+        ->and($entitlement->bundle_description_snapshot)->toBe('Description captured at checkout.');
+});
+
+test('Stripe dispute webhooks persist current chargeback status and recover from out-of-order events', function () {
+    $purchase = startStripePurchase($this);
+    $paymentIntent = [
+        'id' => 'pi_dispute_test',
+        'amount' => 15600,
+        'amount_received' => 15600,
+        'currency' => 'ron',
+        'latest_charge' => 'ch_dispute_test',
+        'metadata' => ['payment_id' => (string) $purchase['payment']->id],
+    ];
+
+    postStripeTestEvent($this, stripeTestEvent('evt_payment_intent_charge', 'payment_intent.succeeded', $paymentIntent))
+        ->assertOk();
+
+    expect($purchase['payment']->fresh()->provider_charge_id)->toBe('ch_dispute_test');
+
+    $dispute = [
+        'id' => 'dp_test_dispute',
+        'object' => 'dispute',
+        'payment_intent' => 'pi_dispute_test',
+        'charge' => 'ch_dispute_test',
+        'amount' => 15600,
+        'currency' => 'ron',
+        'status' => 'needs_response',
+        'reason' => 'fraudulent',
+        'created' => time(),
+        'evidence_details' => ['due_by' => time() + 86400],
+    ];
+    $fake = app(FakeStripeGateway::class);
+    $fake->setDispute($dispute);
+
+    postStripeTestEvent($this, stripeTestEvent('evt_dispute_created', 'charge.dispute.created', $dispute))
+        ->assertOk();
+
+    $record = PaymentDispute::query()->where('provider_dispute_id', 'dp_test_dispute')->firstOrFail();
+    $payment = $purchase['payment']->fresh()->load(['disputes', 'refunds']);
+
+    expect($record->status)->toBe('needs_response')
+        ->and($record->payment_id)->toBe($purchase['payment']->id)
+        ->and(app(CustomerPurchasePresenter::class)->paymentStatus($payment))->toBe('chargeback_open');
+
+    $underReview = array_merge($dispute, ['status' => 'under_review']);
+    $fake->setDispute($underReview);
+    postStripeTestEvent($this, stripeTestEvent('evt_dispute_updated', 'charge.dispute.updated', $underReview))
+        ->assertOk();
+
+    $won = array_merge($dispute, ['status' => 'won']);
+    $fake->setDispute($won);
+    postStripeTestEvent($this, stripeTestEvent('evt_dispute_closed', 'charge.dispute.closed', $won))
+        ->assertOk();
+
+    // A delayed earlier event must reconcile against Stripe's current state, not regress the record.
+    postStripeTestEvent($this, stripeTestEvent('evt_dispute_old_delivery', 'charge.dispute.created', $dispute))
+        ->assertOk();
+
+    $record->refresh();
+    $payment = $purchase['payment']->fresh()->load(['disputes', 'refunds']);
+
+    expect($record->status)->toBe('won')
+        ->and($record->closed_at_provider)->not->toBeNull()
+        ->and(app(CustomerPurchasePresenter::class)->paymentStatus($payment))->toBe('chargeback_won');
 });

@@ -33,8 +33,8 @@ class ReconcileCustomerRecordOwnership extends Command
             ->get(['id', 'email', 'phone', 'email_verified_at', 'phone_verified_at'])
             ->groupBy(fn (User $user): string => mb_strtolower(trim($user->email)).'|'.PhoneNumber::normalize((string) $user->phone))->all());
 
-        $this->reconcile(Booking::query()->whereNull('customer_user_id')->lazyById(), 'bookings', false, $apply, $usersByIdentity);
-        $this->reconcile(BundleEntitlement::query()->whereNull('customer_user_id')->lazyById(), 'bundle_entitlements', true, $apply, $usersByIdentity);
+        $this->reconcile(Booking::query()->whereNull('customer_user_id')->whereNull('customer_ownership_revoked_at')->lazyById(), 'bookings', false, $apply, $usersByIdentity);
+        $this->reconcile(BundleEntitlement::query()->whereNull('customer_user_id')->whereNull('customer_ownership_revoked_at')->lazyById(), 'bundle_entitlements', true, $apply, $usersByIdentity);
 
         foreach ($this->report as $table => $counts) {
             $this->table(

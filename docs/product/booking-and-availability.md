@@ -67,7 +67,7 @@ The Laravel OpenWA feature flag is `OPENWA_ENABLED=false` by default. BookingSer
 
 `BookingService::confirm()` is idempotent for already-confirmed bookings, rejects expired holds, and rechecks teacher eligibility when teacher availability is enabled. `BookingService::expireHolds()` rechecks state under lock before releasing a hold. The `bookings:expire-holds` command is scheduled every minute and uses `withoutOverlapping()`.
 
-Bundle entitlements start as `pending_payment`, with no usable credits. Verified payment activates the entitlement, grants paid credits, conditionally grants the included free credit, and sets expiry. The credit ledger records grants, reservations, consumption, and restoration with unique idempotency keys. Stripe Checkout and verified payment/refund reconciliation remain authoritative for payment state. Transactional email and WhatsApp delivery use the durable notification outbox.
+Bundle entitlements start as `pending_payment`, with no usable credits. At checkout the entitlement snapshots the localized bundle name/description, paid amount, paid-credit quantity, and included-free-credit quantity. Verified payment activates the entitlement, grants the persisted paid credits, conditionally grants the persisted included free credit, and sets expiry. The credit ledger records grants, reservations, consumption, restoration, adjustments, and refund movements with unique idempotency keys. Stripe Checkout and verified payment/refund reconciliation remain authoritative for payment state. Customer purchase, payment, and credit history is documented in [Customer purchases and payments](customer-purchases-and-payments.md). Transactional email and WhatsApp delivery use the durable notification outbox.
 
 ## Database model
 

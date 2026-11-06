@@ -17,6 +17,7 @@ class StripeWebhookService
         private readonly StripePaymentProcessor $processor,
         private readonly StripeGateway $stripe,
         private readonly StripeRefundService $refunds,
+        private readonly StripeDisputeService $disputes,
     ) {}
 
     /** @param array<string, mixed> $event */
@@ -77,6 +78,23 @@ class StripeWebhookService
 
         if ($eventType === 'checkout.session.async_payment_failed') {
             $this->processor->markAsyncPaymentFailed($object);
+
+            return;
+        }
+
+        if ($eventType === 'payment_intent.succeeded') {
+            $this->processor->recordPaymentIntentCharge($object);
+
+            return;
+        }
+
+        if (in_array($eventType, ['charge.dispute.created', 'charge.dispute.updated', 'charge.dispute.closed'], true)) {
+            $disputeId = $object['id'] ?? null;
+            if (! is_string($disputeId) || $disputeId === '') {
+                throw new RuntimeException('Stripe dispute webhook is missing its provider dispute ID.');
+            }
+            $currentDispute = $this->stripe->retrieveDispute($disputeId);
+            $this->disputes->reconcile($currentDispute, $eventId);
 
             return;
         }

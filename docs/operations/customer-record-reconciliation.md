@@ -35,3 +35,8 @@ The command is repeatable and never overwrites an existing owner. It preserves a
 ## Rollback
 
 The migration can be rolled back to remove the nullable owner columns and indexes, but doing so discards the backfilled owner links. Take a database backup before rollback. Do not delete or rewrite transactional snapshots as part of rollback.
+
+
+## Deleted-account ownership revocation
+
+When a customer account is deleted, the application stamps customer_ownership_revoked_at on its owned bookings and bundle entitlements before the foreign keys are set to null. The legacy verified-email-and-phone fallback excludes any record with this marker. The reconciliation command must never clear or overwrite this marker. Records orphaned by account deletion before the marker migration cannot be distinguished reliably from older guest/legacy records; review them manually and do not auto-link them based on contact details alone.

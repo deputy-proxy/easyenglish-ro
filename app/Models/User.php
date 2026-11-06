@@ -54,17 +54,18 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
     protected static function booted(): void
     {
         static::deleting(function (User $user): void {
-            if (! $user->isTeacher()) {
-                return;
+            if ($user->isTeacher()) {
+                if ($user->bookingsAsTeacher()->exists()) {
+                    throw ValidationException::withMessages(['account' => 'Teacher accounts with booking history cannot be deleted. Deactivate the teacher account instead.']);
+                }
+
+                if ($user->teacherCalendar()->exists()) {
+                    throw ValidationException::withMessages(['account' => 'Disconnect the teacher Google Calendar before deleting this account.']);
+                }
             }
 
-            if ($user->bookingsAsTeacher()->exists()) {
-                throw ValidationException::withMessages(['account' => 'Teacher accounts with booking history cannot be deleted. Deactivate the teacher account instead.']);
-            }
-
-            if ($user->teacherCalendar()->exists()) {
-                throw ValidationException::withMessages(['account' => 'Disconnect the teacher Google Calendar before deleting this account.']);
-            }
+            Booking::query()->where('customer_user_id', $user->id)->update(['customer_ownership_revoked_at' => now()]);
+            BundleEntitlement::query()->where('customer_user_id', $user->id)->update(['customer_ownership_revoked_at' => now()]);
         });
     }
 

@@ -38,13 +38,14 @@ class PaymentResource extends Resource
             TextColumn::make('amount_ron')->label('Amount')->formatStateUsing(fn (int $state): string => number_format($state, 2).' RON')->sortable(),
             TextColumn::make('refunded_amount_ron')->label('Refunded')->formatStateUsing(fn (int $state): string => number_format($state, 2).' RON'),
             TextColumn::make('currency')->toggleable(),
+            TextColumn::make('disputes_count')->counts('disputes')->label('Disputes')->sortable(),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
-                'confirmed', 'succeeded', 'paid' => 'success', 'pending' => 'warning', 'failed', 'cancelled' => 'danger', default => 'gray'
+                'succeeded' => 'success', 'pending' => 'warning', 'failed', 'expired', 'cancelled' => 'danger', 'refunded' => 'info', default => 'gray'
             }),
             TextColumn::make('provider_payment_id')->label('Provider payment ID')->searchable()->toggleable(isToggledHiddenByDefault: true),
             TextColumn::make('confirmed_at')->dateTime('d M Y H:i')->sortable()->placeholder('Not confirmed'),
             TextColumn::make('created_at')->dateTime('d M Y H:i')->sortable(),
-        ])->filters([SelectFilter::make('status')->options(['pending' => 'Pending', 'confirmed' => 'Confirmed', 'failed' => 'Failed', 'cancelled' => 'Cancelled'])])->defaultSort('created_at', 'desc');
+        ])->filters([SelectFilter::make('status')->options(['pending' => 'Pending', 'succeeded' => 'Succeeded', 'failed' => 'Failed', 'expired' => 'Expired', 'cancelled' => 'Cancelled', 'refunded' => 'Refunded'])])->defaultSort('created_at', 'desc');
     }
 
     public static function canCreate(): bool

@@ -19,6 +19,9 @@ class FakeStripeGateway implements StripeGateway
     /** @var array<string, array<string, mixed>> */
     public array $refunds = [];
 
+    /** @var array<string, array<string, mixed>> */
+    public array $disputes = [];
+
     /** @var array<string, string> */
     private array $sessionKeys = [];
 
@@ -109,6 +112,11 @@ class FakeStripeGateway implements StripeGateway
         return $this->refunds[$refundId] ?? throw new RuntimeException('Unknown fake refund.');
     }
 
+    public function retrieveDispute(string $disputeId): array
+    {
+        return $this->disputes[$disputeId] ?? throw new RuntimeException('Unknown fake dispute.');
+    }
+
     public function setSessionStatus(string $sessionId, string $status, string $paymentStatus = 'unpaid', ?string $paymentIntent = null): void
     {
         $this->sessions[$sessionId]['status'] = $status;
@@ -119,5 +127,14 @@ class FakeStripeGateway implements StripeGateway
     public function setRefundStatus(string $refundId, string $status): void
     {
         $this->refunds[$refundId]['status'] = $status;
+    }
+
+    /** @param array<string, mixed> $dispute */
+    public function setDispute(array $dispute): void
+    {
+        $id = $dispute['id'] ?? null;
+        if (is_string($id) && $id !== '') {
+            $this->disputes[$id] = $dispute;
+        }
     }
 }

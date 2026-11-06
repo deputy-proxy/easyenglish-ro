@@ -33,4 +33,9 @@ class StripeSdkGateway implements StripeGateway
     {
         return $this->stripe->refunds->retrieve($refundId)->toArray();
     }
+
+    public function retrieveDispute(string $disputeId): array
+    {
+        return $this->stripe->disputes->retrieve($disputeId)->toArray();
+    }
 }

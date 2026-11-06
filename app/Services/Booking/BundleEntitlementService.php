@@ -21,14 +21,14 @@ class BundleEntitlementService
     {
         return DB::transaction(function () use ($entitlementId): BundleEntitlement {
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
-            $entitlement = BundleEntitlement::query()->with('definition')->lockForUpdate()->findOrFail($entitlementId);
+            $entitlement = BundleEntitlement::query()->lockForUpdate()->findOrFail($entitlementId);
             if ($entitlement->status === 'active') {
                 return $entitlement;
             }
             if ($entitlement->status !== 'pending_payment') {
                 throw ValidationException::withMessages(['bundle' => 'Only a pending bundle purchase can be activated.']);
             }
-            if ($entitlement->paid_amount_ron < 1 || $entitlement->currency !== 'RON' || $entitlement->paid_credits !== $entitlement->definition->paid_credits) {
+            if ($entitlement->paid_amount_ron < 1 || $entitlement->currency !== 'RON' || $entitlement->paid_credits < 1) {
                 throw ValidationException::withMessages(['bundle' => 'The stored bundle amount or credit quantity does not match the configured product.']);
             }
 

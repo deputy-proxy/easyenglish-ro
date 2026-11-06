@@ -64,3 +64,7 @@ Stripe Checkout, transactional email, the WhatsApp Cloud API adapter/outbox, and
 ## Customer session management
 
 After signing in, customers can open **My sessions** from the dashboard to review upcoming, completed, cancelled, expired, and no-show bookings. Session details show the booked duration, Bucharest-local date/time, session goal, assigned teacher's public profile, and booking reference. Eligible bookings link to the existing signed management and rescheduling flows. A WhatsApp join action is shown only when a current OpenWA event is ready for a future confirmed booking. See [Customer sessions](customer-sessions.md) for status, privacy, pagination, and timezone behavior.
+
+## Customer purchase history
+
+The authenticated dashboard's **My purchases** area shows bundle entitlement snapshots, payment attempts, refund/dispute status, and credit-ledger movements. It uses the persisted purchase amount and credit quantities rather than current catalog values. Receipts/invoices are explicitly unavailable until a real provider/accounting artifact is integrated. See [Customer purchases and payments](customer-purchases-and-payments.md).
