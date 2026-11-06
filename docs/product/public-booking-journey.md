@@ -68,3 +68,6 @@ After signing in, customers can open **My sessions** from the dashboard to revie
 ## Customer purchase history
 
 The authenticated dashboard's **My purchases** area shows bundle entitlement snapshots, payment attempts, refund/dispute status, and credit-ledger movements. It uses the persisted purchase amount and credit quantities rather than current catalog values. Receipts/invoices are explicitly unavailable until a real provider/accounting artifact is integrated. See [Customer purchases and payments](customer-purchases-and-payments.md).
+
+
+The customer dashboard navigation and overview data sources are documented in [Customer dashboard overview](customer-dashboard-overview.md).

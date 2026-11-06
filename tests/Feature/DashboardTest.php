@@ -609,7 +609,7 @@ test('learner profile route is customer scoped and accessible from dashboard nav
         ->get(route('dashboard'))
         ->assertOk()
         ->assertSee(route('dashboard', ['view' => 'profile']), false)
-        ->assertSee(__('public.dashboard_learning_profile'));
+        ->assertSee(__('public.dashboard_learning'));
 });
 
 test('learner profile uses Romanian translations and identifies the level source', function () {

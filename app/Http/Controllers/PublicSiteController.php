@@ -1038,7 +1038,7 @@ class PublicSiteController extends Controller
             ->orderBy('starts_at')
             ->limit(20)
             ->get();
-        $usableEntitlements = BundleEntitlement::query()
+        $usableEntitlementsQuery = fn () => BundleEntitlement::query()
             ->ownedBy($customer)
             ->where('status', 'active')
             ->where(function ($query): void {
@@ -1046,10 +1046,23 @@ class PublicSiteController extends Controller
             })
             ->where(function ($query) use ($now): void {
                 $query->whereNull('expires_at')->orWhere('expires_at', '>', $now);
-            })
+            });
+        $remainingCredits = (int) $usableEntitlementsQuery()
+            ->selectRaw('COALESCE(SUM(credits_remaining + free_credits_remaining), 0) as usable_credits')
+            ->value('usable_credits');
+        $activeBundleCount = $usableEntitlementsQuery()->count();
+        $usableEntitlements = $usableEntitlementsQuery()
             ->orderByDesc('created_at')
-            ->get();
-        $remainingCredits = $usableEntitlements->sum(fn (BundleEntitlement $entitlement): int => $entitlement->credits_remaining + $entitlement->free_credits_remaining);
+            ->limit(2)
+            ->get(['id', 'bundle_name_snapshot', 'credits_remaining', 'free_credits_remaining']);
+        $nearestExpiringEntitlement = $usableEntitlementsQuery()
+            ->whereNotNull('expires_at')
+            ->orderBy('expires_at')
+            ->first(['id', 'bundle_name_snapshot', 'expires_at']);
+        $calendarEntitlement = $usableEntitlementsQuery()
+            ->orderByDesc('created_at')
+            ->first(['id']);
+        $hasActiveBundle = $activeBundleCount > 0;
         $ownedBookingIds = Booking::query()->ownedBy($customer)->select('id');
         $ownedEntitlementIds = BundleEntitlement::query()->ownedBy($customer)->select('id');
         $hasUsedFreeOffer = FreeSessionClaim::query()
@@ -1067,7 +1080,6 @@ class PublicSiteController extends Controller
                 }
             })
             ->exists();
-        $calendarEntitlement = $usableEntitlements->first(fn (BundleEntitlement $entitlement): bool => ($entitlement->credits_remaining + $entitlement->free_credits_remaining) > 0);
         $calendarBookingUrl = $calendarEntitlement
             ? URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $calendarEntitlement->id], now()->addDays(7))
             : (! $hasUsedFreeOffer ? route('booking.create', ['type' => 'intro']) : route('home').'#bundles');
@@ -1089,9 +1101,11 @@ class PublicSiteController extends Controller
         $selectedProgressReportSessionUrl = null;
         $nextStepFeedback = collect();
 
-        if ($activeView === 'progress') {
-            $ownedBookingIds = Booking::query()->ownedBy($customer)->select('id');
+        if (in_array($activeView, ['overview', 'progress'], true)) {
             $progressChart = $progressChartData->buildForCustomer($customer, $metricKeys);
+        }
+
+        if ($activeView === 'progress') {
             $feedback = $progressChartData->latestEntriesForCustomer($customer, $metricKeys);
             $nextStepFeedback = $progressChartData->latestFeedbackNotesForCustomer($customer, $metricKeys);
 
@@ -1135,17 +1149,12 @@ class PublicSiteController extends Controller
                     ];
                 }
 
-                $sessionExpiresAt = $assessmentBooking->starts_at->addDay();
-                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
-                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
-                }
-
                 $assessmentSummaries[$assessmentBooking->id] = [
                     'complete' => $scoreCount === count($metricKeys),
                     'score_count' => $scoreCount,
                     'metrics' => $metricDetails,
                     'overall_feedback' => $feedbackByMetric->get('overall')?->feedback,
-                    'session_url' => URL::signedRoute('booking.manage', ['reference' => $assessmentBooking->public_reference], $sessionExpiresAt),
+                    'session_url' => $this->signedBookingDetailsUrl($assessmentBooking),
                 ];
             }
 
@@ -1159,16 +1168,7 @@ class PublicSiteController extends Controller
                 ->withQueryString();
 
             foreach ($progressReports as $progressReport) {
-                $sessionExpiresAt = $progressReport->booking->starts_at->addDay();
-                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
-                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
-                }
-
-                $progressReportSessionUrls[$progressReport->id] = URL::signedRoute(
-                    'booking.manage',
-                    ['reference' => $progressReport->booking->public_reference],
-                    $sessionExpiresAt,
-                );
+                $progressReportSessionUrls[$progressReport->id] = $this->signedBookingDetailsUrl($progressReport->booking);
             }
 
             if ($request->filled('report')) {
@@ -1179,21 +1179,12 @@ class PublicSiteController extends Controller
                     ->whereIn('booking_id', $ownedBookingIds)
                     ->firstOrFail();
 
-                $sessionExpiresAt = $selectedProgressReport->booking->starts_at->addDay();
-                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
-                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
-                }
-
-                $selectedProgressReportSessionUrl = URL::signedRoute(
-                    'booking.manage',
-                    ['reference' => $selectedProgressReport->booking->public_reference],
-                    $sessionExpiresAt,
-                );
+                $selectedProgressReportSessionUrl = $this->signedBookingDetailsUrl($selectedProgressReport->booking);
             }
         }
 
         $latestAssessedProgressReport = null;
-        if ($activeView === 'profile') {
+        if (in_array($activeView, ['overview', 'profile'], true)) {
             $latestAssessedProgressReport = ProgressReport::query()
                 ->whereNotNull('shared_at')
                 ->whereNotNull('overall_level')
@@ -1207,6 +1198,102 @@ class PublicSiteController extends Controller
         $learnerProfileLevelSource = $latestAssessedProgressReport !== null
             ? 'assessed'
             : ($customer->english_level !== null ? 'self_reported' : 'unset');
+
+        $nextSession = $bookings->first();
+        $nextSessionUrl = $nextSession instanceof Booking ? $this->signedBookingDetailsUrl($nextSession) : null;
+        $progressHighlight = null;
+        if ($activeView === 'overview' && $progressChart['strongest_improvement'] !== null) {
+            $latestCompleteAssessment = collect($progressChart['series'])
+                ->where('type', 'assessment')
+                ->last();
+
+            if ($latestCompleteAssessment !== null) {
+                $progressHighlight = [
+                    'metric' => __('public.progress_metric_'.$progressChart['strongest_improvement']['metric']),
+                    'points' => $progressChart['strongest_improvement']['points'],
+                    'date' => $latestCompleteAssessment['date'],
+                ];
+            }
+        }
+
+        $recentActivity = collect();
+        if ($activeView === 'overview') {
+            $recentBookings = Booking::query()
+                ->ownedBy($customer)
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->limit(5)
+                ->get(['id', 'public_reference', 'starts_at', 'duration_minutes', 'status', 'created_at']);
+
+            foreach ($recentBookings as $recentBooking) {
+                $statusKey = 'public.booking_status_'.$recentBooking->status;
+                $statusLabel = __($statusKey);
+                if ($statusLabel === $statusKey) {
+                    $statusLabel = ucfirst(str_replace('_', ' ', $recentBooking->status));
+                }
+
+                $recentActivity->push([
+                    'key' => 'booking:'.$recentBooking->id,
+                    'type' => 'session',
+                    'title' => __('public.dashboard_activity_session'),
+                    'description' => __('public.dashboard_activity_session_description', [
+                        'date' => $recentBooking->starts_at->timezone(AvailabilityService::TIMEZONE)->translatedFormat('D, j M Y'),
+                        'duration' => $recentBooking->duration_minutes,
+                        'status' => $statusLabel,
+                    ]),
+                    'occurred_at' => $recentBooking->created_at,
+                    'url' => $this->signedBookingDetailsUrl($recentBooking),
+                ]);
+            }
+
+            $recentPayments = Payment::query()
+                ->whereIn('bundle_entitlement_id', $ownedEntitlementIds)
+                ->whereNotNull('confirmed_at')
+                ->with('entitlement:id,bundle_name_snapshot')
+                ->orderByDesc('confirmed_at')
+                ->orderByDesc('id')
+                ->limit(5)
+                ->get();
+
+            foreach ($recentPayments as $recentPayment) {
+                $recentActivity->push([
+                    'key' => 'payment:'.$recentPayment->id,
+                    'type' => 'payment',
+                    'title' => __('public.dashboard_activity_payment'),
+                    'description' => __('public.dashboard_activity_payment_description', [
+                        'bundle' => $recentPayment->entitlement->bundle_name_snapshot ?: __('public.dashboard_purchase_bundle_name_unavailable'),
+                        'amount' => number_format($recentPayment->amount_ron, 0, '.', ','),
+                        'currency' => $recentPayment->currency,
+                    ]),
+                    'occurred_at' => $recentPayment->confirmed_at,
+                    'url' => route('dashboard', ['view' => 'purchases']),
+                ]);
+            }
+
+            $recentReports = ProgressReport::query()
+                ->whereNotNull('shared_at')
+                ->whereIn('booking_id', $ownedBookingIds)
+                ->orderByDesc('shared_at')
+                ->orderByDesc('id')
+                ->limit(5)
+                ->get(['id', 'title', 'shared_at']);
+
+            foreach ($recentReports as $recentReport) {
+                $recentActivity->push([
+                    'key' => 'report:'.$recentReport->id,
+                    'type' => 'report',
+                    'title' => __('public.dashboard_activity_report'),
+                    'description' => $recentReport->title,
+                    'occurred_at' => $recentReport->shared_at,
+                    'url' => route('dashboard', ['view' => 'progress', 'report' => $recentReport->id]),
+                ]);
+            }
+
+            $recentActivity = $recentActivity
+                ->sortByDesc(fn (array $event): int => $event['occurred_at']->getTimestamp())
+                ->take(6)
+                ->values();
+        }
 
         $sessionGroup = $request->query('session_group', 'upcoming');
         if (! in_array($sessionGroup, ['upcoming', 'history', 'cancelled', 'all'], true)) {
@@ -1257,7 +1344,7 @@ class PublicSiteController extends Controller
                 $sessionActions[$sessionBooking->id] = [
                     'can_cancel' => $actions['can_cancel'],
                     'can_reschedule' => $actions['can_reschedule'],
-                    'manage_url' => URL::signedRoute('booking.manage', ['reference' => $sessionBooking->public_reference], $expiresAt),
+                    'manage_url' => $this->signedBookingDetailsUrl($sessionBooking),
                     'reschedule_url' => $actions['can_reschedule']
                         ? URL::signedRoute('booking.reschedule.form', ['reference' => $sessionBooking->public_reference], $expiresAt)
                         : null,
@@ -1352,6 +1439,12 @@ class PublicSiteController extends Controller
             'paymentStatuses' => $paymentStatuses,
             'creditReconciliation' => $creditReconciliation,
             'remainingCredits' => $remainingCredits,
+            'nextSession' => $nextSession,
+            'nextSessionUrl' => $nextSessionUrl,
+            'activeBundleCount' => $activeBundleCount,
+            'nearestExpiringEntitlement' => $nearestExpiringEntitlement,
+            'progressHighlight' => $progressHighlight,
+            'recentActivity' => $recentActivity,
             'activeView' => $activeView,
             'calendarBookingUrl' => $calendarBookingUrl,
             'calendarWeekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
@@ -1368,7 +1461,7 @@ class PublicSiteController extends Controller
             'latestAssessedProgressReport' => $latestAssessedProgressReport,
             'learnerProfileLevel' => $learnerProfileLevel,
             'learnerProfileLevelSource' => $learnerProfileLevelSource,
-            'hasActiveBundle' => $usableEntitlements->isNotEmpty(),
+            'hasActiveBundle' => $hasActiveBundle,
         ])->header('Cache-Control', 'private, no-store, max-age=0')
             ->header('Referrer-Policy', 'no-referrer');
     }
@@ -1428,6 +1521,16 @@ class PublicSiteController extends Controller
             'message' => $message,
             'html' => $html,
         ], $statusCode);
+    }
+
+    private function signedBookingDetailsUrl(Booking $booking): string
+    {
+        $expiresAt = $booking->starts_at->addDay();
+        if ($expiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+            $expiresAt = CarbonImmutable::now('UTC')->addDays(7);
+        }
+
+        return URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $expiresAt);
     }
 
     private function applyLocale(Request $request): void

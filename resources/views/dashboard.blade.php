@@ -1,70 +1,54 @@
 <x-layouts::app :title="__('public.dashboard_overview')">
     <div class="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-8">
-        <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Easy English</p>
                 <h1 class="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">{{ __('public.dashboard_welcome', ['name' => auth()->user()->name]) }}</h1>
                 <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_subtitle') }}</p>
             </div>
-            <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-wrap items-center gap-3">
                 @if (auth()->user()->isTeacher())
-                    <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">Manage teacher availability →</a>
+                    <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">{{ __('public.dashboard_teacher_availability') }}</a>
                 @endif
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_logout_note') }}</p>
+                @if ($activeView === 'calendar')
+                    <a href="{{ route('dashboard', ['view' => 'overview']) }}" wire:navigate class="inline-flex items-center rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800">
+                        {{ __('public.dashboard_back_to_overview') }}
+                    </a>
+                @else
+                    <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="inline-flex items-center rounded-full bg-emerald-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">
+                        {{ __('public.dashboard_book_session') }}
+                    </a>
+                @endif
             </div>
         </header>
 
         @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
 
-        <nav class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_overview') }}">
-            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'purchases' => __('public.dashboard_purchases'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress'), 'profile' => __('public.dashboard_learning_profile')] as $view => $label)
-                <a href="{{ route('dashboard', ['view' => $view]) }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === $view ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
+        @php($learningActive = in_array($activeView, ['profile', 'progress'], true))
+        <nav class="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_primary_navigation') }}">
+            @foreach ([
+                'overview' => __('public.dashboard_overview'),
+                'sessions' => __('public.dashboard_sessions'),
+                'learning' => __('public.dashboard_learning'),
+                'purchases' => __('public.dashboard_purchases'),
+            ] as $view => $label)
+                @php($isActive = $view === 'learning' ? $learningActive : $activeView === $view)
+                <a href="{{ route('dashboard', ['view' => $view === 'learning' ? 'profile' : $view]) }}" wire:navigate @if ($isActive) aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $isActive ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
             @endforeach
+            <a href="{{ route('profile.edit') }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700">
+                {{ __('public.dashboard_account') }}
+            </a>
         </nav>
 
-        @if ($activeView === 'overview')
-            <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_remaining_credits') }}</p>
-                    <p class="mt-3 text-4xl font-semibold text-zinc-900 dark:text-white">{{ $remainingCredits }}</p>
-                    <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="mt-4 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_book_session') }} →</a>
-                </article>
-                <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_next_session') }}</p>
-                    @if ($bookings->first())
-                        <p class="mt-3 text-xl font-semibold text-zinc-900 dark:text-white">{{ $bookings->first()->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M') }}</p>
-                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ $bookings->first()->starts_at->timezone('Europe/Bucharest')->format('H:i') }} · {{ $bookings->first()->duration_minutes }} {{ __('public.booking_duration_minutes') }}</p>
-                    @else
-                        <p class="mt-3 text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_no_next_session') }}</p>
-                    @endif
-                    <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="mt-4 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_calendar') }} →</a>
-                </article>
-                <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_your_bundles') }}</p>
-                    @forelse ($usableEntitlements as $entitlement)
-                        <div class="mt-3 flex items-start justify-between gap-3">
-                            <div><p class="font-semibold text-zinc-900 dark:text-white">{{ $entitlement->bundle_name_snapshot ?: __('public.dashboard_purchase_bundle_name_unavailable') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $entitlement->credits_remaining + $entitlement->free_credits_remaining }} {{ __('public.dashboard_remaining_credits') }}</p></div>
-                            <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">{{ $entitlement->expires_at?->timezone('Europe/Bucharest')->format('d.m.Y') }}</span>
-                        </div>
-                    @empty
-                        <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_bundles') }}</p>
-                    @endforelse
-                    <a href="{{ route('dashboard', ['view' => 'purchases']) }}" wire:navigate class="mt-3 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_purchases') }} →</a>
-                    <a href="{{ route('home') }}#bundles" class="mt-2 inline-flex text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_buy_bundle') }} →</a>
-                </article>
-            </section>
+        @if ($learningActive)
+            <nav class="flex flex-wrap gap-2" aria-label="{{ __('public.dashboard_learning_navigation') }}">
+                <a href="{{ route('dashboard', ['view' => 'profile']) }}" wire:navigate @if ($activeView === 'profile') aria-current="page" @endif class="rounded-lg px-3 py-2 text-sm font-medium {{ $activeView === 'profile' ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_profile_tab') }}</a>
+                <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate @if ($activeView === 'progress') aria-current="page" @endif class="rounded-lg px-3 py-2 text-sm font-medium {{ $activeView === 'progress' ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_progress_tab') }}</a>
+            </nav>
+        @endif
 
-            <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h2><a href="{{ route('dashboard', ['view' => 'sessions']) }}" wire:navigate class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_sessions') }} →</a></div>
-                @forelse ($bookings as $booking)
-                    <div class="mt-4 flex flex-col gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
-                        <div class="min-w-0 flex-1"><p class="font-semibold text-zinc-900 dark:text-white">{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $booking->session_goal }}</p>@include('public.dashboard-call-link', ['booking' => $booking])</div>
-                        <span class="w-fit rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">{{ __( 'public.booking_status_'.$booking->status, [], app()->getLocale()) === 'public.booking_status_'.$booking->status ? ucfirst(str_replace('_', ' ', $booking->status)) : __('public.booking_status_'.$booking->status) }}</span>
-                    </div>
-                @empty
-                    <p class="mt-4 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_upcoming') }}</p>
-                @endforelse
-            </section>
+        @if ($activeView === 'overview')
+            @include('public.dashboard-overview')
         @elseif ($activeView === 'sessions')
             @include('public.dashboard-sessions')
         @elseif ($activeView === 'purchases')
