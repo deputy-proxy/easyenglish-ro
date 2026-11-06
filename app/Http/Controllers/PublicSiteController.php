@@ -1085,9 +1085,25 @@ class PublicSiteController extends Controller
             ->unique('metric_key')
             ->values();
         $activeView = $request->query('view', 'overview');
-        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases'], true)) {
+        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile'], true)) {
             $activeView = 'overview';
         }
+
+        $latestAssessedProgressReport = null;
+        if ($activeView === 'profile') {
+            $latestAssessedProgressReport = ProgressReport::query()
+                ->whereNotNull('shared_at')
+                ->whereNotNull('overall_level')
+                ->whereIn('booking_id', Booking::query()->ownedBy($customer)->select('id'))
+                ->orderByDesc('shared_at')
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        $learnerProfileLevel = $latestAssessedProgressReport->overall_level ?? $customer->english_level;
+        $learnerProfileLevelSource = $latestAssessedProgressReport !== null
+            ? 'assessed'
+            : ($customer->english_level !== null ? 'self_reported' : 'unset');
 
         $sessionGroup = $request->query('session_group', 'upcoming');
         if (! in_array($sessionGroup, ['upcoming', 'history', 'cancelled', 'all'], true)) {
@@ -1239,6 +1255,9 @@ class PublicSiteController extends Controller
             'feedback' => $feedback,
             'progressChart' => $progressChart,
             'latestProgressReport' => $latestProgressReport,
+            'latestAssessedProgressReport' => $latestAssessedProgressReport,
+            'learnerProfileLevel' => $learnerProfileLevel,
+            'learnerProfileLevelSource' => $learnerProfileLevelSource,
             'hasActiveBundle' => $usableEntitlements->isNotEmpty(),
         ])->header('Cache-Control', 'private, no-store, max-age=0')
             ->header('Referrer-Policy', 'no-referrer');

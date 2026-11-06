@@ -17,7 +17,7 @@
         @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
 
         <nav class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_overview') }}">
-            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'purchases' => __('public.dashboard_purchases'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress')] as $view => $label)
+            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'purchases' => __('public.dashboard_purchases'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress'), 'profile' => __('public.dashboard_learning_profile')] as $view => $label)
                 <a href="{{ route('dashboard', ['view' => $view]) }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === $view ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
             @endforeach
         </nav>
@@ -69,6 +69,8 @@
             @include('public.dashboard-sessions')
         @elseif ($activeView === 'purchases')
             @include('public.dashboard-purchases')
+        @elseif ($activeView === 'profile')
+            @include('public.dashboard-learning-profile')
         @elseif ($activeView === 'calendar')
             <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>
