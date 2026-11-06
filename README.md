@@ -264,3 +264,7 @@ These are configuration, compliance, or operational tasks rather than unresolved
 ## External technical references
 
 - The 5-minute application-level appointment-slot hold is independent of Stripe Checkout and the bundle's three-calendar-month validity. If a future flow ties checkout directly to a held appointment, verify current Stripe expiry constraints and implement server-side reconciliation rather than assuming Checkout can expire after five minutes.
+
+## Product documentation
+
+- [Customer support and account access](docs/product/customer-support-and-account-access.md)

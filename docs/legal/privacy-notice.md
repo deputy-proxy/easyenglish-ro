@@ -48,3 +48,8 @@ Record the version and effective date of the approved notice. The production not
 ## Customer account ownership and transactional history
 
 Authenticated bookings and bundle entitlements are associated with a customer account using an internal account identifier. The name, email address, and phone number captured when a transaction is created remain as historical transaction snapshots and are not silently rewritten when profile details change. Guest transactions remain possible. Account deletion removes the account relationship from retained booking and entitlement records while preserving records needed for financial, contractual, and service-history obligations. The exact retention periods and any later anonymization must follow the separately maintained retention schedule and applicable legal review. The technical implementation is documented in the [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md).
+
+
+## Customer support contact
+
+Customers may initiate contact with EasyEnglish using the official support email and/or shared business WhatsApp number configured for the dashboard. A WhatsApp link opens a prefilled message but does not send it automatically. Initiating a support conversation is separate from consent to receive WhatsApp service notifications and does not alter an existing opt-out.

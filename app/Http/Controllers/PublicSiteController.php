@@ -1026,9 +1026,29 @@ class PublicSiteController extends Controller
         $this->applyLocale($request);
         $customer = $request->user();
         $activeView = $request->query('view', 'overview');
-        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile'], true)) {
+        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile', 'account'], true)) {
             $activeView = 'overview';
         }
+        $supportEmail = filter_var(trim((string) config('easyenglish.contact_email')), FILTER_VALIDATE_EMAIL) ? trim((string) config('easyenglish.contact_email')) : null;
+        $supportWhatsAppUrl = null;
+        $supportWhatsApp = trim((string) config('easyenglish.contact_whatsapp'));
+        if (preg_match('/^\+?[1-9]\d{7,14}$/', $supportWhatsApp) === 1) {
+            $supportWhatsAppUrl = 'https://wa.me/'.ltrim($supportWhatsApp, '+').'?text='.rawurlencode(__('public.dashboard_support_whatsapp_message'));
+        }
+        $supportChannelsAvailable = $supportEmail !== null || $supportWhatsAppUrl !== null;
+        $accountPhoneDigits = preg_replace('/\D+/', '', (string) $customer->phone) ?? '';
+        $accountPhoneMasked = $accountPhoneDigits === '' ? null : '•••• '.substr($accountPhoneDigits, -4);
+        $accountPhoneStatus = $accountPhoneDigits === '' ? 'not_added' : ($customer->phone_verified_at !== null ? 'verified' : 'unverified');
+        $whatsappNotificationStatus = 'not_subscribed';
+        if ($activeView === 'account' && $accountPhoneDigits !== '') {
+            $contact = WhatsAppContact::query()->where('phone', PhoneNumber::normalize((string) $customer->phone))->first();
+            $whatsappNotificationStatus = $contact?->opted_out_at !== null ? 'opted_out' : ($contact?->canReceiveServiceMessages() ? 'enabled' : 'not_subscribed');
+        }
+        $contactVerificationEmailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
+        $phoneVerificationAvailable = ! $contactVerificationEmailOnly && (bool) config('services.whatsapp.enabled')
+            && filled(config('services.whatsapp.access_token')) && filled(config('services.whatsapp.phone_number_id'))
+            && filled(config('services.whatsapp.templates.contact_verification'));
+
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
             ->with(['teacher:id,name,teacher_photo_path,teacher_bio', 'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
@@ -1462,6 +1482,10 @@ class PublicSiteController extends Controller
             'learnerProfileLevel' => $learnerProfileLevel,
             'learnerProfileLevelSource' => $learnerProfileLevelSource,
             'hasActiveBundle' => $hasActiveBundle,
+            'supportEmail' => $supportEmail, 'supportWhatsAppUrl' => $supportWhatsAppUrl,
+            'supportChannelsAvailable' => $supportChannelsAvailable, 'accountPhoneMasked' => $accountPhoneMasked,
+            'accountPhoneStatus' => $accountPhoneStatus, 'phoneVerificationAvailable' => $phoneVerificationAvailable,
+            'contactVerificationEmailOnly' => $contactVerificationEmailOnly, 'whatsappNotificationStatus' => $whatsappNotificationStatus,
         ])->header('Cache-Control', 'private, no-store, max-age=0')
             ->header('Referrer-Policy', 'no-referrer');
     }
