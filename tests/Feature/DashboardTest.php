@@ -5,6 +5,7 @@ use App\Models\BookingCallEvent;
 use App\Models\ProgressReport;
 use App\Models\SessionFeedback;
 use App\Models\User;
+use App\Services\Booking\CancellationPolicyService;
 use Illuminate\Support\Str;
 
 function makeDashboardCallEvent(User $customer, string $status, array $bookingOverrides = [], array $eventOverrides = []): array
@@ -266,9 +267,9 @@ test('explicit customer ownership preserves dashboard history after an email cha
     $user->forceFill(['email' => 'after-change@example.com', 'email_verified_at' => now()])->save();
 
     $this->actingAs($user)->withSession(['locale' => 'en'])
-        ->get(route('dashboard'))
+        ->get(route('dashboard', ['view' => 'sessions', 'session_group' => 'history']))
         ->assertOk()
-        ->assertViewHas('pastBookings', fn ($bookings): bool => $bookings->contains('id', $booking->id));
+        ->assertViewHas('sessionBookings', fn ($bookings): bool => $bookings->contains('id', $booking->id));
 
     expect($booking->fresh()->customer_user_id)->toBe($user->id)
         ->and($booking->fresh()->customer_email)->toBe('before-change@example.com');
@@ -302,4 +303,186 @@ test('an explicitly owned booking is never exposed to another account through ma
         ->get(route('dashboard'))
         ->assertOk()
         ->assertViewHas('bookings', fn ($bookings): bool => $bookings->doesntContain('id', Booking::query()->where('session_goal', 'Must remain private to owner')->value('id')));
+});
+
+function makeCustomerSession(User $customer, array $overrides = []): Booking
+{
+    $startsAt = $overrides['starts_at'] ?? now()->addHours(18);
+
+    return Booking::query()->create(array_merge([
+        'public_reference' => (string) Str::uuid(),
+        'customer_user_id' => $customer->id,
+        'customer_name' => $customer->name,
+        'customer_email' => $customer->email,
+        'customer_phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Practise workplace conversations',
+        'notes' => 'Prepare a short project update.',
+        'accepted_policy_version' => 'test-policy',
+        'starts_at' => $startsAt,
+        'ends_at' => $startsAt->copy()->addMinutes(30),
+        'duration_minutes' => 30,
+        'status' => 'confirmed',
+        'locale' => 'en',
+    ], $overrides));
+}
+
+test('my sessions separates upcoming, history and cancelled bookings with accurate details and signed actions', function () {
+    $customer = User::factory()->create(['email' => 'sessions-customer@example.com']);
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'name' => 'Alex Teacher',
+        'teacher_bio' => 'Business English and interview preparation.',
+    ]);
+    $upcoming = makeCustomerSession($customer, [
+        'teacher_id' => $teacher->id,
+        'starts_at' => now()->addHours(18),
+        'duration_minutes' => 30,
+        'ends_at' => now()->addHours(18)->addMinutes(30),
+    ]);
+    $pending = makeCustomerSession($customer, [
+        'status' => 'pending',
+        'session_goal' => 'Awaiting confirmation',
+    ]);
+    $past = makeCustomerSession($customer, [
+        'starts_at' => now()->subDays(2),
+        'ends_at' => now()->subDays(2)->addMinutes(30),
+        'status' => 'completed',
+        'session_goal' => 'Past completed session',
+    ]);
+    $cancelled = makeCustomerSession($customer, [
+        'starts_at' => now()->subDay(),
+        'ends_at' => now()->subDay()->addMinutes(30),
+        'status' => 'cancelled',
+        'session_goal' => 'Cancelled session',
+    ]);
+    $expired = makeCustomerSession($customer, [
+        'starts_at' => now()->subDays(3),
+        'ends_at' => now()->subDays(3)->addMinutes(30),
+        'status' => 'expired',
+        'session_goal' => 'Expired session',
+    ]);
+    $noShow = makeCustomerSession($customer, [
+        'starts_at' => now()->subDays(4),
+        'ends_at' => now()->subDays(4)->addMinutes(30),
+        'status' => 'no_show',
+        'session_goal' => 'Missed session',
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'sessions']))
+        ->assertOk()
+        ->assertSee(__('public.dashboard_sessions'))
+        ->assertSee('Practise workplace conversations')
+        ->assertSee('Alex Teacher')
+        ->assertSee('Business English and interview preparation.')
+        ->assertSee('30 min')
+        ->assertSee('Prepare a short project update.')
+        ->assertSee(__('public.booking_status_confirmed'))
+        ->assertSee('Awaiting confirmation')
+        ->assertSee(__('public.booking_status_pending'))
+        ->assertDontSee('Past completed session')
+        ->assertDontSee('Cancelled session')
+        ->assertViewHas('sessionBookings', fn ($bookings): bool => $bookings->contains('id', $upcoming->id));
+
+    $this->get(route('dashboard', ['view' => 'sessions', 'session_group' => 'history']))
+        ->assertOk()
+        ->assertSee('Past completed session')
+        ->assertDontSee('Cancelled session')
+        ->assertViewHas('sessionBookings', fn ($bookings): bool => $bookings->contains('id', $past->id));
+
+    $this->get(route('dashboard', ['view' => 'sessions', 'session_group' => 'cancelled']))
+        ->assertOk()
+        ->assertSee('Cancelled session')
+        ->assertSee('Expired session')
+        ->assertSee('Missed session')
+        ->assertDontSee('Past completed session')
+        ->assertViewHas('sessionBookings', fn ($bookings): bool => $bookings->contains('id', $cancelled->id)
+            && $bookings->contains('id', $expired->id)
+            && $bookings->contains('id', $noShow->id));
+
+    $actions = app(CancellationPolicyService::class)->customerActions($upcoming);
+    expect($actions['can_cancel'])->toBeTrue()
+        ->and($actions['can_reschedule'])->toBeTrue();
+});
+
+test('my sessions uses bounded pagination and never returns another customer booking', function () {
+    $customer = User::factory()->create(['email' => 'sessions-pagination@example.com']);
+    $other = User::factory()->create(['email' => 'other-sessions@example.com']);
+
+    $owned = collect(range(1, 12))->map(fn (int $number): Booking => makeCustomerSession($customer, [
+        'session_goal' => 'Owned session '.$number,
+        'starts_at' => now()->addDays($number),
+        'ends_at' => now()->addDays($number)->addMinutes(30),
+    ]));
+    makeCustomerSession($other, [
+        'session_goal' => 'Another customer private session',
+        'starts_at' => now()->addDays(20),
+        'ends_at' => now()->addDays(20)->addMinutes(30),
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'sessions']))
+        ->assertOk()
+        ->assertViewHas('sessionBookings', function ($bookings) use ($owned): bool {
+            return $bookings->total() === 12
+                && $bookings->count() === 10
+                && $bookings->getCollection()->pluck('id')->diff($owned->pluck('id'))->isEmpty();
+        })
+        ->assertDontSee('Another customer private session');
+
+    $this->get(route('dashboard', ['view' => 'sessions', 'sessions_page' => 2]))
+        ->assertOk()
+        ->assertSee('Owned session 12')
+        ->assertDontSee('Another customer private session');
+});
+
+test('my sessions links reuse signed booking management and reschedule routes only when policy permits', function () {
+    $customer = User::factory()->create(['email' => 'sessions-actions@example.com']);
+    $eligible = makeCustomerSession($customer, [
+        'starts_at' => now()->addHours(18),
+        'ends_at' => now()->addHours(18)->addMinutes(30),
+    ]);
+    $ineligible = makeCustomerSession($customer, [
+        'starts_at' => now()->addHours(2),
+        'ends_at' => now()->addHours(2)->addMinutes(30),
+        'reschedule_count' => 1,
+        'session_goal' => 'No free reschedule',
+    ]);
+
+    $response = $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'sessions', 'session_group' => 'all']))
+        ->assertOk()
+        ->assertSee(__('public.dashboard_session_manage'))
+        ->assertSee(__('public.booking_reschedule_title'));
+
+    $response->assertViewHas('sessionActions', function (array $actions) use ($eligible, $ineligible): bool {
+        return $actions[$eligible->id]['can_cancel'] === true
+            && $actions[$eligible->id]['can_reschedule'] === true
+            && $actions[$ineligible->id]['can_cancel'] === true
+            && $actions[$ineligible->id]['can_reschedule'] === false
+            && is_string($actions[$eligible->id]['reschedule_url'])
+            && $actions[$ineligible->id]['reschedule_url'] === null;
+    });
+
+    $actions = $response->viewData('sessionActions');
+    $this->get($actions[$eligible->id]['manage_url'])
+        ->assertOk()
+        ->assertSee(__('public.booking_cancel_title'));
+    $this->get($actions[$eligible->id]['reschedule_url'])
+        ->assertOk()
+        ->assertSee(__('public.booking_reschedule_title'));
+});
+
+test('my sessions exposes only the current authorized OpenWA join action for future confirmed bookings', function () {
+    $customer = User::factory()->create(['email' => 'session-call-link@example.com']);
+    $ready = makeDashboardCallEvent($customer, 'scheduled');
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'sessions']))
+        ->assertOk()
+        ->assertSee(__('public.dashboard_call_link_ready'))
+        ->assertSee('href="'.route('booking.call-join', $ready['booking']->public_reference).'"', false)
+        ->assertDontSee('https://call.whatsapp.com/dashboard-link');
 });

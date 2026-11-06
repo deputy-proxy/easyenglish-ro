@@ -17,7 +17,7 @@
         @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
 
         <nav class="flex flex-wrap gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_overview') }}">
-            @foreach (['overview' => __('public.dashboard_overview'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress')] as $view => $label)
+            @foreach (['overview' => __('public.dashboard_overview'), 'sessions' => __('public.dashboard_sessions'), 'calendar' => __('public.dashboard_calendar'), 'progress' => __('public.dashboard_progress')] as $view => $label)
                 <a href="{{ route('dashboard', ['view' => $view]) }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === $view ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
             @endforeach
         </nav>
@@ -33,7 +33,7 @@
                     <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_next_session') }}</p>
                     @if ($bookings->first())
                         <p class="mt-3 text-xl font-semibold text-zinc-900 dark:text-white">{{ $bookings->first()->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M') }}</p>
-                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ $bookings->first()->starts_at->timezone('Europe/Bucharest')->format('H:i') }} · 15 min</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ $bookings->first()->starts_at->timezone('Europe/Bucharest')->format('H:i') }} · {{ $bookings->first()->duration_minutes }} {{ __('public.booking_duration_minutes') }}</p>
                     @else
                         <p class="mt-3 text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_no_next_session') }}</p>
                     @endif
@@ -54,7 +54,7 @@
             </section>
 
             <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h2><a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_calendar') }} →</a></div>
+                <div class="flex items-center justify-between gap-4"><h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h2><a href="{{ route('dashboard', ['view' => 'sessions']) }}" wire:navigate class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_sessions') }} →</a></div>
                 @forelse ($bookings as $booking)
                     <div class="mt-4 flex flex-col gap-2 border-t border-zinc-100 pt-4 sm:flex-row sm:items-center sm:justify-between dark:border-zinc-800">
                         <div class="min-w-0 flex-1"><p class="font-semibold text-zinc-900 dark:text-white">{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</p><p class="mt-1 text-sm text-zinc-500">{{ $booking->session_goal }}</p>@include('public.dashboard-call-link', ['booking' => $booking])</div>
@@ -64,6 +64,8 @@
                     <p class="mt-4 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_upcoming') }}</p>
                 @endforelse
             </section>
+        @elseif ($activeView === 'sessions')
+            @include('public.dashboard-sessions')
         @elseif ($activeView === 'calendar')
             <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
                 <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>
