@@ -12,7 +12,6 @@ use App\Models\Faq;
 use App\Models\FreeSessionClaim;
 use App\Models\Payment;
 use App\Models\ProgressReport;
-use App\Models\SessionFeedback;
 use App\Models\Testimonial;
 use App\Models\User;
 use App\Models\WhatsAppContact;
@@ -1026,6 +1025,10 @@ class PublicSiteController extends Controller
     {
         $this->applyLocale($request);
         $customer = $request->user();
+        $activeView = $request->query('view', 'overview');
+        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile'], true)) {
+            $activeView = 'overview';
+        }
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
             ->with(['teacher:id,name,teacher_photo_path,teacher_bio', 'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
@@ -1068,25 +1071,125 @@ class PublicSiteController extends Controller
         $calendarBookingUrl = $calendarEntitlement
             ? URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $calendarEntitlement->id], now()->addDays(7))
             : (! $hasUsedFreeOffer ? route('booking.create', ['type' => 'intro']) : route('home').'#bundles');
-        $feedback = SessionFeedback::query()
-            ->with('booking')
-            ->whereIn('booking_id', Booking::query()->ownedBy($customer)->select('id'))
-            ->get();
-        $progressChart = $progressChartData->build($feedback, [
-            'vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence',
-        ]);
-        $latestProgressReport = ProgressReport::query()
-            ->with('booking')
-            ->whereNotNull('shared_at')
-            ->whereIn('booking_id', Booking::query()->ownedBy($customer)->select('id'))
-            ->orderByDesc('shared_at')
-            ->first();
-        $feedback = $feedback->sortByDesc(fn (SessionFeedback $item): int => $item->booking->starts_at->getTimestamp())
-            ->unique('metric_key')
-            ->values();
-        $activeView = $request->query('view', 'overview');
-        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile'], true)) {
-            $activeView = 'overview';
+        $metricKeys = ProgressChartData::METRIC_KEYS;
+        $feedback = collect();
+        $progressChart = [
+            'series' => [],
+            'assessment_count' => 0,
+            'partial_count' => 0,
+            'strongest_improvement' => null,
+            'baseline_scores' => [],
+        ];
+        $latestProgressReport = null;
+        $assessmentHistory = null;
+        $assessmentSummaries = [];
+        $progressReports = null;
+        $progressReportSessionUrls = [];
+        $selectedProgressReport = null;
+        $selectedProgressReportSessionUrl = null;
+        $nextStepFeedback = collect();
+
+        if ($activeView === 'progress') {
+            $ownedBookingIds = Booking::query()->ownedBy($customer)->select('id');
+            $progressChart = $progressChartData->buildForCustomer($customer, $metricKeys);
+            $feedback = $progressChartData->latestEntriesForCustomer($customer, $metricKeys);
+            $nextStepFeedback = $progressChartData->latestFeedbackNotesForCustomer($customer, $metricKeys);
+
+            $latestProgressReport = ProgressReport::query()
+                ->with('author:id,name')
+                ->whereNotNull('shared_at')
+                ->whereIn('booking_id', $ownedBookingIds)
+                ->orderByDesc('shared_at')
+                ->orderByDesc('id')
+                ->first();
+
+            $assessmentContent = fn ($query) => $query->where(function ($content): void {
+                $content->whereNotNull('current_score')
+                    ->orWhereNotNull('potential_score')
+                    ->orWhere(fn ($text) => $text->whereNotNull('feedback')->where('feedback', '<>', ''));
+            });
+
+            $assessmentHistory = Booking::query()
+                ->ownedBy($customer)
+                ->whereHas('sessionFeedback', $assessmentContent)
+                ->with(['sessionFeedback' => fn ($query) => $assessmentContent($query)->orderBy('metric_key')])
+                ->orderByDesc('starts_at')
+                ->orderByDesc('id')
+                ->paginate(10, ['*'], 'assessments_page')
+                ->withQueryString();
+
+            foreach ($assessmentHistory as $assessmentBooking) {
+                $feedbackByMetric = $assessmentBooking->sessionFeedback->keyBy('metric_key');
+                $scoreCount = collect($metricKeys)
+                    ->filter(fn (string $metric): bool => $feedbackByMetric->get($metric)?->current_score !== null)
+                    ->count();
+                $metricDetails = [];
+
+                foreach ($metricKeys as $metric) {
+                    $item = $feedbackByMetric->get($metric);
+                    $metricDetails[$metric] = [
+                        'baseline' => $progressChart['baseline_scores'][$metric] ?? null,
+                        'current' => $item?->current_score,
+                        'potential' => $item?->potential_score,
+                        'feedback' => $item?->feedback,
+                    ];
+                }
+
+                $sessionExpiresAt = $assessmentBooking->starts_at->addDay();
+                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
+                }
+
+                $assessmentSummaries[$assessmentBooking->id] = [
+                    'complete' => $scoreCount === count($metricKeys),
+                    'score_count' => $scoreCount,
+                    'metrics' => $metricDetails,
+                    'overall_feedback' => $feedbackByMetric->get('overall')?->feedback,
+                    'session_url' => URL::signedRoute('booking.manage', ['reference' => $assessmentBooking->public_reference], $sessionExpiresAt),
+                ];
+            }
+
+            $progressReports = ProgressReport::query()
+                ->with(['booking:id,public_reference,starts_at,duration_minutes,status', 'author:id,name'])
+                ->whereNotNull('shared_at')
+                ->whereIn('booking_id', $ownedBookingIds)
+                ->orderByDesc('shared_at')
+                ->orderByDesc('id')
+                ->paginate(10, ['*'], 'reports_page')
+                ->withQueryString();
+
+            foreach ($progressReports as $progressReport) {
+                $sessionExpiresAt = $progressReport->booking->starts_at->addDay();
+                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
+                }
+
+                $progressReportSessionUrls[$progressReport->id] = URL::signedRoute(
+                    'booking.manage',
+                    ['reference' => $progressReport->booking->public_reference],
+                    $sessionExpiresAt,
+                );
+            }
+
+            if ($request->filled('report')) {
+                $selectedProgressReport = ProgressReport::query()
+                    ->with(['booking:id,public_reference,starts_at,duration_minutes,status', 'author:id,name'])
+                    ->whereKey($request->query('report'))
+                    ->whereNotNull('shared_at')
+                    ->whereIn('booking_id', $ownedBookingIds)
+                    ->firstOrFail();
+
+                $sessionExpiresAt = $selectedProgressReport->booking->starts_at->addDay();
+                if ($sessionExpiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+                    $sessionExpiresAt = CarbonImmutable::now('UTC')->addDays(7);
+                }
+
+                $selectedProgressReportSessionUrl = URL::signedRoute(
+                    'booking.manage',
+                    ['reference' => $selectedProgressReport->booking->public_reference],
+                    $sessionExpiresAt,
+                );
+            }
         }
 
         $latestAssessedProgressReport = null;
@@ -1255,6 +1358,13 @@ class PublicSiteController extends Controller
             'feedback' => $feedback,
             'progressChart' => $progressChart,
             'latestProgressReport' => $latestProgressReport,
+            'assessmentHistory' => $assessmentHistory,
+            'assessmentSummaries' => $assessmentSummaries,
+            'progressReports' => $progressReports,
+            'progressReportSessionUrls' => $progressReportSessionUrls,
+            'selectedProgressReport' => $selectedProgressReport,
+            'selectedProgressReportSessionUrl' => $selectedProgressReportSessionUrl,
+            'nextStepFeedback' => $nextStepFeedback,
             'latestAssessedProgressReport' => $latestAssessedProgressReport,
             'learnerProfileLevel' => $learnerProfileLevel,
             'learnerProfileLevelSource' => $learnerProfileLevelSource,

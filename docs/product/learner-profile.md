@@ -54,3 +54,6 @@ Optional fields may be empty. Profile completeness does not block booking or acc
 English level accepts only A1, A2, B1, B2, C1, or C2. The main goal is limited to 500 characters and additional context to 5,000 characters. All three learning fields are optional after registration.
 
 The dashboard and settings copy is available in Romanian and English. The profile page follows the existing Blade/Livewire, Tailwind, dark-mode, and responsive conventions.
+
+
+The report publication, assessment completeness, history, and recommendation rules are defined in [Learner progress and assessments](learner-progress-and-assessments.md). The learner profile and Progress view share the same published-report source for assessed CEFR level.

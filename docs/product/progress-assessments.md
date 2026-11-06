@@ -61,3 +61,9 @@ Progress feedback and shared reports are scoped to the authenticated learner's e
 ## Teacher session feedback
 
 Assigned teachers can open `/teacher/bookings/{reference}` from their authenticated session notification. Access is restricted to the currently assigned teacher. The page displays learner and session preparation details, and the feedback form becomes available only after a confirmed session has ended. Teachers can record current scores for vocabulary, pronunciation, fluency, grammar, and confidence, plus one overall written feedback entry. The records are tied to the booking and identify the teacher who recorded them. A cancelled or reassigned booking cannot be used to submit feedback as the previous teacher.
+
+## Customer history and report publication
+
+The customer Progress view now includes a paginated assessment history (complete and partial entries), a paginated archive of all published Progress Reports, report detail views, and teacher-authored next steps. shared_at is the report publication boundary: unshared drafts remain private. The dashboard distinguishes baseline, current, and potential scores, and incomplete assessments never affect the complete-assessment radar comparisons.
+
+See [Learner progress and assessments](learner-progress-and-assessments.md) for the complete lifecycle, assessment completeness rules, customer visibility, score semantics, report archive/detail behavior, recommendation provenance, authorization, accessibility, and query bounds.

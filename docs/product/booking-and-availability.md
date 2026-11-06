@@ -103,3 +103,9 @@ Teachers can manage only their own weekly availability, date exceptions, and Goo
 ## Customer account ownership
 
 Authenticated bookings retain a durable customer account relationship through bookings.customer_user_id. The customer name, email, and phone captured for each booking remain immutable transactional snapshots; profile edits do not rewrite historical booking details. Guest bookings remain supported. See the canonical [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md) for authorization, legacy compatibility, and account-deletion behavior.
+
+### Teacher feedback and customer progress history
+
+After a confirmed session has ended, the currently assigned teacher can submit one or more current dimension scores and/or overall written feedback through the teacher-only booking page. A text-only feedback submission is allowed and appears in the learner's history as incomplete until all five dimensions have current scores. Authorized staff can manage baseline, current, and potential scores and per-dimension feedback through Filament. Potential is a separate estimate and is never presented as achieved progress.
+
+Progress Reports are authored in the Filament Progress Reports resource. A non-null shared_at timestamp publishes the report to the customer; unshared drafts remain private. The learner dashboard shows all published reports, report details, assessment history, and recommendations/feedback already recorded by the teacher or authorized staff. It does not generate advice or infer CEFR from numeric scores. See [Learner progress and assessments](learner-progress-and-assessments.md) for lifecycle, score semantics, privacy, and customer presentation rules.

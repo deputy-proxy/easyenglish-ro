@@ -136,6 +136,8 @@
                     <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_help') }}</p>
                 </div>
 
+                @include('public.dashboard-progress-next-steps')
+
                 @if (count($progressChart['series']) > 0)
                     <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" data-progress-chart>
                         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -197,6 +199,7 @@
                             <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
                         @endif
                         <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_note') }}</p>
+                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_context_note') }}</p>
                     </article>
                 @else
                     <div class="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
@@ -205,25 +208,11 @@
                     </div>
                 @endif
 
-                @if ($latestProgressReport)
-                    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                        <div class="flex flex-wrap items-center justify-between gap-2">
-                            <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ $latestProgressReport->title }}</h3>
-                            <span class="text-xs text-zinc-500">{{ __('public.dashboard_progress_report_date') }} · {{ $latestProgressReport->shared_at->timezone('Europe/Bucharest')->format('d.m.Y') }}</span>
-                        </div>
-                        <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $latestProgressReport->summary }}</p>
-                        <div class="mt-4 grid gap-4 sm:grid-cols-3">
-                            @foreach ([['strengths', $latestProgressReport->strengths], ['areas_to_improve', $latestProgressReport->areas_to_improve], ['recommendations', $latestProgressReport->recommendations]] as [$key, $value])
-                                @if ($value)
-                                    <div>
-                                        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-700">{{ __('public.dashboard_progress_' . $key) }}</h4>
-                                        <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $value }}</p>
-                                    </div>
-                                @endif
-                            @endforeach
-                        </div>
-                    </article>
+                @if (count($progressChart['series']) === 0 && $progressChart['partial_count'] > 0)
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
                 @endif
+
+                @include('public.dashboard-progress-reports')
 
                 @if ($feedback->isNotEmpty())
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -247,6 +236,8 @@
                         @endforeach
                     </div>
                 @endif
+
+                @include('public.dashboard-assessment-history')
             </section>
 
             @if (count($progressChart['series']) > 0)
