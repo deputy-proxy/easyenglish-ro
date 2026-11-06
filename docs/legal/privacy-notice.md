@@ -44,3 +44,7 @@ Access is restricted to authorized staff; payment webhooks are verified; applica
 ## 8. Changes and approval
 
 Record the version and effective date of the approved notice. The production notice must match the actual controller, processors, legal bases, contact routes, and operational behavior. This draft must not be presented as approved until sign-off is recorded in the launch checklist.
+
+## Customer account ownership and transactional history
+
+Authenticated bookings and bundle entitlements are associated with a customer account using an internal account identifier. The name, email address, and phone number captured when a transaction is created remain as historical transaction snapshots and are not silently rewritten when profile details change. Guest transactions remain possible. Account deletion removes the account relationship from retained booking and entitlement records while preserving records needed for financial, contractual, and service-history obligations. The exact retention periods and any later anonymization must follow the separately maintained retention schedule and applicable legal review. The technical implementation is documented in the [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md).

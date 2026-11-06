@@ -106,6 +106,18 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
     }
 
     /** @return HasMany<Booking, $this> */
+    public function customerBookings(): HasMany
+    {
+        return $this->hasMany(Booking::class, 'customer_user_id');
+    }
+
+    /** @return HasMany<BundleEntitlement, $this> */
+    public function bundleEntitlements(): HasMany
+    {
+        return $this->hasMany(BundleEntitlement::class, 'customer_user_id');
+    }
+
+    /** @return HasMany<Booking, $this> */
     public function bookingsAsTeacher(): HasMany
     {
         return $this->hasMany(Booking::class, 'teacher_id');

@@ -9,6 +9,7 @@ use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\ContactVerificationChallenge;
 use App\Models\Payment;
+use App\Models\User;
 use App\Services\Booking\PaymentStateService;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Str;
@@ -24,7 +25,7 @@ class StripeCheckoutService
     ) {}
 
     /** @param array{name:string,email:string,phone:string} $customer */
-    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false): Payment
+    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false, ?User $customerUser = null): Payment
     {
         if (! $bundle->is_active) {
             throw ValidationException::withMessages(['bundle' => 'This bundle is not available for purchase.']);
@@ -51,6 +52,7 @@ class StripeCheckoutService
             $entitlement = BundleEntitlement::query()->firstOrCreate(
                 ['checkout_request_key' => $requestKey],
                 [
+                    'customer_user_id' => $customerUser?->id,
                     'bundle_definition_id' => $bundle->id,
                     'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
                     'customer_name' => $customer['name'],
@@ -74,6 +76,12 @@ class StripeCheckoutService
             || PhoneNumber::normalize($entitlement->customer_phone) !== $customer['phone']
             || $entitlement->customer_name !== $customer['name']) {
             throw ValidationException::withMessages(['purchase_token' => 'This purchase form has already been used with different customer details. Refresh the page to start a separate purchase.']);
+        }
+
+        if ($customerUser !== null && $entitlement->customer_user_id === null) {
+            $entitlement->forceFill(['customer_user_id' => $customerUser->id])->save();
+        } elseif ($customerUser !== null && $entitlement->customer_user_id !== $customerUser->id) {
+            throw ValidationException::withMessages(['purchase_token' => 'This purchase belongs to a different customer account.']);
         }
 
         if ($verification !== null || $accountContactsVerified) {

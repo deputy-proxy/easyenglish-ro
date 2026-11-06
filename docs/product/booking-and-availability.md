@@ -99,3 +99,7 @@ Teachers can manage only their own weekly availability, date exceptions, and Goo
 - Configure the Google OAuth consent screen, Calendar API, client ID/secret, and exact redirect URI. No live Google credentials are required in CI.
 - Before production activation, verify the production MySQL/MariaDB locking behavior, Google API quotas, OAuth revocation behavior, notification template approval, and the customer data shown in calendar events.
 - Production SMTP, Meta account/template approval, live webhooks, contact verification, Romanian legal review, and tax/invoicing approval remain separate launch gates.
+
+## Customer account ownership
+
+Authenticated bookings retain a durable customer account relationship through bookings.customer_user_id. The customer name, email, and phone captured for each booking remain immutable transactional snapshots; profile edits do not rewrite historical booking details. Guest bookings remain supported. See the canonical [customer identity and record ownership model](../architecture/customer-identity-and-record-ownership.md) for authorization, legacy compatibility, and account-deletion behavior.

@@ -279,6 +279,7 @@ test('customer and assigned teacher can retrieve the call link but unrelated use
     $service->createForBooking($booking->id, 1);
     $teacher = $booking->teacher()->firstOrFail();
     $customer = User::factory()->create(['email' => $booking->customer_email]);
+    $booking->update(['customer_user_id' => $customer->id]);
     $unrelated = User::factory()->create();
     $otherTeacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
 
@@ -301,6 +302,7 @@ test('dashboard call-link redirect is private and rejects stale revisions and un
         'email' => $booking->customer_email,
         'email_verified_at' => now(),
     ]);
+    $booking->update(['customer_user_id' => $customer->id]);
 
     $this->actingAs($customer)
         ->get(route('booking.call-join', $booking->public_reference))
@@ -329,6 +331,7 @@ test('unauthenticated users and bookings without a ready call link cannot retrie
     $this->get(route('booking.call-link', $booking->public_reference))->assertRedirect(route('login'));
 
     $customer = User::factory()->create(['email' => $booking->customer_email]);
+    $booking->update(['customer_user_id' => $customer->id]);
     $this->actingAs($customer)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
 });
 
@@ -455,6 +458,7 @@ test('latest pending revision never falls back to an older scheduled call link',
         'status' => 'pending',
     ]);
     $customer = User::factory()->create(['email' => $booking->customer_email]);
+    $booking->update(['customer_user_id' => $customer->id]);
 
     $this->actingAs($customer)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
 });
@@ -581,7 +585,7 @@ test('teacher reassignment invalidates access to the previous call-event revisio
     $previousTeacher = $booking->teacher()->firstOrFail();
     $newTeacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
     $customer = User::factory()->create(['email' => $booking->customer_email]);
-    $booking->update(['teacher_id' => $newTeacher->id, 'teacher_assigned_at' => now()]);
+    $booking->update(['customer_user_id' => $customer->id, 'teacher_id' => $newTeacher->id, 'teacher_assigned_at' => now()]);
 
     $this->actingAs($customer)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
     $this->actingAs($newTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertNotFound();
