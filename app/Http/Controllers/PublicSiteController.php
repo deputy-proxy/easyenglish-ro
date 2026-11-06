@@ -1021,10 +1021,13 @@ class PublicSiteController extends Controller
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
-    public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy, CustomerPurchasePresenter $purchasePresenter): Response
+    public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy, CustomerPurchasePresenter $purchasePresenter): Response|RedirectResponse
     {
         $this->applyLocale($request);
         $customer = $request->user();
+        if ($customer->isTeacher()) {
+            return redirect()->route($customer->teacher_active ? 'teacher.dashboard' : 'teacher.availability');
+        }
         $activeView = $request->query('view', 'overview');
         if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions', 'purchases', 'profile', 'account'], true)) {
             $activeView = 'overview';

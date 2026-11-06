@@ -14,7 +14,14 @@
                 <h1 class="mt-2 text-3xl font-semibold">Your availability</h1>
                 <p class="mt-2 text-sm text-stone-600">Manage your weekly working hours and calendar connection. Times use Europe/Bucharest.</p>
             </div>
-            <a href="{{ route('dashboard') }}" class="text-sm font-medium text-stone-600 underline">Dashboard</a>
+            <div class="flex items-center gap-3">
+                @if (auth()->user()->is_staff)
+                    <a href="{{ url('/admin') }}" class="text-sm font-medium text-stone-600 underline">Staff admin</a>
+                @endif
+                @if (auth()->user()->teacher_active)
+                    <a href="{{ route('teacher.dashboard') }}" class="text-sm font-medium text-stone-600 underline">Teacher workspace</a>
+                @endif
+            </div>
         </header>
 
         @if (session('status'))

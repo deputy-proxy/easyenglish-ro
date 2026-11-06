@@ -333,22 +333,20 @@ test('teacher and staff dashboards cannot see customer records they do not own',
         'shared_at' => now(),
     ]);
 
-    foreach ([$teacher, $staff] as $nonCustomer) {
-        $this->actingAs($nonCustomer)->withSession(['locale' => 'en'])
-            ->get(route('dashboard'))
-            ->assertOk()
-            ->assertSee(__('public.dashboard_no_next_session'))
-            ->assertSee(__('public.dashboard_no_bundles'))
-            ->assertDontSee('Customer private learning goal')
-            ->assertDontSee('Customer private bundle')
-            ->assertDontSee('Customer private report')
-            ->assertViewHas('remainingCredits', 0)
-            ->assertViewHas('recentActivity', fn ($events): bool => $events->isEmpty());
-    }
+    $this->actingAs($staff)->withSession(['locale' => 'en'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee(__('public.dashboard_no_next_session'))
+        ->assertSee(__('public.dashboard_no_bundles'))
+        ->assertDontSee('Customer private learning goal')
+        ->assertDontSee('Customer private bundle')
+        ->assertDontSee('Customer private report')
+        ->assertViewHas('remainingCredits', 0)
+        ->assertViewHas('recentActivity', fn ($events): bool => $events->isEmpty());
 
     $this->actingAs($teacher)->withSession(['locale' => 'en'])
         ->get(route('dashboard'))
-        ->assertSee(__('public.dashboard_teacher_availability'));
+        ->assertRedirect(route('teacher.dashboard'));
 
     expect($entitlement->customer_user_id)->toBe($customer->id);
 });
