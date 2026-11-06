@@ -180,7 +180,8 @@ test('teacher dashboard renders Romanian labels from the current session locale'
         ->get(route('teacher.dashboard'))
         ->assertOk()
         ->assertSee('Spațiul profesorului')
-        ->assertSee('Sesiunile mele');
+        ->assertSee('Sesiunile mele')
+        ->assertSee('dark:bg-zinc-950', false);
 });
 
 test('teacher session cards show current OpenWA readiness without exposing the join URL', function () {

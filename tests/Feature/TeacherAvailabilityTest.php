@@ -629,3 +629,29 @@ test('malformed Google Calendar snapshots fail closed without clearing the last 
     expect(TeacherCalendarBusyInterval::query()->where('google_event_id', 'last-known-busy-event')->exists())->toBeTrue()
         ->and($teacher->teacherCalendar->fresh()->status)->toBe('error');
 });
+
+test('teacher availability page is localized and supports dark appearance', function () {
+    $teacher = createCalendarTeacher('Localized Availability', 'localized.availability@example.com');
+
+    $this->actingAs($teacher)->withSession(['locale' => 'ro'])
+        ->get('/teacher/availability')
+        ->assertOk()
+        ->assertSee('<html lang="ro">', false)
+        ->assertSee('Disponibilitatea profesorului')
+        ->assertSee('Program săptămânal')
+        ->assertSee('Duminică')
+        ->assertSee('name="locale" value="en"', false)
+        ->assertSee('dark:bg-zinc-950', false)
+        ->assertDontSee('Your availability');
+});
+
+test('teacher availability save confirmation follows the selected locale', function () {
+    $teacher = createCalendarTeacher('Localized Schedule', 'localized.schedule@example.com');
+
+    $this->actingAs($teacher)->withSession(['locale' => 'ro'])
+        ->put('/teacher/availability', ['availability' => [
+            ['weekday' => 1, 'starts_at' => '09:00', 'ends_at' => '10:00', 'is_active' => '1'],
+        ]])
+        ->assertRedirect()
+        ->assertSessionHas('status', 'Disponibilitatea săptămânală a fost salvată.');
+});
