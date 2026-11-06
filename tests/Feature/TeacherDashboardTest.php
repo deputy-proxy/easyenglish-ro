@@ -52,6 +52,10 @@ test('teacher dashboard requires an active teacher and dashboard routing preserv
     $this->actingAs($staffTeacher)->withSession(['locale' => 'en'])
         ->get(route('teacher.dashboard'))
         ->assertOk()
+        ->assertSee('EasyEnglish home', false)
+        ->assertSee('data-test="logout-button"', false)
+        ->assertSee('dashboard-panel', false)
+        ->assertSee('bg-primary', false)
         ->assertSee(route('filament.admin.pages.dashboard'), false);
     $this->actingAs($teacher)->get('/admin')->assertForbidden();
     $this->actingAs($staffTeacher)->get('/admin')->assertOk();

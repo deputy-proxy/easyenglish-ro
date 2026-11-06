@@ -45,7 +45,7 @@
             </div>
 
             <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                <a href="{{ $selectedProgressReportSessionUrl }}" class="text-sm font-semibold text-emerald-800 underline dark:text-emerald-300">
+                <a href="{{ $selectedProgressReportSessionUrl }}" class="text-sm font-semibold text-primary-strong underline dark:text-blue-300">
                     {{ __('public.dashboard_progress_related_session') }} · #{{ $selectedProgressReport->booking->id }}
                 </a>
                 <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">
@@ -78,7 +78,7 @@
                         <a href="{{ $progressReportSessionUrls[$report->id] }}" class="text-xs font-medium text-zinc-500 underline dark:text-zinc-400">
                             {{ __('public.dashboard_progress_related_session') }} · #{{ $report->booking->id }}
                         </a>
-                        <a href="{{ route('dashboard', ['view' => 'progress', 'report' => $report->id]) }}" wire:navigate class="text-sm font-semibold text-emerald-800 underline dark:text-emerald-300">
+                        <a href="{{ route('dashboard', ['view' => 'progress', 'report' => $report->id]) }}" wire:navigate class="text-sm font-semibold text-primary-strong underline dark:text-blue-300">
                             {{ __('public.dashboard_progress_read_report') }}
                         </a>
                     </div>

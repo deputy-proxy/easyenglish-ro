@@ -4,12 +4,12 @@
             <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_sessions') }}</h2>
             <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_sessions_help') }}</p>
         </div>
-        <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="inline-flex min-h-10 items-center rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900">{{ __('public.dashboard_book_session') }}</a>
+        <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="inline-flex min-h-10 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">{{ __('public.dashboard_book_session') }}</a>
     </header>
 
     <nav class="flex flex-wrap gap-2" aria-label="{{ __('public.dashboard_sessions_filter') }}">
         @foreach (['upcoming' => __('public.dashboard_sessions_upcoming'), 'history' => __('public.dashboard_sessions_history'), 'cancelled' => __('public.dashboard_sessions_cancelled'), 'all' => __('public.dashboard_sessions_all')] as $group => $label)
-            <a href="{{ route('dashboard', ['view' => 'sessions', 'session_group' => $group]) }}" wire:navigate @if ($sessionGroup === $group) aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $sessionGroup === $group ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
+            <a href="{{ route('dashboard', ['view' => 'sessions', 'session_group' => $group]) }}" wire:navigate @if ($sessionGroup === $group) aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $sessionGroup === $group ? 'bg-primary text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
         @endforeach
     </nav>
 
@@ -18,7 +18,7 @@
             <h3 class="font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_sessions_empty_title') }}</h3>
             <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_sessions_empty_text') }}</p>
             @if ($sessionGroup === 'upcoming')
-                <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="mt-4 inline-flex min-h-10 items-center rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white">{{ __('public.dashboard_book_session') }}</a>
+                <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="mt-4 inline-flex min-h-10 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">{{ __('public.dashboard_book_session') }}</a>
             @endif
         </div>
     @else
@@ -31,7 +31,7 @@
                     $statusLabel = __($statusKey) !== $statusKey ? __($statusKey) : ucfirst(str_replace('_', ' ', $booking->status));
                     $actions = $sessionActions[$booking->id];
                 @endphp
-                <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <article class="dashboard-panel">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div class="min-w-0">
                             <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{{ $localStart->translatedFormat('l, j F Y') }}</p>
@@ -66,7 +66,7 @@
                     @endif
 
                     <details class="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
-                        <summary class="cursor-pointer text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_session_details') }}</summary>
+                        <summary class="cursor-pointer text-sm font-semibold text-primary-strong hover:underline dark:text-blue-300">{{ __('public.dashboard_session_details') }}</summary>
                         <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                             <div><dt class="text-zinc-500">{{ __('public.booking_reference') }}</dt><dd class="mt-1 break-all font-medium text-zinc-900 dark:text-white">{{ $booking->public_reference }}</dd></div>
                             <div><dt class="text-zinc-500">{{ __('public.booking_status') }}</dt><dd class="mt-1 font-medium text-zinc-900 dark:text-white">{{ $statusLabel }}</dd></div>
@@ -77,7 +77,7 @@
                     <div class="mt-5 flex flex-wrap gap-3 border-t border-zinc-100 pt-4 dark:border-zinc-800">
                         <a href="{{ $actions['manage_url'] }}" class="inline-flex min-h-10 items-center rounded-full border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800">{{ $actions['can_cancel'] || $actions['can_reschedule'] ? __('public.dashboard_session_manage') : __('public.dashboard_session_view') }}</a>
                         @if ($actions['can_reschedule'] && is_string($actions['reschedule_url']))
-                            <a href="{{ $actions['reschedule_url'] }}" class="inline-flex min-h-10 items-center rounded-full border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 dark:border-emerald-500 dark:text-emerald-300 dark:hover:bg-emerald-950">{{ __('public.booking_reschedule_title') }}</a>
+                            <a href="{{ $actions['reschedule_url'] }}" class="inline-flex min-h-10 items-center rounded-full border border-primary px-4 py-2 text-sm font-semibold text-primary-strong hover:bg-primary-soft dark:border-blue-500 dark:text-blue-300 dark:hover:bg-blue-950">{{ __('public.booking_reschedule_title') }}</a>
                         @endif
                     </div>
                 </article>

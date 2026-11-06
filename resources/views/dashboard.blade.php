@@ -1,34 +1,41 @@
-<x-layouts::app :title="__('public.dashboard_overview')">
-    <div class="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-8">
-        <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ __('public.dashboard_overview') }} · EasyEnglish</title>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @fluxAppearance
+</head>
+<body class="min-h-screen bg-paper font-sans text-ink antialiased dark:bg-zinc-950 dark:text-zinc-100">
+    @include('public.partials.dashboard-header', ['context' => 'customer'])
+    <main class="mx-auto w-full max-w-[1240px] space-y-7 px-5 py-8 sm:px-7 lg:px-10 lg:py-10">
+        <header class="flex flex-col gap-5 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between dark:border-zinc-800">
             <div>
-                <p class="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Easy English</p>
-                <h1 class="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 dark:text-white">{{ __('public.dashboard_welcome', ['name' => auth()->user()->name]) }}</h1>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_subtitle') }}</p>
+                <p class="type-eyebrow">{{ __('public.dashboard_overview') }}</p>
+                <h1 class="mt-2 text-3xl font-semibold tracking-tight text-ink dark:text-white sm:text-4xl">{{ __('public.dashboard_welcome', ['name' => auth()->user()->name]) }}</h1>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-muted dark:text-zinc-400">{{ __('public.dashboard_subtitle') }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
                 @if (auth()->user()->isTeacher())
-                    <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">{{ __('public.dashboard_teacher_availability') }}</a>
+                    <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-muted underline-offset-4 hover:text-ink hover:underline dark:text-zinc-300">{{ __('public.dashboard_teacher_availability') }}</a>
                 @endif
                 @if ($supportChannelsAvailable)
-                    <a href="#dashboard-support" class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">{{ __('public.dashboard_support_title') }}</a>
+                    <a href="#dashboard-support" class="text-sm font-semibold text-muted underline-offset-4 hover:text-ink hover:underline dark:text-zinc-300">{{ __('public.dashboard_support_title') }}</a>
                 @endif
                 @if ($activeView === 'calendar')
-                    <a href="{{ route('dashboard', ['view' => 'overview']) }}" wire:navigate class="inline-flex items-center rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800">
-                        {{ __('public.dashboard_back_to_overview') }}
-                    </a>
+                    <a href="{{ route('dashboard', ['view' => 'overview']) }}" wire:navigate class="inline-flex min-h-11 items-center rounded-full border border-ink px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-ink hover:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">{{ __('public.dashboard_back_to_overview') }}</a>
                 @else
-                    <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="inline-flex items-center rounded-full bg-emerald-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">
-                        {{ __('public.dashboard_book_session') }}
-                    </a>
+                    <a href="{{ route('dashboard', ['view' => 'calendar']) }}" wire:navigate class="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">{{ __('public.dashboard_book_session') }}</a>
                 @endif
             </div>
         </header>
 
-        @if (session('status'))<p role="status" class="rounded-xl bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
+        @if (session('status'))<p role="status" class="rounded-xl border border-success/20 bg-emerald-50 p-4 text-sm font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100">{{ session('status') }}</p>@endif
 
         @php($learningActive = in_array($activeView, ['profile', 'progress'], true))
-        <nav class="flex flex-wrap items-center gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-700" aria-label="{{ __('public.dashboard_primary_navigation') }}">
+        <nav class="flex flex-wrap items-center gap-1 border-b border-line pb-3 dark:border-zinc-800" aria-label="{{ __('public.dashboard_primary_navigation') }}">
             @foreach ([
                 'overview' => __('public.dashboard_overview'),
                 'sessions' => __('public.dashboard_sessions'),
@@ -36,17 +43,15 @@
                 'purchases' => __('public.dashboard_purchases'),
             ] as $view => $label)
                 @php($isActive = $view === 'learning' ? $learningActive : $activeView === $view)
-                <a href="{{ route('dashboard', ['view' => $view === 'learning' ? 'profile' : $view]) }}" wire:navigate @if ($isActive) aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $isActive ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
+                <a href="{{ route('dashboard', ['view' => $view === 'learning' ? 'profile' : $view]) }}" wire:navigate @if ($isActive) aria-current="page" @endif class="rounded-full px-4 py-2.5 text-sm font-bold transition {{ $isActive ? 'bg-primary text-white' : 'text-muted hover:bg-primary-soft hover:text-primary-strong dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ $label }}</a>
             @endforeach
-            <a href="{{ route('dashboard', ['view' => 'account']) }}" wire:navigate @if ($activeView === 'account') aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === 'account' ? 'bg-emerald-800 text-white' : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700' }}">
-                {{ __('public.dashboard_account') }}
-            </a>
+            <a href="{{ route('dashboard', ['view' => 'account']) }}" wire:navigate @if ($activeView === 'account') aria-current="page" @endif class="rounded-full px-4 py-2.5 text-sm font-bold transition {{ $activeView === 'account' ? 'bg-primary text-white' : 'text-muted hover:bg-primary-soft hover:text-primary-strong dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_account') }}</a>
         </nav>
 
         @if ($learningActive)
             <nav class="flex flex-wrap gap-2" aria-label="{{ __('public.dashboard_learning_navigation') }}">
-                <a href="{{ route('dashboard', ['view' => 'profile']) }}" wire:navigate @if ($activeView === 'profile') aria-current="page" @endif class="rounded-lg px-3 py-2 text-sm font-medium {{ $activeView === 'profile' ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_profile_tab') }}</a>
-                <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate @if ($activeView === 'progress') aria-current="page" @endif class="rounded-lg px-3 py-2 text-sm font-medium {{ $activeView === 'progress' ? 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-100' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_progress_tab') }}</a>
+                <a href="{{ route('dashboard', ['view' => 'profile']) }}" wire:navigate @if ($activeView === 'profile') aria-current="page" @endif class="rounded-full px-3.5 py-2 text-sm font-semibold {{ $activeView === 'profile' ? 'bg-primary-soft text-primary-strong dark:bg-blue-950 dark:text-blue-200' : 'text-muted hover:bg-primary-soft hover:text-primary-strong dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_profile_tab') }}</a>
+                <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate @if ($activeView === 'progress') aria-current="page" @endif class="rounded-full px-3.5 py-2 text-sm font-semibold {{ $activeView === 'progress' ? 'bg-primary-soft text-primary-strong dark:bg-blue-950 dark:text-blue-200' : 'text-muted hover:bg-primary-soft hover:text-primary-strong dark:text-zinc-300 dark:hover:bg-zinc-800' }}">{{ __('public.dashboard_learning_progress_tab') }}</a>
             </nav>
         @endif
 
@@ -61,9 +66,9 @@
         @elseif ($activeView === 'profile')
             @include('public.dashboard-learning-profile')
         @elseif ($activeView === 'calendar')
-            <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
-                <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>
-                <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_calendar_help') }}</p>
+            <section class="dashboard-panel">
+                <h2 class="text-xl font-semibold text-ink dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>
+                <p class="mt-2 text-sm text-muted dark:text-zinc-300">{{ __('public.dashboard_calendar_help') }}</p>
                 @if (str_contains($calendarBookingUrl, '/book'))
                     <div class="mt-5" data-availability data-week="{{ $calendarWeekStart->format('Y-m-d') }}" data-book-url="{{ $calendarBookingUrl }}">
                         <div class="mb-4 flex items-center justify-between gap-3" data-week-navigation>
@@ -92,10 +97,10 @@
                             const render = days => {
                                 grid.innerHTML = '';
                                 days.forEach(day => {
-                                    const col = document.createElement('div'); col.className = 'rounded-xl border border-zinc-200 p-3 dark:border-zinc-700';
+                                    const col = document.createElement('div'); col.className = 'rounded-xl border border-line p-3 dark:border-zinc-700';
                                     const head = document.createElement('p'); head.className = 'mb-3 font-semibold text-zinc-800 dark:text-zinc-100'; head.textContent = `${day.label} ${day.day}`; col.append(head);
                                     day.slots.forEach(slot => {
-                                        const button = document.createElement('button'); button.type = 'button'; button.className = 'mb-2 w-full rounded-lg bg-emerald-50 px-2 py-2 text-sm font-semibold text-emerald-900 hover:bg-emerald-100'; button.textContent = slot.time;
+                                        const button = document.createElement('button'); button.type = 'button'; button.className = 'mb-2 w-full rounded-lg bg-primary-soft px-2 py-2 text-sm font-bold text-primary-strong hover:bg-primary hover:text-white'; button.textContent = slot.time;
                                         button.addEventListener('click', () => { const join = base.includes('?') ? '&' : '?'; location.href = base + join + 'slot=' + encodeURIComponent(slot.starts_at); }); col.append(button);
                                     });
                                     if (!day.slots.length) { const empty = document.createElement('p'); empty.className = 'text-xs text-zinc-500'; empty.textContent = @json(__('public.slot_none')); col.append(empty); }
@@ -109,30 +114,30 @@
                         })();
                     </script>
                 @else
-                    <div class="mt-5 rounded-xl bg-zinc-50 p-5 dark:bg-zinc-800"><p class="text-sm text-zinc-700 dark:text-zinc-200">{{ __('public.dashboard_no_credits') }}</p><a class="mt-4 inline-flex rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white" href="{{ route('home') }}#bundles">{{ __('public.dashboard_buy_bundle') }}</a></div>
+                    <div class="mt-5 rounded-xl bg-paper p-5 dark:bg-zinc-800"><p class="text-sm text-zinc-700 dark:text-zinc-200">{{ __('public.dashboard_no_credits') }}</p><a class="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white" href="{{ route('home') }}#bundles">{{ __('public.dashboard_buy_bundle') }}</a></div>
                 @endif
-                <h3 class="mt-8 text-lg font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_upcoming') }}</h3>
+                <h3 class="mt-8 text-lg font-semibold text-ink dark:text-white">{{ __('public.dashboard_upcoming') }}</h3>
                 @forelse ($bookings as $booking)
                     <div class="mt-3 flex flex-wrap justify-between gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800"><div><span>{{ $booking->starts_at->timezone('Europe/Bucharest')->translatedFormat('D, j M Y') }} · {{ $booking->starts_at->timezone('Europe/Bucharest')->format('H:i') }}</span><p class="text-sm text-zinc-500">{{ $booking->session_goal }}</p>@include('public.dashboard-call-link', ['booking' => $booking])</div></div>
                 @empty
-                    <p class="mt-3 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_no_upcoming') }}</p>
+                    <p class="mt-3 text-sm text-muted dark:text-zinc-300">{{ __('public.dashboard_no_upcoming') }}</p>
                 @endforelse
             </section>
         @else
             <section class="space-y-5">
                 <div>
-                    <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_title') }}</h2>
-                    <p class="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_help') }}</p>
+                    <h2 class="text-xl font-semibold text-ink dark:text-white">{{ __('public.dashboard_progress_title') }}</h2>
+                    <p class="mt-2 text-sm text-muted dark:text-zinc-300">{{ __('public.dashboard_progress_help') }}</p>
                 </div>
 
                 @include('public.dashboard-progress-next-steps')
 
                 @if (count($progressChart['series']) > 0)
-                    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900" data-progress-chart>
+                    <article class="dashboard-panel" data-progress-chart>
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div>
-                                <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_chart_title') }}</h3>
-                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_chart_help') }}</p>
+                                <h3 class="text-base font-semibold text-ink dark:text-white">{{ __('public.dashboard_progress_chart_title') }}</h3>
+                                <p class="mt-1 text-sm text-muted dark:text-zinc-400">{{ __('public.dashboard_progress_chart_help') }}</p>
                             </div>
                             <p class="text-xs text-zinc-500">{{ trans_choice('public.dashboard_progress_assessment_count', $progressChart['assessment_count'], ['count' => $progressChart['assessment_count']]) }}</p>
                         </div>
@@ -155,22 +160,22 @@
                                 </div>
                             </div>
 
-                            <div class="rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/70" aria-live="polite" data-radar-details>
+                            <div class="rounded-xl bg-paper p-4 dark:bg-zinc-800/70" aria-live="polite" data-radar-details>
                                 <p class="text-xs font-bold uppercase tracking-wider text-emerald-700" data-detail-label></p>
-                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400" data-detail-date></p>
+                                <p class="mt-1 text-sm text-muted dark:text-zinc-400" data-detail-date></p>
                                 <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-3" data-detail-scores></dl>
                                 <div class="mt-4 space-y-3" data-detail-feedback></div>
                             </div>
                         </div>
 
-                        <details class="mt-4 rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                        <details class="mt-4 rounded-xl border border-line px-4 py-3 dark:border-zinc-700">
                             <summary class="cursor-pointer text-sm font-semibold text-zinc-700 dark:text-zinc-200">{{ __('public.dashboard_progress_data_table') }}</summary>
                             <div class="mt-3 overflow-x-auto">
                                 <table class="w-full min-w-[34rem] text-left text-xs">
-                                    <thead><tr class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700"><th class="py-2 pr-3">{{ __('public.dashboard_progress_series') }}</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<th class="px-2 py-2">{{ __('public.progress_metric_' . $metric) }}</th>@endforeach</tr></thead>
+                                    <thead><tr class="border-b border-line text-zinc-500 dark:border-zinc-700"><th class="py-2 pr-3">{{ __('public.dashboard_progress_series') }}</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<th class="px-2 py-2">{{ __('public.progress_metric_' . $metric) }}</th>@endforeach</tr></thead>
                                     <tbody>
                                         @foreach ($progressChart['series'] as $series)
-                                            <tr class="border-b border-zinc-100 last:border-0 dark:border-zinc-800"><th class="py-2 pr-3 font-medium text-zinc-700 dark:text-zinc-200">{{ $series['label'] }} @if ($series['date']) · {{ $series['date'] }}@endif</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<td class="px-2 py-2 tabular-nums text-zinc-600 dark:text-zinc-300">{{ $series['scores'][$metric] }}</td>@endforeach</tr>
+                                            <tr class="border-b border-zinc-100 last:border-0 dark:border-zinc-800"><th class="py-2 pr-3 font-medium text-zinc-700 dark:text-zinc-200">{{ $series['label'] }} @if ($series['date']) · {{ $series['date'] }}@endif</th>@foreach (['vocabulary', 'pronunciation', 'fluency', 'grammar', 'confidence'] as $metric)<td class="px-2 py-2 tabular-nums text-muted dark:text-zinc-300">{{ $series['scores'][$metric] }}</td>@endforeach</tr>
                                         @endforeach
                                     </tbody>
                                 </table>
@@ -185,20 +190,20 @@
                             </div>
                         @endif
                         @if ($progressChart['partial_count'] > 0)
-                            <p class="mt-4 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
+                            <p class="mt-4 text-xs text-muted dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
                         @endif
-                        <p class="mt-3 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_note') }}</p>
-                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_context_note') }}</p>
+                        <p class="mt-3 text-xs text-muted dark:text-zinc-400">{{ __('public.dashboard_progress_note') }}</p>
+                        <p class="mt-2 text-xs text-muted dark:text-zinc-400">{{ __('public.dashboard_progress_context_note') }}</p>
                     </article>
                 @else
                     <div class="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 dark:border-zinc-700 dark:bg-zinc-900">
-                        <h3 class="font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_waiting_title') }}</h3>
-                        <p class="mt-2 max-w-2xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_waiting_text') }}</p>
+                        <h3 class="font-semibold text-ink dark:text-white">{{ __('public.dashboard_progress_waiting_title') }}</h3>
+                        <p class="mt-2 max-w-2xl text-sm leading-6 text-muted dark:text-zinc-300">{{ __('public.dashboard_progress_waiting_text') }}</p>
                     </div>
                 @endif
 
                 @if (count($progressChart['series']) === 0 && $progressChart['partial_count'] > 0)
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
+                    <p class="text-xs text-muted dark:text-zinc-400">{{ __('public.dashboard_progress_partial_note', ['count' => $progressChart['partial_count']]) }}</p>
                 @endif
 
                 @include('public.dashboard-progress-reports')
@@ -206,19 +211,19 @@
                 @if ($feedback->isNotEmpty())
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         @foreach ($feedback as $item)
-                            <article class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                            <article class="rounded-xl border border-line bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
                                 <p class="text-xs font-bold uppercase tracking-widest text-emerald-700">{{ __('public.progress_metric_' . $item->metric_key) }}</p>
                                 @if ($item->current_score !== null)
-                                    <p class="mt-2 text-2xl font-semibold text-zinc-900 dark:text-white">{{ $item->current_score }}<span class="text-sm font-normal text-zinc-400">/100</span></p>
+                                    <p class="mt-2 text-2xl font-semibold text-ink dark:text-white">{{ $item->current_score }}<span class="text-sm font-normal text-zinc-400">/100</span></p>
                                 @endif
                                 @if ($item->potential_score !== null)
-                                    <div class="mt-3 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800">
+                                    <div class="mt-3 rounded-lg bg-paper p-3 dark:bg-zinc-800">
                                         <p class="text-xs font-semibold text-zinc-500">{{ __('public.dashboard_potential') }}</p>
                                         <p class="mt-1 text-lg font-semibold text-zinc-700 dark:text-zinc-200">{{ $item->potential_score }}<span class="text-sm font-normal text-zinc-400">/100</span></p>
                                     </div>
                                 @endif
                                 @if ($item->feedback)
-                                    <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ $item->feedback }}</p>
+                                    <p class="mt-2 text-sm leading-6 text-muted dark:text-zinc-300">{{ $item->feedback }}</p>
                                 @endif
                                 <p class="mt-3 text-xs text-zinc-500">{{ $item->booking->starts_at->timezone('Europe/Bucharest')->format('d.m.Y') }}</p>
                             </article>
@@ -306,14 +311,14 @@
                             metrics.forEach(metric => {
                                 const wrapper = document.createElement('div');
                                 const term = document.createElement('dt'); term.className = 'text-xs text-zinc-500'; term.textContent = metric.label;
-                                const value = document.createElement('dd'); value.className = 'mt-1 text-lg font-semibold text-zinc-900 dark:text-white'; value.textContent = `${item.scores[metric.key]}/100`;
+                                const value = document.createElement('dd'); value.className = 'mt-1 text-lg font-semibold text-ink dark:text-white'; value.textContent = `${item.scores[metric.key]}/100`;
                                 wrapper.append(term, value); detailScores.append(wrapper);
                             });
                             detailFeedback.replaceChildren();
                             Object.entries(item.feedback || {}).forEach(([key, value]) => {
                                 const metric = metrics.find(entry => entry.key === key);
                                 if (!metric || !value) return;
-                                const note = document.createElement('p'); note.className = 'text-sm leading-5 text-zinc-600 dark:text-zinc-300';
+                                const note = document.createElement('p'); note.className = 'text-sm leading-5 text-muted dark:text-zinc-300';
                                 const strong = document.createElement('strong'); strong.className = 'block text-xs text-zinc-500'; strong.textContent = metric.label;
                                 note.append(strong, document.createTextNode(value)); detailFeedback.append(note);
                             });
@@ -339,5 +344,6 @@
         @if ($supportChannelsAvailable)
             @include('public.dashboard-support')
         @endif
-    </div>
-</x-layouts::app>
+    </main>
+</body>
+</html>
