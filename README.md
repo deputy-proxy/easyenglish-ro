@@ -268,6 +268,7 @@ These are configuration, compliance, or operational tasks rather than unresolved
 ## Product documentation
 
 - [Dashboard integration overview](docs/product/dashboard-integration.md)
+- [Customer dashboard](docs/product/customer-dashboard.md)
 - [Customer dashboard overview](docs/product/customer-dashboard-overview.md)
 - [Customer sessions](docs/product/customer-sessions.md)
 - [Customer purchases and payments](docs/product/customer-purchases-and-payments.md)
