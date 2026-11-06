@@ -112,3 +112,16 @@ test('correct password must be provided to update password', function () {
 
     $response->assertHasErrors(['current_password']);
 });
+
+test('security settings use the branded dashboard shell', function () {
+    $this->actingAs(User::factory()->create())
+        ->withSession(['auth.password_confirmed_at' => time()])
+        ->get(route('security.edit'))
+        ->assertOk()
+        ->assertSee('dashboard-topbar')
+        ->assertSee('dashboard-panel')
+        ->assertSee('EasyEnglish')
+        ->assertSee(route('dashboard', ['view' => 'account']), false)
+        ->assertDontSee('Repository')
+        ->assertDontSee('Documentation');
+});

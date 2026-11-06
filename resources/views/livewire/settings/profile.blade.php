@@ -1,6 +1,4 @@
 <section class="w-full">
-    @include('partials.settings-heading')
-
     <flux:heading level="2" class="sr-only">{{ __('Profile settings') }}</flux:heading>
 
     <x-settings.layout :heading="__('Profile')" :subheading="__('public.profile_settings_subheading')">

@@ -89,7 +89,7 @@ The authenticated customer and teacher workspaces share the public EasyEnglish d
 - **Appearance:** light and dark modes remain supported, including the shared header, wordmark contrast, panels, navigation, forms, and status treatments.
 - **Scope:** visual changes do not alter booking, payment, learner-progress, teacher-assignment, authorization, or data-access behavior. Teacher pages continue to show only assigned-session context.
 
-The same shell is used for customer dashboard pages and teacher dashboard, availability, and assigned-session detail pages so users do not encounter a separate visual product when moving between those workflows.
+The same shell is used for customer dashboard pages, the customer Profile/Security/Appearance settings routes, and teacher dashboard, availability, and assigned-session detail pages so users do not encounter a separate visual product when moving between those workflows. Settings retain their existing authentication, email-verification, password-confirmation, Fortify, passkey, two-factor, and appearance-preference behavior; only their page shell and presentation are shared.
 
 ## Automated validation evidence
 
