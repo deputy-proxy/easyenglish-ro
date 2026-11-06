@@ -28,6 +28,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -756,7 +757,7 @@ class PublicSiteController extends Controller
             $request->session()->forget(['contact_verification_id', 'contact_verification_form_data']);
         }
 
-        return redirect()->to(URL::signedRoute('booking.confirmed', ['reference' => $booking->public_reference], null));
+        return redirect()->route('dashboard')->with('status', __('public.booking_confirmed_dashboard'));
     }
 
     public function confirmed(Request $request, string $reference): View
@@ -1018,12 +1019,13 @@ class PublicSiteController extends Controller
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
-    public function dashboard(Request $request, ProgressChartData $progressChartData): View
+    public function dashboard(Request $request, ProgressChartData $progressChartData): Response
     {
         $this->applyLocale($request);
         $email = mb_strtolower((string) $request->user()->email);
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
+            ->with(['callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
             ->whereRaw('LOWER(customer_email) = ?', [$email])
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('starts_at', '>=', $now)
@@ -1070,7 +1072,7 @@ class PublicSiteController extends Controller
             $activeView = 'overview';
         }
 
-        return view('dashboard', [
+        return response()->view('dashboard', [
             'bookings' => $bookings,
             'pastBookings' => $pastBookings,
             'entitlements' => $entitlements,
@@ -1082,7 +1084,8 @@ class PublicSiteController extends Controller
             'progressChart' => $progressChart,
             'latestProgressReport' => $latestProgressReport,
             'hasActiveBundle' => $activeEntitlements->isNotEmpty(),
-        ]);
+        ])->header('Cache-Control', 'private, no-store, max-age=0')
+            ->header('Referrer-Policy', 'no-referrer');
     }
 
     public function policy(Request $request, string $page): View

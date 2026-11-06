@@ -1,17 +1,29 @@
 <?php
 
+use App\Contracts\CallEvents\CallEventProvider;
+use App\Contracts\Notifications\WhatsAppGateway;
 use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
+use App\Models\ContactVerificationChallenge;
 use App\Models\Faq;
+use App\Models\FreeSessionClaim;
+use App\Models\NotificationDelivery;
+use App\Models\TeacherCalendar;
 use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
+use App\Services\CallEvents\BookingCallEventService;
+use App\Services\CallEvents\OpenWaConfig;
+use App\Services\Notifications\NotificationMessageFactory;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
+use Tests\Fakes\FakeCallEventProvider;
+use Tests\Support\FakeWhatsAppGateway;
 
 beforeEach(function (): void {
     CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-26 08:00:00', 'Europe/Bucharest'));
@@ -444,7 +456,8 @@ test('verified account can book its free introduction without repeating contact 
         'name' => 'Verified Learner', 'email' => 'verified-learner@example.com', 'phone' => '+40722123456',
         'whatsapp_service_consent' => '1', 'english_level' => 'B1', 'session_goal' => 'Work conversations',
         'accepted_policy' => '1',
-    ])->assertRedirect();
+    ])->assertRedirect(route('dashboard'))
+        ->assertSessionHas('status', __('public.booking_confirmed_dashboard'));
 
     expect(Booking::query()->where('customer_email', 'verified-learner@example.com')->where('status', 'confirmed')->count())->toBe(1);
 });
@@ -472,12 +485,137 @@ test('authenticated bundle customer can book a slot and receives a signed confir
         'type' => 'bundle', 'entitlement' => $entitlement->id, 'starts_at' => '2026-10-27T09:00:00+02:00',
         'name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         'english_level' => 'B1', 'session_goal' => 'Work conversations', 'accepted_policy' => '1',
-    ])->assertRedirect();
+    ])->assertRedirect(route('dashboard'))
+        ->assertSessionHas('status', __('public.booking_confirmed_dashboard'));
 
     expect(Booking::query()->where('status', 'confirmed')->count())->toBe(1)
         ->and($entitlement->fresh()->credits_remaining)->toBe(3);
     $response = $this->get(Booking::query()->firstOrFail()->public_reference ? URL::signedRoute('booking.confirmed', ['reference' => Booking::query()->firstOrFail()->public_reference], null, false) : '/');
     $response->assertOk()->assertSee('Your booking is confirmed.');
+});
+
+test('verified free booking redirects to dashboard and assembles the same OpenWA link for customer and assigned teacher', function () {
+    $teacher = User::factory()->create([
+        'email' => 'journey-teacher@example.com',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+    TeacherCalendar::query()->create([
+        'user_id' => $teacher->id,
+        'calendar_id' => 'primary',
+        'calendar_email' => $teacher->email,
+        'access_token' => 'encrypted-access-token',
+        'refresh_token' => 'encrypted-refresh-token',
+        'token_expires_at' => now()->addHour(),
+        'status' => 'connected',
+        'last_synced_at' => now(),
+    ]);
+    AvailabilityRule::query()->create([
+        'user_id' => $teacher->id,
+        'weekday' => 2,
+        'starts_at' => '09:00',
+        'ends_at' => '11:00',
+        'is_active' => true,
+    ]);
+    $slot = '2026-10-27T09:00:00+02:00';
+    $provider = new FakeCallEventProvider;
+    config([
+        'easyenglish.teacher_availability_enabled' => true,
+        'services.openwa.enabled' => true,
+        'services.openwa.apply_to_paid_sessions' => false,
+        'services.openwa.rollout_stage' => 'general',
+        'services.openwa.rollout_customer_emails' => [],
+        'services.openwa.base_url' => 'https://openwa.test',
+        'services.openwa.service_token' => str_repeat('s', 48),
+        'services.openwa.connect_timeout' => 5,
+        'services.openwa.timeout' => 30,
+        'services.openwa.max_attempts' => 5,
+        'services.openwa.retry_delays_seconds' => [60, 300, 900, 3600, 14400],
+        'services.contact_verification.mode' => 'email_and_whatsapp',
+        'services.whatsapp.enabled' => true,
+        'services.whatsapp.access_token' => 'test-token',
+        'services.whatsapp.phone_number_id' => 'test-phone-id',
+        'services.whatsapp.templates.contact_verification' => 'easyenglish_activation',
+        'mail.default' => 'array',
+    ]);
+    app()->forgetInstance(OpenWaConfig::class);
+    app()->forgetInstance(BookingCallEventService::class);
+    app()->instance(CallEventProvider::class, $provider);
+    Queue::fake();
+
+    $whatsappGateway = new FakeWhatsAppGateway;
+    app()->instance(WhatsAppGateway::class, $whatsappGateway);
+    app()->instance(FakeWhatsAppGateway::class, $whatsappGateway);
+    $this->withSession(['locale' => 'en'])->postJson(route('booking.register'), [
+        'name' => 'Journey Customer',
+        'email' => 'journey-customer@example.com',
+        'phone' => '+40722123456',
+        'english_level' => 'B1',
+        'session_goal' => 'Prepare for a work presentation',
+        'session_notes' => 'Practice a clear opening.',
+        'password' => 'StrongPassword123!',
+        'password_confirmation' => 'StrongPassword123!',
+        'starts_at' => $slot,
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+        'locale' => 'en',
+    ])->assertCreated()->assertJsonPath('next_step', 'contact_verification');
+
+    $customer = User::query()->where('email', 'journey-customer@example.com')->firstOrFail();
+    $this->postJson(route('verification.start'), [
+        'return_to' => 'booking', 'type' => 'intro', 'email' => $customer->email, 'phone' => $customer->phone,
+        'starts_at' => $slot, 'english_level' => 'B1', 'session_goal' => 'Prepare for a work presentation',
+        'notes' => 'Practice a clear opening.', 'accepted_policy' => '1', 'whatsapp_service_consent' => '1', 'locale' => 'en',
+    ])->assertOk()->assertJsonPath('status', 'verification_required');
+    $challenge = ContactVerificationChallenge::query()->where('customer_email', $customer->email)->firstOrFail();
+    $challenge->update(['email_code_hash' => hash_hmac('sha256', '654321', (string) config('app.key'))]);
+    $phoneCode = $whatsappGateway->sent[0]['components'][0]['parameters'][0]['text'];
+    $this->postJson(route('verification.email-code.confirm'), [
+        'verification_id' => $challenge->id, 'email_code' => '654321', 'phone' => $customer->phone,
+    ])->assertOk()->assertJsonPath('status', 'verification_required');
+    $this->postJson(route('verification.phone.confirm'), [
+        'verification_id' => $challenge->id, 'phone_code' => $phoneCode, 'phone' => $customer->phone,
+    ])->assertOk()->assertJsonPath('status', 'eligible')->assertJsonPath('eligibility.eligible', true);
+    expect($customer->fresh()->email_verified_at)->not->toBeNull()
+        ->and($customer->fresh()->phone_verified_at)->not->toBeNull();
+    config(['services.whatsapp.enabled' => false]);
+
+    $this->actingAs($customer)->post(route('booking.submit'), [
+        'type' => 'intro',
+        'starts_at' => $slot,
+        'name' => $customer->name,
+        'email' => $customer->email,
+        'phone' => $customer->phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Prepare for a work presentation',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect(route('dashboard'))
+        ->assertSessionHas('status', __('public.booking_confirmed_dashboard'));
+
+    $booking = Booking::query()->where('customer_email', $customer->email)->firstOrFail();
+    expect($booking->status)->toBe('confirmed')
+        ->and($booking->teacher_id)->toBe($teacher->id)
+        ->and(FreeSessionClaim::query()->where('customer_email', $customer->email)->value('status'))->toBe('used');
+
+    $event = app(BookingCallEventService::class)->createForBooking($booking->id, 1);
+    $customerDelivery = NotificationDelivery::query()->where('booking_call_event_id', $event->id)->where('event', 'customer_call_link_ready')->firstOrFail();
+    $teacherDelivery = NotificationDelivery::query()->where('booking_call_event_id', $event->id)->where('event', 'teacher_call_link_ready')->firstOrFail();
+    $customerMessage = app(NotificationMessageFactory::class)->make($customerDelivery);
+    $teacherMessage = app(NotificationMessageFactory::class)->make($teacherDelivery);
+
+    expect($event->status)->toBe('scheduled')
+        ->and($provider->createRequests)->toHaveCount(1)
+        ->and($customerDelivery->recipient_type)->toBe('customer')
+        ->and($teacherDelivery->recipient_user_id)->toBe($teacher->id)
+        ->and($customerMessage['ctaUrl'])->toBe($event->join_url)
+        ->and(collect($teacherMessage['details'])->firstWhere('label', 'WhatsApp call link')['value'])->toBe($event->join_url);
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee(__('public.dashboard_call_link_ready'))
+        ->assertSee('href="'.route('booking.call-join', $booking->public_reference).'"', false)
+        ->assertDontSee($event->join_url);
 });
 
 test('public booking rejects a phone field without enough digits', function () {

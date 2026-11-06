@@ -292,6 +292,38 @@ test('customer and assigned teacher can retrieve the call link but unrelated use
     $this->actingAs($otherTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertForbidden();
 });
 
+test('dashboard call-link redirect is private and rejects stale revisions and unrelated accounts', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+    $event = $service->createForBooking($booking->id, 1);
+    $customer = User::factory()->create([
+        'email' => $booking->customer_email,
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($customer)
+        ->get(route('booking.call-join', $booking->public_reference))
+        ->assertRedirect($event->join_url)
+        ->assertHeader('Cache-Control', 'max-age=0, no-store, private')
+        ->assertHeader('Referrer-Policy', 'no-referrer');
+
+    $this->actingAs($booking->teacher)
+        ->get(route('booking.call-join', $booking->public_reference))
+        ->assertRedirect($event->join_url);
+
+    $unrelated = User::factory()->create();
+    $this->actingAs($unrelated)
+        ->get(route('booking.call-join', $booking->public_reference))
+        ->assertForbidden();
+
+    $newStart = $booking->starts_at->addDay();
+    $booking->update(['starts_at' => $newStart, 'ends_at' => $newStart->addMinutes(15), 'reschedule_count' => 1]);
+    $this->actingAs($customer)
+        ->get(route('booking.call-join', $booking->public_reference))
+        ->assertNotFound();
+});
+
 test('unauthenticated users and bookings without a ready call link cannot retrieve the URL', function () {
     $booking = makeCallEventTestBooking();
     $this->get(route('booking.call-link', $booking->public_reference))->assertRedirect(route('login'));
@@ -935,6 +967,85 @@ test('a transient teacher WhatsApp failure retries only that recipient without c
         ->and($customerDelivery->fresh()->status)->toBe('pending')
         ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(1)
         ->and($event->fresh()->status)->toBe('scheduled');
+});
+
+test('customer and teacher WhatsApp delivery failures remain independent in either direction', function () {
+    $provider = new FakeCallEventProvider;
+    $teacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722987654',
+        'phone_verified_at' => now(),
+    ]);
+    $booking = makeCallEventTestBooking([
+        'teacher_id' => $teacher->id,
+        'customer_phone' => '+40722123456',
+    ]);
+    WhatsAppContact::recordConsent($booking->customer_phone, 'customer_delivery_independence');
+    WhatsAppContact::recordConsent($teacher->phone, 'teacher_delivery_independence');
+    config(['services.whatsapp.enabled' => true]);
+    $service = enableFakeCallEventProvider($provider);
+    $event = $service->createForBooking($booking->id, 1);
+    $customerDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'customer_call_link_ready')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $teacherDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'teacher_call_link_ready')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $customerDelivery->update(['status' => 'queued']);
+    $teacherDelivery->update(['status' => 'queued']);
+
+    $customerGateway = new FakeWhatsAppGateway;
+    $teacherFailure = Mockery::mock(WhatsAppGateway::class);
+    $teacherFailure->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary teacher delivery failure'));
+    (new SendNotificationDelivery($customerDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $customerGateway);
+    (new SendNotificationDelivery($teacherDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $teacherFailure);
+
+    expect($customerDelivery->fresh()->status)->toBe('sent')
+        ->and($teacherDelivery->fresh()->status)->toBe('pending')
+        ->and($event->fresh()->status)->toBe('scheduled');
+
+    $secondTeacher = User::factory()->create([
+        'is_teacher' => true,
+        'teacher_active' => true,
+        'phone' => '+40722987655',
+        'phone_verified_at' => now(),
+    ]);
+    $secondBooking = makeCallEventTestBooking([
+        'teacher_id' => $secondTeacher->id,
+        'customer_email' => 'reverse-delivery@example.com',
+        'customer_phone' => '+40722123457',
+    ]);
+    WhatsAppContact::recordConsent($secondBooking->customer_phone, 'reverse_customer_delivery_independence');
+    WhatsAppContact::recordConsent($secondTeacher->phone, 'reverse_teacher_delivery_independence');
+    $secondEvent = $service->createForBooking($secondBooking->id, 1);
+    $secondCustomerDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $secondEvent->id)
+        ->where('event', 'customer_call_link_ready')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $secondTeacherDelivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $secondEvent->id)
+        ->where('event', 'teacher_call_link_ready')
+        ->where('channel', 'whatsapp')
+        ->firstOrFail();
+    $secondCustomerDelivery->update(['status' => 'queued']);
+    $secondTeacherDelivery->update(['status' => 'queued']);
+
+    $customerFailure = Mockery::mock(WhatsAppGateway::class);
+    $customerFailure->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary customer delivery failure'));
+    $secondTeacherGateway = new FakeWhatsAppGateway;
+    (new SendNotificationDelivery($secondCustomerDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $customerFailure);
+    (new SendNotificationDelivery($secondTeacherDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $secondTeacherGateway);
+
+    expect($secondCustomerDelivery->fresh()->status)->toBe('pending')
+        ->and($secondTeacherDelivery->fresh()->status)->toBe('sent')
+        ->and($secondEvent->fresh()->status)->toBe('scheduled')
+        ->and(BookingCallEvent::query()->whereIn('booking_id', [$booking->id, $secondBooking->id])->count())->toBe(2);
 });
 
 test('internal-test and limited-customer rollout stages restrict call events to the explicit email allowlist', function () {
