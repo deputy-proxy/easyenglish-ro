@@ -10,6 +10,9 @@
                 @if (auth()->user()->isTeacher())
                     <a href="{{ route('teacher.availability') }}" class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">{{ __('public.dashboard_teacher_availability') }}</a>
                 @endif
+                @if ($supportChannelsAvailable)
+                    <a href="#dashboard-support" class="text-sm font-semibold text-zinc-600 underline dark:text-zinc-300">{{ __('public.dashboard_support_title') }}</a>
+                @endif
                 @if ($activeView === 'calendar')
                     <a href="{{ route('dashboard', ['view' => 'overview']) }}" wire:navigate class="inline-flex items-center rounded-full border border-zinc-300 px-5 py-2.5 text-sm font-semibold text-zinc-800 hover:bg-zinc-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 dark:border-zinc-600 dark:text-zinc-100 dark:hover:bg-zinc-800">
                         {{ __('public.dashboard_back_to_overview') }}
@@ -35,7 +38,7 @@
                 @php($isActive = $view === 'learning' ? $learningActive : $activeView === $view)
                 <a href="{{ route('dashboard', ['view' => $view === 'learning' ? 'profile' : $view]) }}" wire:navigate @if ($isActive) aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $isActive ? 'bg-emerald-800 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200' }}">{{ $label }}</a>
             @endforeach
-            <a href="{{ route('profile.edit') }}" wire:navigate class="rounded-full px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700">
+            <a href="{{ route('dashboard', ['view' => 'account']) }}" wire:navigate @if ($activeView === 'account') aria-current="page" @endif class="rounded-full px-4 py-2 text-sm font-semibold transition {{ $activeView === 'account' ? 'bg-emerald-800 text-white' : 'text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700' }}">
                 {{ __('public.dashboard_account') }}
             </a>
         </nav>
@@ -47,7 +50,9 @@
             </nav>
         @endif
 
-        @if ($activeView === 'overview')
+        @if ($activeView === 'account')
+            @include('public.dashboard-account')
+        @elseif ($activeView === 'overview')
             @include('public.dashboard-overview')
         @elseif ($activeView === 'sessions')
             @include('public.dashboard-sessions')
@@ -330,6 +335,9 @@
                     })();
                 </script>
             @endif
+        @endif
+        @if ($supportChannelsAvailable)
+            @include('public.dashboard-support')
         @endif
     </div>
 </x-layouts::app>

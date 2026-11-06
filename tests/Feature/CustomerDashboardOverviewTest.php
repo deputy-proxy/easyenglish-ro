@@ -69,7 +69,7 @@ test('dashboard navigation groups customer areas and keeps calendar as a promine
         ->assertSee(__('public.dashboard_book_session'))
         ->assertDontSee(__('public.dashboard_teacher_availability'))
         ->assertSee(route('dashboard', ['view' => 'calendar']), false)
-        ->assertSee(route('profile.edit'), false)
+        ->assertSee(route('dashboard', ['view' => 'account']), false)
         ->assertDontSee(__('public.dashboard_calendar'));
 
     $this->get(route('dashboard', ['view' => 'progress']))
