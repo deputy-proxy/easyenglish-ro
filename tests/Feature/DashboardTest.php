@@ -486,3 +486,143 @@ test('my sessions exposes only the current authorized OpenWA join action for fut
         ->assertSee('href="'.route('booking.call-join', $ready['booking']->public_reference).'"', false)
         ->assertDontSee('https://call.whatsapp.com/dashboard-link');
 });
+
+test('learner profile prefers the latest published teacher-assessed level and never exposes drafts or another customer reports', function () {
+    $customer = User::factory()->create([
+        'english_level' => 'B1',
+        'session_goal' => 'Speak confidently in meetings',
+        'session_notes' => 'Prefer short role-play exercises.',
+    ]);
+    $otherCustomer = User::factory()->create(['english_level' => 'A2']);
+
+    $makeReportBooking = function (User $owner, int $daysAgo): Booking {
+        return Booking::query()->create([
+            'public_reference' => (string) Str::uuid(),
+            'customer_user_id' => $owner->id,
+            'customer_name' => $owner->name,
+            'customer_email' => $owner->email,
+            'customer_phone' => '+40722123456',
+            'english_level' => $owner->english_level ?? 'A2',
+            'session_goal' => 'Assessment session',
+            'accepted_policy_version' => 'test-policy',
+            'starts_at' => now()->subDays($daysAgo),
+            'ends_at' => now()->subDays($daysAgo)->addMinutes(30),
+            'duration_minutes' => 30,
+            'status' => 'completed',
+            'locale' => 'en',
+        ]);
+    };
+
+    $olderBooking = $makeReportBooking($customer, 20);
+    $olderReport = ProgressReport::query()->create([
+        'booking_id' => $olderBooking->id,
+        'title' => 'Earlier shared assessment',
+        'overall_level' => 'B2',
+        'summary' => 'An earlier published assessment.',
+        'shared_at' => now()->subDays(18),
+    ]);
+
+    $latestBooking = $makeReportBooking($customer, 3);
+    $latestReport = ProgressReport::query()->create([
+        'booking_id' => $latestBooking->id,
+        'title' => 'Latest published assessment',
+        'overall_level' => 'C1',
+        'summary' => 'A teacher assessed the learner at C1.',
+        'shared_at' => now()->subDays(1),
+    ]);
+
+    $draftBooking = $makeReportBooking($customer, 2);
+    $draftReport = ProgressReport::query()->create([
+        'booking_id' => $draftBooking->id,
+        'title' => 'Private draft assessment',
+        'overall_level' => 'C2',
+        'summary' => 'This report has not been shared.',
+        'shared_at' => null,
+    ]);
+
+    $otherBooking = $makeReportBooking($otherCustomer, 1);
+    $otherReport = ProgressReport::query()->create([
+        'booking_id' => $otherBooking->id,
+        'title' => 'Another learner assessment',
+        'overall_level' => 'A1',
+        'summary' => 'This belongs to another learner.',
+        'shared_at' => now(),
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'profile']))
+        ->assertOk()
+        ->assertSee(__('public.profile_learning_title'))
+        ->assertSee('C1')
+        ->assertSee(__('public.profile_level_assessed'))
+        ->assertSee('Speak confidently in meetings')
+        ->assertSee('Prefer short role-play exercises.')
+        ->assertSee('Latest published assessment')
+        ->assertViewHas('learnerProfileLevel', 'C1')
+        ->assertViewHas('learnerProfileLevelSource', 'assessed')
+        ->assertViewHas('latestAssessedProgressReport', fn ($report): bool => $report?->is($latestReport))
+        ->assertDontSee('Private draft assessment')
+        ->assertDontSee('Another learner assessment')
+        ->assertDontSee('A teacher assessed the learner at C1.');
+
+    expect($olderReport->exists)->toBeTrue()
+        ->and($draftReport->exists)->toBeTrue()
+        ->and($otherReport->exists)->toBeTrue();
+});
+
+test('learner profile labels the account level as self-reported until a shared assessed level exists', function () {
+    $customer = User::factory()->create([
+        'english_level' => 'B1',
+        'session_goal' => 'Travel with confidence',
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'profile']))
+        ->assertOk()
+        ->assertSee('B1')
+        ->assertSee(__('public.profile_level_self_reported'))
+        ->assertViewHas('learnerProfileLevel', 'B1')
+        ->assertViewHas('learnerProfileLevelSource', 'self_reported')
+        ->assertViewHas('latestAssessedProgressReport', null);
+});
+
+test('learner profile has a useful empty state when no level or goals have been supplied', function () {
+    $customer = User::factory()->create([
+        'english_level' => null,
+        'session_goal' => null,
+        'session_notes' => null,
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard', ['view' => 'profile']))
+        ->assertOk()
+        ->assertSee(__('public.profile_level_not_set'))
+        ->assertSee(__('public.profile_no_goal'))
+        ->assertSee(__('public.profile_no_preferences'))
+        ->assertViewHas('learnerProfileLevel', null)
+        ->assertViewHas('learnerProfileLevelSource', 'unset');
+});
+
+test('learner profile route is customer scoped and accessible from dashboard navigation', function () {
+    $customer = User::factory()->create();
+    $this->actingAs($customer)->withSession(['locale' => 'en'])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee(route('dashboard', ['view' => 'profile']), false)
+        ->assertSee(__('public.dashboard_learning_profile'));
+});
+
+test('learner profile uses Romanian translations and identifies the level source', function () {
+    $customer = User::factory()->create([
+        'english_level' => 'A2',
+        'session_goal' => 'Conversații în călătorii',
+    ]);
+
+    $this->actingAs($customer)->withSession(['locale' => 'ro'])
+        ->get(route('dashboard', ['view' => 'profile']))
+        ->assertOk()
+        ->assertSee('Profilul tău de învățare')
+        ->assertSee('Nivelul actual de engleză')
+        ->assertSee('Autoevaluat')
+        ->assertSee('Obiectivul principal de învățare');
+});

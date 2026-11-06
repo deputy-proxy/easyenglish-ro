@@ -55,7 +55,7 @@ A session is plotted as a complete radar series only when all five dimensions ha
 
 ## Privacy
 
-Progress feedback and shared reports are scoped to the authenticated learner's email address and their own bookings. Do not expose another learner's scores, observations, booking details or report content.
+Progress feedback and shared reports are scoped to the authenticated learner's explicitly owned bookings. Eligible legacy bookings may use the documented verified email-and-phone compatibility fallback. Draft/unshared reports are never shown. Do not expose another learner's scores, observations, booking details or report content.
 
 
 ## Teacher session feedback
