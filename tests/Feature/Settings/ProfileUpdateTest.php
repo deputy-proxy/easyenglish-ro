@@ -139,3 +139,15 @@ test('learner profile validates CEFR levels and bounded learning text', function
         ->and($user->fresh()->session_goal)->toBeNull()
         ->and($user->fresh()->session_notes)->toBeNull();
 });
+
+test('profile settings use the branded dashboard shell', function () {
+    $this->actingAs(User::factory()->create())
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertSee('dashboard-topbar')
+        ->assertSee('dashboard-panel')
+        ->assertSee('EasyEnglish')
+        ->assertSee(route('dashboard', ['view' => 'account']), false)
+        ->assertDontSee('Repository')
+        ->assertDontSee('Documentation');
+});

@@ -12,6 +12,8 @@ This is the entry point for the authenticated customer experience documentation.
 
 Booking remains a separate prominent action that opens the existing availability calendar. It is not duplicated as a sixth dashboard section.
 
+The Profile, Security, and Appearance settings routes use the same branded dashboard header and visual system as the customer workspace. Their settings navigation remains within the shared shell, with a direct return to My account. Existing Fortify, verification, password-confirmation, passkey, two-factor, and appearance-preference behavior is preserved.
+
 ## Detailed specifications
 
 - [Customer dashboard overview and navigation](customer-dashboard-overview.md)
