@@ -117,3 +117,7 @@ Do not run destructive migration commands on production. Take and verify a backu
 - Production WhatsApp sending stays disabled until Meta setup, approved templates, consent/opt-out checks, and live delivery verification pass.
 - Automatic retention writes stay disabled until the privacy/legal retention schedule is approved; see [the retention policy](../legal/retention-policy.md).
 - Romanian tax/invoicing and privacy documents remain launch blockers until reviewer sign-off is recorded in [the launch checklist](launch-checklist.md).
+
+## Customer session management
+
+Customers can review their bookings in the dashboard's **My sessions** area. The customer view uses explicit account ownership, shows only approved teacher profile details, and links to the existing signed cancellation/rescheduling flows. Staff should continue to manage operational changes through the Filament booking resource and established booking services. Do not ask customers to share a WhatsApp join URL; the authenticated dashboard join action resolves the encrypted URL only after the booking and current call-event authorization checks pass. See [Customer sessions](../product/customer-sessions.md).

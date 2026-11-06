@@ -1019,23 +1019,17 @@ class PublicSiteController extends Controller
         return redirect()->route('purchase', $bundle)->with('checkout_cancelled', __('public.purchase_cancelled_notice'));
     }
 
-    public function dashboard(Request $request, ProgressChartData $progressChartData): Response
+    public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy): Response
     {
         $this->applyLocale($request);
         $customer = $request->user();
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
-            ->with(['callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
+            ->with(['teacher:id,name,teacher_photo_path,teacher_bio', 'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
             ->ownedBy($customer)
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('starts_at', '>=', $now)
             ->orderBy('starts_at')
-            ->get();
-        $pastBookings = Booking::query()
-            ->ownedBy($customer)
-            ->whereIn('status', ['completed', 'confirmed'])
-            ->where('starts_at', '<', $now)
-            ->orderByDesc('starts_at')
             ->limit(20)
             ->get();
         $entitlements = BundleEntitlement::query()
@@ -1084,13 +1078,72 @@ class PublicSiteController extends Controller
             ->unique('metric_key')
             ->values();
         $activeView = $request->query('view', 'overview');
-        if (! in_array($activeView, ['overview', 'calendar', 'progress'], true)) {
+        if (! in_array($activeView, ['overview', 'calendar', 'progress', 'sessions'], true)) {
             $activeView = 'overview';
+        }
+
+        $sessionGroup = $request->query('session_group', 'upcoming');
+        if (! in_array($sessionGroup, ['upcoming', 'history', 'cancelled', 'all'], true)) {
+            $sessionGroup = 'upcoming';
+        }
+
+        $sessionBookings = null;
+        $sessionActions = [];
+        if ($activeView === 'sessions') {
+            $sessionQuery = Booking::query()
+                ->ownedBy($customer)
+                ->with([
+                    'teacher:id,name,teacher_photo_path,teacher_bio',
+                    'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision'),
+                ]);
+
+            if ($sessionGroup === 'upcoming') {
+                $sessionQuery->whereIn('status', ['pending', 'confirmed'])
+                    ->where('starts_at', '>=', $now)
+                    ->orderBy('starts_at');
+            } elseif ($sessionGroup === 'history') {
+                $sessionQuery->where(function ($query) use ($now): void {
+                    $query->where('status', 'completed')
+                        ->orWhere(function ($past) use ($now): void {
+                            $past->where('status', 'confirmed')->where('starts_at', '<', $now);
+                        });
+                })->orderByDesc('starts_at');
+            } elseif ($sessionGroup === 'cancelled') {
+                $sessionQuery->whereIn('status', ['cancelled', 'expired', 'no_show', 'refund_pending'])
+                    ->orderByDesc('starts_at');
+            } else {
+                $sessionQuery
+                    ->orderByRaw('CASE WHEN starts_at >= ? THEN 0 ELSE 1 END', [$now])
+                    ->orderByRaw('CASE WHEN starts_at >= ? THEN starts_at END ASC', [$now])
+                    ->orderByDesc('starts_at');
+            }
+
+            $sessionBookings = $sessionQuery->paginate(10, ['*'], 'sessions_page')
+                ->appends(['view' => 'sessions', 'session_group' => $sessionGroup]);
+
+            foreach ($sessionBookings as $sessionBooking) {
+                $actions = $cancellationPolicy->customerActions($sessionBooking);
+                $expiresAt = $sessionBooking->starts_at->addDay();
+                if ($expiresAt->lessThanOrEqualTo(CarbonImmutable::now('UTC'))) {
+                    $expiresAt = CarbonImmutable::now('UTC')->addDays(7);
+                }
+
+                $sessionActions[$sessionBooking->id] = [
+                    'can_cancel' => $actions['can_cancel'],
+                    'can_reschedule' => $actions['can_reschedule'],
+                    'manage_url' => URL::signedRoute('booking.manage', ['reference' => $sessionBooking->public_reference], $expiresAt),
+                    'reschedule_url' => $actions['can_reschedule']
+                        ? URL::signedRoute('booking.reschedule.form', ['reference' => $sessionBooking->public_reference], $expiresAt)
+                        : null,
+                ];
+            }
         }
 
         return response()->view('dashboard', [
             'bookings' => $bookings,
-            'pastBookings' => $pastBookings,
+            'sessionBookings' => $sessionBookings,
+            'sessionActions' => $sessionActions,
+            'sessionGroup' => $sessionGroup,
             'entitlements' => $entitlements,
             'remainingCredits' => $remainingCredits,
             'activeView' => $activeView,
