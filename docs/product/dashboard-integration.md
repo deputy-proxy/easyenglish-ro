@@ -78,6 +78,19 @@ The server enforces these boundaries. Hiding a navigation item is not an authori
 
 Customer and teacher dashboard experiences support Romanian and English. Teacher availability and Google Calendar management use the same session locale. The Blade/Tailwind implementation remains the existing frontend architecture; no new framework or duplicate domain service is introduced. Navigation exposes current-page state, forms use labels, feedback/errors use status/alert semantics, and lists/history have bounded pagination. Customer and teacher views retain light/dark theme utility support and responsive layouts for narrow and wide screens.
 
+## Dashboard visual system
+
+The authenticated customer and teacher workspaces share the public EasyEnglish design language rather than the generic application-starter sidebar. The shared dashboard header uses the production EasyEnglish wordmark, a compact Romanian/English switch, the signed-in account identity, and an explicit sign-out action. Customer navigation and teacher workspace navigation remain role-specific.
+
+- **Typography:** Instrument Sans and the existing semantic public-site type scale (`type-eyebrow`, `type-section-title`, and related roles).
+- **Light surfaces:** white content panels on the site's soft-paper background, deep navy/ink text, muted blue-gray supporting text, and subtle blue-gray borders.
+- **Accent:** the existing primary blue (`--color-primary`) for active navigation, primary actions, links, and selected availability slots. Green and red remain reserved for meaningful success/error states.
+- **Components:** shared dashboard panels with consistent radius, spacing, border, and restrained shadow; responsive content widths and layouts reuse the existing Tailwind/Blade stack.
+- **Appearance:** light and dark modes remain supported, including the shared header, wordmark contrast, panels, navigation, forms, and status treatments.
+- **Scope:** visual changes do not alter booking, payment, learner-progress, teacher-assignment, authorization, or data-access behavior. Teacher pages continue to show only assigned-session context.
+
+The same shell is used for customer dashboard pages and teacher dashboard, availability, and assigned-session detail pages so users do not encounter a separate visual product when moving between those workflows.
+
 ## Automated validation evidence
 
 The merged workstreams include role/ownership/privacy tests, session lifecycle and history tests, purchase/payment/credit reconciliation tests, profile and assessment/report visibility tests, account/support consent tests, and teacher assignment/calendar/feedback tests.

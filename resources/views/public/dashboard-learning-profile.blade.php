@@ -4,13 +4,13 @@
             <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.profile_learning_title') }}</h2>
             <p class="mt-2 max-w-3xl text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.profile_learning_help') }}</p>
         </div>
-        <a href="{{ route('profile.edit') }}" class="inline-flex w-fit items-center rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">
+        <a href="{{ route('profile.edit') }}" class="inline-flex w-fit items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2">
             {{ __('public.profile_edit') }}
         </a>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
-        <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <article class="dashboard-panel">
             <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('public.profile_current_level') }}</p>
             <div class="mt-3 flex flex-wrap items-center gap-3">
                 @if ($learnerProfileLevel)
@@ -42,7 +42,7 @@
             @endif
         </article>
 
-        <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+        <article class="dashboard-panel">
             <h3 class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('public.profile_learning_goal') }}</h3>
             @if (auth()->user()->session_goal)
                 <p class="mt-3 whitespace-pre-wrap text-base leading-7 text-zinc-900 dark:text-white">{{ auth()->user()->session_goal }}</p>
@@ -52,7 +52,7 @@
         </article>
     </div>
 
-    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+    <article class="dashboard-panel">
         <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('public.profile_learning_preferences') }}</h3>
         @if (auth()->user()->session_notes)
             <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-200">{{ auth()->user()->session_notes }}</p>
@@ -63,7 +63,7 @@
 
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/70">
         <p class="text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.profile_assessment_label') }}</p>
-        <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate class="text-sm font-semibold text-emerald-800 hover:underline dark:text-emerald-400">
+        <a href="{{ route('dashboard', ['view' => 'progress']) }}" wire:navigate class="text-sm font-semibold text-primary-strong hover:underline dark:text-blue-300">
             {{ __('public.profile_view_progress') }} →
         </a>
     </div>

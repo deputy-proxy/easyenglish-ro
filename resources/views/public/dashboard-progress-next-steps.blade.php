@@ -1,4 +1,4 @@
-<section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+<section class="dashboard-panel">
     <div>
         <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_progress_next_steps') }}</h3>
         <p class="mt-1 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_progress_next_steps_help') }}</p>
@@ -8,7 +8,7 @@
         <div class="mt-4 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-950/40">
             <p class="text-xs font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-200">{{ __('public.dashboard_progress_report_recommendations') }}</p>
             <p class="mt-2 whitespace-pre-wrap text-sm leading-7 text-emerald-950 dark:text-emerald-50">{{ $latestProgressReport->recommendations }}</p>
-            <a href="{{ route('dashboard', ['view' => 'progress', 'report' => $latestProgressReport->id]) }}" wire:navigate class="mt-3 inline-flex text-sm font-semibold text-emerald-800 underline dark:text-emerald-200">
+            <a href="{{ route('dashboard', ['view' => 'progress', 'report' => $latestProgressReport->id]) }}" wire:navigate class="mt-3 inline-flex text-sm font-semibold text-primary-strong underline dark:text-blue-300">
                 {{ __('public.dashboard_progress_open_source_report') }}
             </a>
         </div>

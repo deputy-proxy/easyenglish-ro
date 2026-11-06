@@ -9,7 +9,7 @@
         <div class="space-y-4">
             @foreach ($assessmentHistory as $assessmentBooking)
                 @php($assessment = $assessmentSummaries[$assessmentBooking->id])
-                <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                <article class="dashboard-panel">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
                             <h4 class="font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_session_number', ['number' => $assessmentBooking->id]) }}</h4>
@@ -59,7 +59,7 @@
                     @endif
 
                     <div class="mt-4 border-t border-zinc-100 pt-3 dark:border-zinc-800">
-                        <a href="{{ $assessment['session_url'] }}" class="text-sm font-semibold text-emerald-800 underline dark:text-emerald-300">
+                        <a href="{{ $assessment['session_url'] }}" class="text-sm font-semibold text-primary-strong underline dark:text-blue-300">
                             {{ __('public.dashboard_progress_related_session') }} · #{{ $assessmentBooking->id }}
                         </a>
                     </div>

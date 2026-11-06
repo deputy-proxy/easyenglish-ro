@@ -4,7 +4,7 @@
             <h2 class="text-xl font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_purchases') }}</h2>
             <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_purchases_help') }}</p>
         </div>
-        <a href="{{ route('home') }}#bundles" class="inline-flex min-h-10 items-center rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-900">{{ __('public.dashboard_purchase_more') }}</a>
+        <a href="{{ route('home') }}#bundles" class="inline-flex min-h-10 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">{{ __('public.dashboard_purchase_more') }}</a>
     </header>
 
     <section class="space-y-4">
@@ -17,7 +17,7 @@
             <div class="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
                 <h4 class="font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_purchase_empty_title') }}</h4>
                 <p class="mx-auto mt-2 max-w-xl text-sm text-zinc-600 dark:text-zinc-300">{{ __('public.dashboard_purchase_empty_text') }}</p>
-                <a href="{{ route('home') }}#bundles" class="mt-4 inline-flex min-h-10 items-center rounded-full bg-emerald-800 px-4 py-2 text-sm font-semibold text-white">{{ __('public.dashboard_purchase_more') }}</a>
+                <a href="{{ route('home') }}#bundles" class="mt-4 inline-flex min-h-10 items-center rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white">{{ __('public.dashboard_purchase_more') }}</a>
             </div>
         @else
             <div class="space-y-4">
@@ -28,7 +28,7 @@
                         $purchaseStatusLabel = __('public.dashboard_purchase_status_'.$purchaseStatus);
                         $purchaseStatusLabel = $purchaseStatusLabel === 'public.dashboard_purchase_status_'.$purchaseStatus ? ucfirst(str_replace('_', ' ', $purchaseStatus)) : $purchaseStatusLabel;
                     @endphp
-                    <article class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
+                    <article class="dashboard-panel">
                         <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                             <div class="min-w-0">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">{{ __('public.dashboard_purchase_date') }} · {{ $purchase->created_at->timezone('Europe/Bucharest')->format('d.m.Y H:i') }}</p>
@@ -187,7 +187,7 @@
                         <p class="font-semibold text-zinc-900 dark:text-white">{{ $movementLabel }}</p>
                         <p class="mt-1 text-xs text-zinc-500">{{ $transaction->created_at->timezone('Europe/Bucharest')->format('d.m.Y H:i') }} · {{ __('public.dashboard_credit_type_'.$transaction->credit_type) }}</p>
                         @if ($bookingUrl)
-                            <a href="{{ $bookingUrl }}" class="mt-2 inline-flex text-xs font-semibold text-emerald-800 hover:underline dark:text-emerald-400">{{ __('public.dashboard_credit_view_booking') }} · {{ $booking->session_goal }}</a>
+                            <a href="{{ $bookingUrl }}" class="mt-2 inline-flex text-xs font-semibold text-primary-strong hover:underline dark:text-blue-300">{{ __('public.dashboard_credit_view_booking') }} · {{ $booking->session_goal }}</a>
                         @endif
                     </div>
                     <div class="sm:text-right">
