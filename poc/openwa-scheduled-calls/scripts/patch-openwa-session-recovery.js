@@ -167,4 +167,19 @@ for (const filename of ['index.cjs', 'index.mjs']) {
   }
   await writeFile(target, source, 'utf8');
 }
-console.log('Applied OpenWA checkpoint-preserving recovery, expanded startup diagnostics, and detached-frame cleanup patches.');
+
+const preInitTarget = path.join(packageRoot, 'dist', 'transport', 'assets', 'pre_init.js');
+let preInitSource = await readFile(preInitTarget, 'utf8');
+const identityDiagnosticMarker = 'openwa_identity_import_diagnostic_v1';
+if (!preInitSource.includes(identityDiagnosticMarker)) {
+  const importIdentityStart = preInitSource.indexOf("async 'importIdentity'(_0x29920a){");
+  const setMeCall = ",_0x56aad0[_0xb02377(0x58b,'P8@t')](_0x1cb772)";
+  const setMeCallIndex = preInitSource.indexOf(setMeCall, importIdentityStart);
+  if (importIdentityStart < 0 || setMeCallIndex < 0) {
+    throw new Error('Expected OpenWA portable identity import method not found in pre_init.js; refusing an unsafe identity diagnostic patch.');
+  }
+  const identityDiagnostic = `,console.warn('${identityDiagnosticMarker}',JSON.stringify({meUserModule:typeof _0x56aad0,meUserKeys:Object.keys(_0x56aad0).filter(key=>/^[A-Za-z][A-Za-z0-9_]{0,48}$/.test(key)).slice(0,40),setMe:typeof _0x56aad0.setMe,setMeLid:typeof _0x56aad0.setMeLid,setMeDisplayName:typeof _0x56aad0.setMeDisplayName,createWid:typeof _0x1727df.createWid,selfPnType:typeof _0x1bbc08.self?.pn,selfLidType:typeof _0x1bbc08.self?.lid,selfDisplayNameType:typeof _0x1bbc08.self?.displayName,mobilePlatformType:typeof _0x1bbc08.mobilePlatform,noiseType:typeof _0x1bbc08.noise,migrationType:typeof _0x1bbc08.migration})),(()=>{try{return _0x56aad0.setMe(_0x1cb772)}catch(error){console.warn('openwa_identity_import_set_me_failed_v1',JSON.stringify({errorType:typeof error?.name==='string'?error.name:typeof error,errorCode:typeof error?.code==='string'?error.code:null,errorMessage:typeof error?.message==='string'?error.message.replace(/[^A-Za-z0-9 _.:()-]/g,'?').slice(0,160):null,errorProperties:error&&typeof error==='object'?Object.getOwnPropertyNames(error).filter(key=>/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(key)).slice(0,8):[]}));throw error;}})()`;
+  preInitSource = preInitSource.slice(0, setMeCallIndex) + identityDiagnostic + preInitSource.slice(setMeCallIndex + setMeCall.length);
+  await writeFile(preInitTarget, preInitSource, 'utf8');
+}
+console.log('Applied OpenWA checkpoint recovery, startup diagnostics, detached-frame cleanup, and identity-import diagnostics patches.');
