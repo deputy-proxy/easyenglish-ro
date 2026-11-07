@@ -175,7 +175,7 @@ test('legacy bookings without a teacher remain global blockers for every teacher
     expect(app(AvailabilityService::class)->slotsForDate('2026-11-02')->map(fn (array $slot) => $slot['starts_at']->format('H:i'))->all())->toBe(['09:30', '10:00', '10:30']);
 });
 
-test('stale or errored teacher calendars fail closed', function () {
+test('teachers remain eligible from declared availability when calendars are missing stale or errored', function () {
     $stale = createCalendarTeacher('Stale Teacher', 'stale.teacher@example.com', ['last_synced_at' => now()->subMinutes(11)]);
     $errored = createCalendarTeacher('Errored Teacher', 'errored.teacher@example.com', ['status' => 'error']);
     $inactive = createCalendarTeacher('Inactive Teacher', 'inactive.teacher@example.com', ['active' => false]);
@@ -184,7 +184,30 @@ test('stale or errored teacher calendars fail closed', function () {
     addTeacherWindow($errored, '2026-11-02');
     addTeacherWindow($inactive, '2026-11-02');
 
-    expect(app(AvailabilityService::class)->slotsForDate('2026-11-02'))->toBeEmpty();
+    $slots = app(AvailabilityService::class)->slotsForDate('2026-11-02');
+
+    expect($slots->map(fn (array $slot) => $slot['starts_at']->format('H:i'))->all())->toBe(['09:00', '09:30', '10:00', '10:30']);
+});
+
+test('teachers without a connected Google Calendar are assigned from declared generic availability', function () {
+    $teacher = User::factory()->create([
+        'name' => 'No Calendar Teacher',
+        'email' => 'no.calendar.teacher@example.com',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+    addTeacherWindow($teacher, '2026-11-02');
+
+    config()->set('easyenglish.teacher_availability_enabled', false);
+
+    $booking = app(BookingService::class)->holdSlot([
+        'name' => 'Learner Without Calendar', 'email' => 'learner.no.calendar@example.com', 'phone' => '+40722123459',
+        'english_level' => 'B1', 'session_goal' => 'Speaking', 'accepted_policy_version' => '2026-10-25',
+    ], CarbonImmutable::parse('2026-11-02 09:00:00', 'Europe/Bucharest'), freeIntroduction: true, emailVerified: true, phoneVerified: true);
+
+    expect($booking->teacher_id)->toBe($teacher->id)
+        ->and($booking->teacher_assigned_at)->not->toBeNull()
+        ->and(app(AvailabilityService::class)->eligibleTeachersForSlot(CarbonImmutable::parse('2026-11-02 09:00:00', 'Europe/Bucharest'))->pluck('id')->all())->toBe([$teacher->id]);
 });
 
 test('booking holds are assigned fairly and a teacher cannot receive overlapping holds', function () {
