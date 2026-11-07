@@ -111,28 +111,28 @@ class AvailabilityService
             }
         } else {
             $rules->each(function (AvailabilityRule $rule) use ($day, $weekday, $previousWeekday, $windows): void {
-                    $startTime = (string) $rule->starts_at;
-                    $endTime = (string) $rule->ends_at;
-                    $overnight = $endTime <= $startTime;
+                $startTime = (string) $rule->starts_at;
+                $endTime = (string) $rule->ends_at;
+                $overnight = $endTime <= $startTime;
 
-                    if ((int) $rule->weekday === $weekday) {
-                        $start = $day->setTimeFromTimeString($startTime);
-                        $end = $day->setTimeFromTimeString($endTime);
-                        if ($overnight) {
-                            $end = $end->addDay();
-                        }
-                        $windows->push(['start' => $start, 'end' => $end]);
-
-                        return;
+                if ((int) $rule->weekday === $weekday) {
+                    $start = $day->setTimeFromTimeString($startTime);
+                    $end = $day->setTimeFromTimeString($endTime);
+                    if ($overnight) {
+                        $end = $end->addDay();
                     }
+                    $windows->push(['start' => $start, 'end' => $end]);
 
-                    if ((int) $rule->weekday === $previousWeekday && $overnight) {
-                        $windows->push([
-                            'start' => $day->subDay()->setTimeFromTimeString($startTime),
-                            'end' => $day->setTimeFromTimeString($endTime),
-                        ]);
-                    }
-                });
+                    return;
+                }
+
+                if ((int) $rule->weekday === $previousWeekday && $overnight) {
+                    $windows->push([
+                        'start' => $day->subDay()->setTimeFromTimeString($startTime),
+                        'end' => $day->setTimeFromTimeString($endTime),
+                    ]);
+                }
+            });
         }
 
         $busyIntervals = $teacher->teacherCalendar?->isFreshFor($day)
