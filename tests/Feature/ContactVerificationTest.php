@@ -679,6 +679,8 @@ test('a previously verified phone is not skipped when the learner submits a diff
 });
 
 test('the landing page performs a read-only eligibility check for already verified contacts', function () {
+    app()->setLocale('en');
+
     $user = User::factory()->create([
         'email' => 'already-verified@example.com',
         'phone' => '+40722123469',
@@ -706,7 +708,7 @@ test('the landing page performs a read-only eligibility check for already verifi
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('Your account has been validated.')
+        ->assertSee(__('public.booking_account_validated_title'))
         ->assertSee('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"', false)
         ->assertSee('Go to my purchases')
         ->assertDontSee('data-used-free-bundle-modal', false)
@@ -718,6 +720,8 @@ test('the landing page performs a read-only eligibility check for already verifi
 });
 
 test('final inline verification returns only an already-used outcome when either identifier has a prior claim', function () {
+    app()->setLocale('en');
+
     $user = User::factory()->create([
         'email' => 'claim-owner@example.com',
         'phone' => '+40722123470',
@@ -750,7 +754,7 @@ test('final inline verification returns only an already-used outcome when either
         ->assertJsonMissingPath('eligibility.email')
         ->assertJsonMissingPath('eligibility.phone');
 
-    expect($response->json('html'))->toContain('Your account has been validated.')
+    expect($response->json('html'))->toContain(__('public.booking_account_validated_title'))
         ->and($response->json('html'))->toContain('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"')
         ->and($response->json('html'))->toContain('Go to my purchases')
         ->and(Booking::query()->count())->toBe(0)
