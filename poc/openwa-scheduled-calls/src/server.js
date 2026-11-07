@@ -1,4 +1,4 @@
-import { mkdir, writeFile, chmod } from 'node:fs/promises';
+import { mkdir, writeFile, chmod, copyFile, lstat, rm, constants } from 'node:fs/promises';
 import { readConfig } from './config.js';
 import { startOpenWa } from './openwa.js';
 import { OpenWaProvider } from './provider.js';
@@ -22,7 +22,7 @@ function logStartupSessionDiagnostics(diagnostics) {
   console.info(JSON.stringify({ timestamp: new Date().toISOString(), level: 'info', event: 'openwa.session.persistence_diagnostics', keyFingerprint: diagnostics.keyFingerprint, checkpoint: diagnostics.checkpoint }));
 }
 const inboundForwarder = messageStore ? new InboundMessageForwarder({ config, store: messageStore, logger: { warn: (line) => console.warn(line) } }) : null;
-const app = createApp({ config, state, store, messageStore });
+const app = createApp({ config, state, store, messageStore, resetSession: resetOpenWaSession });
 const inboundRetryTimer = inboundForwarder ? setInterval(() => inboundForwarder.dispatchPending().catch(() => log('warn', 'openwa.inbound.retry_failed')), 10000) : null;
 inboundRetryTimer?.unref();
 inboundForwarder?.dispatchPending().catch(() => log('warn', 'openwa.inbound.startup_retry_failed'));
@@ -38,28 +38,61 @@ async function stop() {
   process.exit(0);
 }
 process.on('SIGTERM', stop); process.on('SIGINT', stop);
-if (config.allowLiveTest) {
-  startOpenWa(config, {
-    onQr: (qr) => { state.qr = qr; state.phase = 'qr_ready'; },
-    onQrScanned: () => { state.qr = null; state.phase = 'authenticating'; },
-    onQrExpired: () => { state.qr = null; state.phase = 'starting'; },
-    onAuthenticated: (client) => { state.client = client; client.onMessage?.((message) => inboundForwarder?.receive(message).catch(() => log('warn', 'openwa.inbound.receive_failed'))); state.provider = new OpenWaProvider(client); state.qr = null; state.phase = 'authenticated'; log('info', 'openwa.session.authenticated'); },
-    onConnectionState: (connectionState) => {
-      const previous = state.phase;
-      applyConnectionState(state, connectionState);
-      if (connectionState === 'DISCONNECTED') log('warn', 'openwa.session.disconnected');
-      else if (connectionState === 'STOPPED') log('warn', 'openwa.session.stopped');
-      else if (connectionState === 'STARTING' || connectionState === 'AUTHENTICATING') log('info', 'openwa.session.state_changed', { state: connectionState });
-      else if (connectionState === 'READY' && previous !== 'disconnected') log('info', 'openwa.session.ready');
-    },
-    onReconnectStart: () => { state.phase = 'disconnected'; log('warn', 'openwa.session.reconnecting'); },
-    onReconnectRecovered: (downtimeMs) => { state.metrics.reconnects += 1; log('info', 'openwa.session.reconnected', { downtimeMs: Number.isFinite(downtimeMs) ? downtimeMs : null }); },
-    onLogout: () => { state.phase = 'logged_out'; state.provider = null; log('warn', 'openwa.session.logged_out'); },
-  }).catch((error) => {
+const openWaCallbacks = {
+  onQr: (qr) => { state.qr = qr; state.phase = 'qr_ready'; },
+  onQrScanned: () => { state.qr = null; state.phase = 'authenticating'; },
+  onQrExpired: () => { state.qr = null; state.phase = 'starting'; },
+  onAuthenticated: (client) => { state.client = client; client.onMessage?.((message) => inboundForwarder?.receive(message).catch(() => log('warn', 'openwa.inbound.receive_failed'))); state.provider = new OpenWaProvider(client); state.qr = null; state.phase = 'authenticated'; log('info', 'openwa.session.authenticated'); },
+  onConnectionState: (connectionState) => {
+    const previous = state.phase;
+    applyConnectionState(state, connectionState);
+    if (connectionState === 'DISCONNECTED') log('warn', 'openwa.session.disconnected');
+    else if (connectionState === 'STOPPED') log('warn', 'openwa.session.stopped');
+    else if (connectionState === 'STARTING' || connectionState === 'AUTHENTICATING') log('info', 'openwa.session.state_changed', { state: connectionState });
+    else if (connectionState === 'READY' && previous !== 'disconnected') log('info', 'openwa.session.ready');
+  },
+  onReconnectStart: () => { state.phase = 'disconnected'; log('warn', 'openwa.session.reconnecting'); },
+  onReconnectRecovered: (downtimeMs) => { state.metrics.reconnects += 1; log('info', 'openwa.session.reconnected', { downtimeMs: Number.isFinite(downtimeMs) ? downtimeMs : null }); },
+  onLogout: () => { state.phase = 'logged_out'; state.provider = null; log('warn', 'openwa.session.logged_out'); },
+};
+let openWaStartPromise = null;
+async function startOpenWaClient() {
+  openWaStartPromise = startOpenWa(config, openWaCallbacks).catch((error) => {
     state.phase = 'failed';
     const code = error instanceof Error && /^SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED$/.test(error.message)
       ? error.message : 'OPENWA_START_FAILED';
     log('error', code === 'SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED'
       ? 'openwa.session.restore_failed' : 'openwa.session.start_failed', { code, errorType: error?.name || 'Error' });
   });
+  return openWaStartPromise;
 }
+async function resetOpenWaSession() {
+  if (state.phase === 'resetting') throw new Error('A session reset is already in progress.');
+  state.phase = 'resetting';
+  state.qr = null;
+  state.provider = null;
+  const client = state.client;
+  state.client = null;
+  if (client?.stop) await client.stop('manual_pairing_reset');
+  let backupPath = null;
+  try {
+    const info = await lstat(config.sessionDataPath);
+    if (!info.isFile() || info.isSymbolicLink() || info.size <= 0 || info.size > 64 * 1024 * 1024) {
+      throw new Error('The saved session checkpoint is not a safe regular file; it was not changed.');
+    }
+    backupPath = config.sessionDataPath + '.manual-reset-' + Date.now() + '.enc';
+    await copyFile(config.sessionDataPath, backupPath, constants.COPYFILE_EXCL);
+    await chmod(backupPath, 0o600);
+    await rm(config.sessionDataPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') {
+      state.phase = 'failed';
+      throw error;
+    }
+  }
+  log('warn', 'openwa.session.manual_pairing_reset', { checkpointBackedUp: Boolean(backupPath) });
+  state.phase = 'starting';
+  if (config.allowLiveTest) void startOpenWaClient();
+  return { checkpointBackedUp: Boolean(backupPath) };
+}
+if (config.allowLiveTest) void startOpenWaClient();
