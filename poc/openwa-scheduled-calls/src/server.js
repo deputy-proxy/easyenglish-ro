@@ -49,7 +49,25 @@ const openWaCallbacks = {
   onQr: (qr) => { state.qr = qr; state.phase = 'qr_ready'; },
   onQrScanned: () => { state.qr = null; state.phase = 'authenticating'; },
   onQrExpired: () => { state.qr = null; state.phase = 'starting'; },
-  onAuthenticated: (client) => { state.disconnectionAlerted = false; state.client = client; client.onMessage?.((message) => inboundForwarder?.receive(message).catch(() => log('warn', 'openwa.inbound.receive_failed'))); state.provider = new OpenWaProvider(client); state.qr = null; state.phase = 'authenticated'; log('info', 'openwa.session.authenticated'); },
+  onAuthenticated: (client) => {
+    state.disconnectionAlerted = false;
+    state.client = client;
+    inboundForwarder?.setPhoneResolver(async (linkedId) => {
+      const contact = await client.getContact?.(linkedId);
+      const candidates = [contact?.phone, contact?.number, contact?.phoneNumber, contact?.id];
+      for (const candidate of candidates) {
+        if (typeof candidate !== 'string' || /@lid$/i.test(candidate)) continue;
+        const match = candidate.match(/^([1-9]\d{7,14})(?:@(?:c\.us|s\.whatsapp\.net))?$/);
+        if (match) return match[1];
+      }
+      return null;
+    });
+    client.onMessage?.((message) => inboundForwarder?.receive(message).catch(() => log('warn', 'openwa.inbound.receive_failed')));
+    state.provider = new OpenWaProvider(client);
+    state.qr = null;
+    state.phase = 'authenticated';
+    log('info', 'openwa.session.authenticated');
+  },
   onConnectionState: (connectionState) => {
     const previous = state.phase;
     applyConnectionState(state, connectionState);

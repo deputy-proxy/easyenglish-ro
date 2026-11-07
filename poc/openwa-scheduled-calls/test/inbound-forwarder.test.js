@@ -78,3 +78,28 @@ test('ignores outbound and group messages for inbound callback processing', asyn
   await forwarder.receive({ id: 'group', from: '123@g.us', isGroupMsg: true, body: 'test' });
   assert.equal(store.records.length, 0);
 });
+
+
+test('preserves WhatsApp Linked IDs and resolves them only when the engine exposes a phone mapping', async () => {
+  const store = memoryStore();
+  const forwarder = new InboundMessageForwarder({
+    config: { messagingEnabled: true, inboundCallbackUrl: 'https://easyenglish.example.com/webhooks/openwa', inboundCallbackSecret: 'x'.repeat(40) },
+    store,
+    fetchImpl: async () => ({ ok: false }),
+  });
+
+  await forwarder.receive({ id: 'lid-unresolved', from: '151616808329283@lid', to: '40700000000@c.us', type: 'chat', body: 'STOP' });
+  assert.equal(store.records[0].payload.from, '151616808329283@lid');
+  assert.equal(store.records[0].payload.senderId, '151616808329283@lid');
+
+  const resolvedStore = memoryStore();
+  const resolvedForwarder = new InboundMessageForwarder({
+    config: { messagingEnabled: true, inboundCallbackUrl: 'https://easyenglish.example.com/webhooks/openwa', inboundCallbackSecret: 'x'.repeat(40) },
+    store: resolvedStore,
+    fetchImpl: async () => ({ ok: false }),
+  });
+  resolvedForwarder.setPhoneResolver(async () => '40732999325');
+  await resolvedForwarder.receive({ id: 'lid-resolved', from: '151616808329283@lid', to: '40700000000@c.us', type: 'chat', body: 'Hello' });
+  assert.equal(resolvedStore.records[0].payload.from, '+40732999325');
+  assert.equal(resolvedStore.records[0].payload.senderId, '151616808329283@lid');
+});

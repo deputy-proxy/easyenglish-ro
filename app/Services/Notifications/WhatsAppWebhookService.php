@@ -40,6 +40,12 @@ class WhatsAppWebhookService
             'type' => 'text',
             'text' => ['body' => is_string($message['text'] ?? null) ? $message['text'] : ''],
             'timestamp' => is_scalar($message['timestamp'] ?? null) ? (string) $message['timestamp'] : null,
+            'context' => array_filter([
+                'openwa_sender_id' => is_string($message['senderId'] ?? null) ? $message['senderId'] : null,
+                'phone_resolution' => is_string($message['senderId'] ?? null)
+                    ? (str_ends_with(strtolower($from), '@lid') ? 'unresolved' : 'resolved')
+                    : null,
+            ], static fn (mixed $value): bool => $value !== null),
         ];
         $result = $this->handleInboundMessage($normalized, ['display_phone_number' => $message['to'] ?? null]);
 
@@ -183,10 +189,24 @@ class WhatsAppWebhookService
             return 'ignored';
         }
 
-        $phone = PhoneNumber::normalize($from);
-        if ($phone === '') {
+        $senderId = trim($from);
+        $phone = PhoneNumber::normalize($senderId);
+        $isOpenWaLinkedId = str_starts_with($messageId, 'openwa:') && str_ends_with(strtolower($senderId), '@lid');
+        $phoneResolution = $isOpenWaLinkedId ? 'unresolved' : null;
+
+        if ($isOpenWaLinkedId) {
+            $phone = null;
+        } elseif ($phone === '' || str_contains($senderId, '@')) {
             return 'ignored';
         }
+
+        $resolvedLinkedId = data_get($message, 'context.openwa_sender_id');
+        if (is_string($resolvedLinkedId) && str_ends_with(strtolower($resolvedLinkedId), '@lid') && $phone !== null) {
+            $this->reconcileLinkedIdContact($resolvedLinkedId, $phone);
+            $phoneResolution = 'resolved';
+        }
+
+        $storedSender = $phone ?? $senderId;
 
         $type = is_string($message['type'] ?? null) ? $message['type'] : 'unknown';
         $body = $this->extractBody($message, $type);
@@ -197,7 +217,7 @@ class WhatsAppWebhookService
         }
 
         $eventKey = hash('sha256', 'inbound-message|'.$messageId);
-        $persisted = DB::transaction(function () use ($eventKey, $messageId, $phone, $metadata, $type, $body, $providerTimestamp, $receivedAt, $message): bool {
+        $persisted = DB::transaction(function () use ($eventKey, $messageId, $storedSender, $senderId, $phoneResolution, $metadata, $type, $body, $providerTimestamp, $receivedAt, $message): bool {
             if (! $this->claimEvent($eventKey, 'inbound_message')) {
                 return false;
             }
@@ -206,7 +226,7 @@ class WhatsAppWebhookService
                 'provider_message_id' => $messageId,
                 'channel' => 'whatsapp',
                 'direction' => 'inbound',
-                'from_phone' => $phone,
+                'from_phone' => $storedSender,
                 'to_phone' => is_string($metadata['display_phone_number'] ?? null)
                     ? PhoneNumber::normalize($metadata['display_phone_number'])
                     : null,
@@ -214,7 +234,11 @@ class WhatsAppWebhookService
                 'body' => $body,
                 'provider_timestamp' => $providerTimestamp,
                 'received_at' => $receivedAt,
-                'context' => is_array($message['context'] ?? null) ? $message['context'] : null,
+                'context' => array_filter([
+                    ...(is_array($message['context'] ?? null) ? $message['context'] : []),
+                    'openwa_sender_id' => data_get($message, 'context.openwa_sender_id') ?? ($senderId !== $storedSender ? $senderId : null),
+                    'phone_resolution' => $phoneResolution,
+                ], static fn (mixed $value): bool => $value !== null),
             ]);
 
             return true;
@@ -224,7 +248,7 @@ class WhatsAppWebhookService
             return 'duplicate';
         }
 
-        if ($type !== 'text' || $body === null) {
+        if ($phone === null || $type !== 'text' || $body === null) {
             return 'persisted';
         }
 
@@ -247,6 +271,51 @@ class WhatsAppWebhookService
             })->update(['status' => 'skipped', 'next_attempt_at' => null, 'last_error' => 'Customer opted out of WhatsApp service messages.']);
 
         return 'persisted';
+    }
+
+    private function reconcileLinkedIdContact(string $linkedId, string $phone): void
+    {
+        $linkedIdDigits = preg_replace('/\D+/', '', substr($linkedId, 0, -4)) ?? '';
+        if ($linkedIdDigits === '') {
+            return;
+        }
+
+        $legacyPhone = '+'.$linkedIdDigits;
+        if ($legacyPhone === $phone) {
+            return;
+        }
+
+        DB::transaction(function () use ($legacyPhone, $phone): void {
+            $legacy = WhatsAppContact::query()->where('phone', $legacyPhone)->lockForUpdate()->first();
+            if (! $legacy) {
+                return;
+            }
+
+            $contact = WhatsAppContact::query()->where('phone', $phone)->lockForUpdate()->first();
+            if (! $contact) {
+                $legacy->update(['phone' => $phone]);
+
+                return;
+            }
+
+            $changes = [];
+            if ($legacy->consented_at !== null && ($contact->consented_at === null || strtotime((string) $legacy->consented_at) > strtotime((string) $contact->consented_at))) {
+                $changes['consented_at'] = $legacy->consented_at;
+                $changes['consent_source'] = $legacy->consent_source;
+            }
+            if ($legacy->opted_out_at !== null && ($contact->opted_out_at === null || strtotime((string) $legacy->opted_out_at) > strtotime((string) $contact->opted_out_at))) {
+                $changes['opted_out_at'] = $legacy->opted_out_at;
+                $changes['opt_out_source'] = $legacy->opt_out_source;
+            }
+            if ($contact->consented_at !== null && $contact->opted_out_at !== null && strtotime((string) $contact->consented_at) > strtotime((string) $contact->opted_out_at)) {
+                $changes['opted_out_at'] = null;
+                $changes['opt_out_source'] = null;
+            }
+            if ($changes !== []) {
+                $contact->forceFill($changes)->save();
+            }
+            $legacy->delete();
+        });
     }
 
     /** @param array<string, mixed> $message */
