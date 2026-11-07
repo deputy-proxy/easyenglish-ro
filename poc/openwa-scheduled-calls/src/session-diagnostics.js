@@ -9,7 +9,9 @@ function inspectPayloadFormat(contents) {
   try {
     value = JSON.parse(contents);
   } catch {
-    return 'invalid-json';
+    const raw = contents.trim();
+    if (!/^[A-Za-z0-9+/]+=*$/.test(raw)) return 'invalid-json';
+    value = raw;
   }
 
   if (typeof value === 'string') {
