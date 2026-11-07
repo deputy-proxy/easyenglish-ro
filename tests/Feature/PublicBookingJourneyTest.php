@@ -606,7 +606,6 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
         'english_level' => 'B1',
         'session_goal' => 'Prepare for a work presentation',
         'accepted_policy' => '1',
-        'whatsapp_service_consent' => '1',
     ])->assertRedirect(route('dashboard'))
         ->assertSessionHas('status', __('public.booking_confirmed_dashboard'));
 
@@ -1023,6 +1022,30 @@ test('final booking submission preserves policy acceptance recorded during regis
     ])->assertUnprocessable()
         ->assertJsonValidationErrors(['starts_at'])
         ->assertJsonMissingValidationErrors(['accepted_policy']);
+
+    expect(Booking::query()->count())->toBe(0);
+});
+
+
+test('final free booking still requires WhatsApp consent when no prior consent exists', function () {
+    $user = User::factory()->create([
+        'email' => 'whatsapp-consent-required@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)->postJson(route('booking.submit'), [
+        'type' => 'intro',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently at work',
+        'accepted_policy' => '1',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['whatsapp_service_consent']);
 
     expect(Booking::query()->count())->toBe(0);
 });
