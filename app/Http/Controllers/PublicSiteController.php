@@ -245,6 +245,14 @@ class PublicSiteController extends Controller
         ]);
 
         if ($validated['return_to'] === 'booking') {
+            // Registration already requires policy acceptance. Preserve that consent
+            // across the AJAX transition in case the browser omits the checkbox field.
+            $bookingFormData = $request->session()->get('contact_verification_form_data', []);
+            $acceptedValues = ['1', 1, true, 'yes', 'on'];
+            $policyAccepted = in_array($request->input('accepted_policy'), $acceptedValues, true)
+                || (is_array($bookingFormData) && in_array($bookingFormData['accepted_policy'] ?? null, $acceptedValues, true));
+
+            $request->merge(['accepted_policy' => $policyAccepted ? '1' : null]);
             $request->validate([
                 'type' => ['required', 'in:intro'],
                 'starts_at' => ['required', 'date'],
@@ -252,6 +260,8 @@ class PublicSiteController extends Controller
                 'session_goal' => ['required', 'string', 'max:500'],
                 'notes' => ['nullable', 'string', 'max:5000'],
                 'accepted_policy' => ['accepted'],
+            ], [
+                'accepted_policy.accepted' => __('public.policy_accept_required'),
             ]);
         }
 
