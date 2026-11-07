@@ -120,7 +120,7 @@
         <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="accepted_policy" value="1" required @checked(old('accepted_policy', $bookingFormData['accepted_policy'] ?? false))>
         <span>{{ __('public.policy_accept') }}</span>
     </label>
-    @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only' && ! $phoneAlreadyVerified && ! $whatsappConsent)
+    @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only' && ! $whatsappConsent)
         <label class="flex items-start gap-3 text-sm leading-relaxed text-muted">
             <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="whatsapp_service_consent" value="1" required @checked(old('whatsapp_service_consent', $bookingFormData['whatsapp_service_consent'] ?? false))>
             <span>{{ __('public.whatsapp_service_consent') }}</span>
