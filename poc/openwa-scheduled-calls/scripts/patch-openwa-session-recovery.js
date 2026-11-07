@@ -20,23 +20,27 @@ const safe = `if (this.portable.hasCheckpoint) {
 \t\t\t\tthrow new Error("SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED");
 \t\t\t}`;
 const diagnosticMarker = 'portable_session_startup_diagnostic';
-const diagnosticPatch = `const startupDiagnostic = await this.page.evaluateScript('globalThis.OpenWA_PortableSession?.startupDiagnostic() ?? null').catch(() => null);
-      const safeCode = value => {
-        if (typeof value !== 'string') return null;
-        const match = value.match(/\\b[A-Z][A-Z0-9_]{2,80}\\b/);
-        return match ? match[0] : null;
-      };
-      const safeError = value => ({
-        errorType: value && typeof value === 'object' && typeof value.name === 'string' ? value.name.slice(0, 40) : typeof value,
-        errorCode: safeCode(typeof value === 'string' ? value : value?.code),
-        // Type/message only: never include stack, cause, payload, or object fields.
-        errorMessage: value && typeof value === 'object' && typeof value.message === 'string'
-          ? value.message.replace(/[^A-Za-z0-9 _.:()[\]\-]/g, '?').slice(0, 160) : null,
-      });
+const pageDiagnosticScript = `(() => {
+  const diagnostic = globalThis.OpenWA_PortableSession?.startupDiagnostic();
+  if (!diagnostic) return null;
+  const describe = value => {
+    if (value == null) return null;
+    const message = typeof value === 'string' ? value : typeof value.message === 'string' ? value.message : String(value);
+    return {
+      errorType: typeof value === 'object' && typeof value.name === 'string' ? value.name.slice(0, 40) : typeof value,
+      errorCode: typeof value === 'object' && typeof value.code === 'string' && /^[A-Z][A-Z0-9_]{2,80}$/.test(value.code) ? value.code : null,
+      // Read only the message in-page; never cross stacks, causes, payloads, or arbitrary fields.
+      errorMessage: message.replace(/[^A-Za-z0-9 _.:()[\\]\\-]/g, '?').slice(0, 160),
+      errorProperties: typeof value === 'object' ? Object.getOwnPropertyNames(value).filter(key => /^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(key)).slice(0, 8) : [],
+    };
+  };
+  return { phase: diagnostic.phase, error: describe(diagnostic.error), commitError: describe(diagnostic.commitError) };
+})()`;
+const diagnosticPatch = `const startupDiagnostic = await this.page.evaluateScript(${JSON.stringify(pageDiagnosticScript)}).catch(() => null);
       this.logger.warn('portable_session_startup_diagnostic', {
         phase: typeof startupDiagnostic?.phase === 'string' && /^[a-z][a-z0-9_-]{0,40}$/.test(startupDiagnostic.phase) ? startupDiagnostic.phase : 'unknown',
-        error: safeError(startupDiagnostic?.error),
-        commitError: safeError(startupDiagnostic?.commitError),
+        error: startupDiagnostic?.error ?? null,
+        commitError: startupDiagnostic?.commitError ?? null,
       });
       `;
 
