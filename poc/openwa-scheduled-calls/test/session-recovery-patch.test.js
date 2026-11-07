@@ -12,6 +12,8 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED/);
   assert.match(patch, /refusing an unsafe install/);
   assert.match(patch, /resetSessionForPairing/);
+  assert.match(patch, /errorMessage/);
+  assert.match(patch, /never include stack, cause, payload, or object fields/);
 });
 
 test('startup failure logging exposes only a safe restoration error code', async () => {
