@@ -19,7 +19,6 @@ const safe = `if (this.portable.hasCheckpoint) {
 \t\t\t\t// Preserve the only durable credentials. Pairing reset is an explicit operator action.
 \t\t\t\tthrow new Error("SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED");
 \t\t\t}`;
-const diagnosticMarker = 'portable_session_startup_diagnostic';
 const pageDiagnosticScript = `(() => {
   const diagnostic = globalThis.OpenWA_PortableSession?.startupDiagnostic();
   if (!diagnostic) return null;
@@ -77,10 +76,23 @@ for (const filename of ['index.cjs', 'index.mjs']) {
     if (!source.includes(original)) throw new Error(`Expected OpenWA recovery branch not found in ${filename}; refusing an unsafe install.`);
     source = source.replace(original, safe);
   }
-  if (!source.includes(diagnosticMarker)) {
-    const needle = /this\.logger\.warn\((['"])portable_session_bootstrap_failed\1,\s*\{/;
-    if (!needle.test(source)) throw new Error(`Expected OpenWA bootstrap failure logger not found in ${filename}; refusing an unsafe diagnostic patch.`);
-    source = source.replace(needle, `${diagnosticPatch}this.logger.warn("portable_session_bootstrap_failed", {`);
+  // OpenWA 5.10.0 may ship either its native minimal logger or an older
+  // diagnostic patch. Handle both shapes and always install our versioned
+  // sanitised frame logger. The native marker alone is not evidence of this patch.
+  if (!source.includes('openwa_restore_frames_v2')) {
+    const oldDiagnosticStart = source.indexOf('const startupDiagnostic = await this.page.evaluateScript(');
+    const loggerMarker = 'this.logger.warn("portable_session_bootstrap_failed"';
+    const loggerStart = source.indexOf(loggerMarker, Math.max(0, oldDiagnosticStart));
+    if (loggerStart < 0) {
+      throw new Error(`Expected OpenWA bootstrap failure logger not found in ${filename}; refusing an unsafe diagnostic patch.`);
+    }
+    if (oldDiagnosticStart >= 0) {
+      const loggerEnd = source.indexOf(');', loggerStart) + 2;
+      if (loggerEnd < 2) throw new Error(`Could not locate the end of the OpenWA diagnostic block in ${filename}.`);
+      source = source.slice(0, oldDiagnosticStart) + `/* openwa_restore_frames_v2 */\n      ${diagnosticPatch}this.logger.warn("portable_session_bootstrap_failed", { code: /^[A-Z_]+$/.test(portableFailure) ? portableFailure : "SESSION_STARTUP_FAILED" });` + source.slice(loggerEnd);
+    } else {
+      source = source.slice(0, loggerStart) + `/* openwa_restore_frames_v2 */\n      ${diagnosticPatch}` + source.slice(loggerStart);
+    }
   }
   await writeFile(target, source, 'utf8');
 }

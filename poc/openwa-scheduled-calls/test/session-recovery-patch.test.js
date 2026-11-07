@@ -18,8 +18,19 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /Object\.getOwnPropertyNames\(value\)/);
   assert.match(patch, /frames: Array\.isArray\(value\.frames\)/);
   assert.match(patch, /frameCount: Array\.isArray\(value\.frames\)/);
+  assert.match(patch, /openwa_restore_frames_v2/);
+  assert.match(patch, /source\.indexOf\('const startupDiagnostic = await this\.page\.evaluateScript\('/);
+  assert.match(patch, /versioned/);
+  assert.match(patch, /loggerMarker/);
   assert.match(patch, /Never log frame source text, URLs, query strings, arguments, or arbitrary properties/);
   assert.match(patch, /SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED/);
+
+  for (const filename of ['index.cjs', 'index.mjs']) {
+    const installed = await readFile(new URL(`../node_modules/@open-wa/core/dist/${filename}`, import.meta.url), 'utf8');
+    assert.match(installed, /openwa_restore_frames_v2/);
+    assert.match(installed, /frameCount: Array\.isArray\(value\.frames\)/);
+    assert.match(installed, /SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED/);
+  }
 });
 
 test('startup failure logging exposes only a safe restoration error code', async () => {
