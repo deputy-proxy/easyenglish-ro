@@ -8,8 +8,7 @@ export function extractQrPayload(event) {
 export function buildOpenWaOptions(config) {
   return {
     sessionId: config.sessionId,
-    sessionDataPath: config.sessionDataPath,
-    sessionDataEncryptionKeyFile: config.encryptionKeyFile,
+    userDataDir: config.userDataDir,
     headless: true,
     qrTimeout: 0,
     qrLogSkip: true,
