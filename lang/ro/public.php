@@ -724,4 +724,7 @@ return [
         'Vineri',
         'Sâmbătă',
     ],
+    'booking_account_validated_title' => 'Contul tău a fost validat.',
+    'booking_account_validated_redirect' => 'Ai folosit deja sesiunea introductivă gratuită. Vei fi redirecționat către tabloul de bord, unde îți poți consulta achizițiile.',
+    'booking_account_validated_link' => 'Vezi achizițiile mele',
 ];
