@@ -6,7 +6,7 @@ import { validateCallEvent } from './events.js';
 import { decideEventRequest, hashRequest } from './idempotency.js';
 import { createHash } from 'node:crypto';
 
-export function createApp({ config, state, store, messageStore = null, messageTimeoutMs = 15000, pairingDirectory = path.join(process.cwd(), 'public'), logger = console, providerTimeouts = { create: 25000, read: 10000, cancel: 10000 } }) {
+export function createApp({ config, state, store, messageStore = null, resetSession = null, messageTimeoutMs = 15000, pairingDirectory = path.join(process.cwd(), 'public'), logger = console, providerTimeouts = { create: 25000, read: 10000, cancel: 10000 } }) {
   const app = express();
   let createQueue = Promise.resolve();
   let messageQueue = Promise.resolve();
@@ -160,6 +160,15 @@ export function createApp({ config, state, store, messageStore = null, messageTi
   if (config.pairingEnabled) {
     app.use(createBasicAuth(config));
     app.use(express.static(pairingDirectory, { index: 'index.html', etag: false, maxAge: 0 }));
+    app.post('/pairing/reset', async (_req, res) => {
+      if (typeof resetSession !== 'function') return res.status(503).json({ error: 'Session reset is unavailable.' });
+      try {
+        const result = await resetSession();
+        return res.status(202).json({ status: 'pairing_restarted', checkpointBackedUp: result.checkpointBackedUp });
+      } catch {
+        return res.status(500).json({ error: 'The session could not be reset. The existing checkpoint was preserved.' });
+      }
+    });
     app.get('/pairing/status', (_req, res) => res.json({ phase: state.phase, qrAvailable: Boolean(state.qr), startedAt: state.startedAt }));
     app.get('/pairing/qr', async (_req, res) => {
     if (state.phase !== 'qr_ready' || !state.qr) return res.status(404).end();

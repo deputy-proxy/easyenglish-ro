@@ -51,3 +51,23 @@ qr.addEventListener('error', () => {
   qr.hidden = true;
   statusEl.textContent = 'QR image could not be loaded. Waiting for the next pairing code…';
 });
+
+const resetButton = document.querySelector('#resetPairing');
+const resetStatus = document.querySelector('#resetStatus');
+resetButton.addEventListener('click', async () => {
+  const confirmed = window.confirm('Disconnect this WhatsApp session and start a fresh QR pairing? The current encrypted session will be backed up, but this device will need to be linked again.');
+  if (!confirmed) return;
+  resetButton.disabled = true;
+  resetStatus.textContent = 'Backing up the current session and restarting pairing…';
+  try {
+    const response = await fetch('/pairing/reset', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || 'Reset failed.');
+    resetStatus.textContent = payload.checkpointBackedUp
+      ? 'Previous session backed up. Waiting for a fresh QR code…'
+      : 'No saved session was found. Waiting for a fresh QR code…';
+  } catch (error) {
+    resetStatus.textContent = error.message || 'Could not reset the session.';
+    resetButton.disabled = false;
+  }
+});
