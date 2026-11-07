@@ -160,7 +160,7 @@ export function createApp({ config, state, store, messageStore = null, messageTi
   if (config.pairingEnabled) {
     app.use(createBasicAuth(config));
     app.use(express.static(pairingDirectory, { index: 'index.html', etag: false, maxAge: 0 }));
-    app.get('/pairing/status', (_req, res) => res.json({ phase: state.phase, startedAt: state.startedAt }));
+    app.get('/pairing/status', (_req, res) => res.json({ phase: state.phase, qrAvailable: Boolean(state.qr), startedAt: state.startedAt }));
     app.get('/pairing/qr', async (_req, res) => {
     if (state.phase !== 'qr_ready' || !state.qr) return res.status(404).end();
     try { return res.type('png').send(await QRCode.toBuffer(state.qr, { type: 'png', margin: 2, width: 360 })); }
