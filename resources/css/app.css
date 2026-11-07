@@ -289,11 +289,11 @@ select:focus[data-flux-control] {
     }
 
     .hero-conversation__side--teacher {
-        left: 3vw;
+        left: clamp(190px, 18vw, 280px);
     }
 
     .hero-conversation__side--learner {
-        right: 3vw;
+        right: clamp(190px, 18vw, 280px);
     }
 
     .hero-conversation__bubble {
@@ -304,11 +304,11 @@ select:focus[data-flux-control] {
 
 
 .hero-conversation__side--teacher {
-    left: clamp(176px, 14vw, 230px);
+    left: clamp(190px, 18vw, 280px);
 }
 
 .hero-conversation__side--learner {
-    right: clamp(176px, 14vw, 230px);
+    right: clamp(190px, 18vw, 280px);
 }
 
 .gsap-ready .hero-conversation__bubble {
