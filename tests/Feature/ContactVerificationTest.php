@@ -704,27 +704,13 @@ test('the landing page performs a read-only eligibility check for already verifi
         'used_at' => now(),
     ]);
 
-    $bundle = BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->firstOrFail();
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee('data-free-session-eligibility="already_used"', false)
-        ->assertSee('role="dialog"', false)
-        ->assertSee(__('public.used_free_bundle_title'))
-        ->assertSee(__('public.used_free_bundle_no_reservation'))
-        ->assertSee($bundle->localizedName())
-        ->assertSee(number_format($bundle->currentPriceRon(), 0, ',', '.'))
-        ->assertSee(route('purchase', $bundle), false)
+        ->assertSee('Your account has been validated.')
+        ->assertSee('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"', false)
+        ->assertSee('Go to my purchases')
+        ->assertDontSee('data-used-free-bundle-modal', false)
         ->assertDontSee(__('public.booking_submit_intro'));
-    foreach (BundleDefinition::query()->where('is_active', true)->get() as $activeBundle) {
-        expect($this->get(route('home'))->getContent())
-            ->toContain($activeBundle->localizedName())
-            ->toContain(route('purchase', $activeBundle));
-    }
-
-    config(['services.stripe.checkout_enabled' => false]);
-    $this->get(route('purchase', $bundle))
-        ->assertOk()
-        ->assertSee(__('public.checkout_unavailable_title'));
 
     expect(Booking::query()->count())->toBe(0)
         ->and(BookingCallEvent::query()->count())->toBe(0)
@@ -764,10 +750,9 @@ test('final inline verification returns only an already-used outcome when either
         ->assertJsonMissingPath('eligibility.email')
         ->assertJsonMissingPath('eligibility.phone');
 
-    $bundle = BundleDefinition::query()->where('is_active', true)->firstOrFail();
-    expect($response->json('html'))->toContain(__('public.verification_already_used'))
-        ->and($response->json('html'))->toContain(__('public.used_free_bundle_title'))
-        ->and($response->json('html'))->toContain(route('purchase', $bundle))
+    expect($response->json('html'))->toContain('Your account has been validated.')
+        ->and($response->json('html'))->toContain('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"')
+        ->and($response->json('html'))->toContain('Go to my purchases')
         ->and(Booking::query()->count())->toBe(0)
         ->and(BookingCallEvent::query()->count())->toBe(0)
         ->and(FreeSessionClaim::query()->count())->toBe(1);
