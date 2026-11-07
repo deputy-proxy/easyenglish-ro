@@ -997,7 +997,6 @@ test('booking submission rejects a slot that is no longer available on the serve
     expect(Booking::query()->count())->toBe(0);
 });
 
-
 test('final booking submission preserves policy acceptance recorded during registration', function () {
     $user = User::factory()->create([
         'email' => 'policy-final-submit@example.com',
@@ -1026,7 +1025,6 @@ test('final booking submission preserves policy acceptance recorded during regis
 
     expect(Booking::query()->count())->toBe(0);
 });
-
 
 test('final free booking still requires WhatsApp consent when no prior consent exists', function () {
     $user = User::factory()->create([
