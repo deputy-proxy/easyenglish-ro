@@ -893,7 +893,8 @@ test('existing account login submits asynchronously and advances directly to boo
         ->and(session()->getId())->not->toBe($beforeSessionId)
         ->and($response->json('html'))->toContain('name="_token"')
         ->and($response->json('html'))->toContain('data-booking-starts-at')
-        ->and($response->json('html'))->toContain($slot);
+        ->and($response->json('html'))->toContain($slot)
+        ->and($response->json('html'))->toContain('name="whatsapp_service_consent"');
 });
 
 test('asynchronous login reports invalid credentials as an accessible authentication error', function () {
