@@ -29,6 +29,9 @@ const diagnosticPatch = `const startupDiagnostic = await this.page.evaluateScrip
       const safeError = value => ({
         errorType: value && typeof value === 'object' && typeof value.name === 'string' ? value.name.slice(0, 40) : typeof value,
         errorCode: safeCode(typeof value === 'string' ? value : value?.code),
+        // Type/message only: never include stack, cause, payload, or object fields.
+        errorMessage: value && typeof value === 'object' && typeof value.message === 'string'
+          ? value.message.replace(/[^A-Za-z0-9 _.:()[\]\-]/g, '?').slice(0, 160) : null,
       });
       this.logger.warn('portable_session_startup_diagnostic', {
         phase: typeof startupDiagnostic?.phase === 'string' && /^[a-z][a-z0-9_-]{0,40}$/.test(startupDiagnostic.phase) ? startupDiagnostic.phase : 'unknown',
