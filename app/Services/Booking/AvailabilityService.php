@@ -85,9 +85,19 @@ class AvailabilityService
     {
         $weekday = $day->dayOfWeekIso % 7;
         $previousWeekday = ($weekday + 6) % 7;
+        $teacherRules = $teacher->availabilityRules()->where('is_active', true)->whereIn('weekday', [$weekday, $previousWeekday])->get();
+        $usesLegacyAvailability = ! $teacher->availabilityRules()->exists();
+        $rules = $usesLegacyAvailability
+            ? AvailabilityRule::query()->whereNull('user_id')->where('is_active', true)->whereIn('weekday', [$weekday, $previousWeekday])->get()
+            : $teacherRules;
         $exceptions = $teacher->availabilityExceptions()
             ->where('starts_at', '<', $day->endOfDay()->utc()->toDateTimeString())
             ->where('ends_at', '>', $day->utc()->toDateTimeString())->get();
+        if ($usesLegacyAvailability) {
+            $exceptions = $exceptions->concat(AvailabilityException::query()->whereNull('user_id')
+                ->where('starts_at', '<', $day->endOfDay()->utc()->toDateTimeString())
+                ->where('ends_at', '>', $day->utc()->toDateTimeString())->get());
+        }
         $overrides = $exceptions->where('kind', 'availability_override');
         $windows = collect();
 
@@ -100,8 +110,7 @@ class AvailabilityService
                 }
             }
         } else {
-            $teacher->availabilityRules()->where('is_active', true)->whereIn('weekday', [$weekday, $previousWeekday])->get()
-                ->each(function (AvailabilityRule $rule) use ($day, $weekday, $previousWeekday, $windows): void {
+            $rules->each(function (AvailabilityRule $rule) use ($day, $weekday, $previousWeekday, $windows): void {
                     $startTime = (string) $rule->starts_at;
                     $endTime = (string) $rule->ends_at;
                     $overnight = $endTime <= $startTime;
