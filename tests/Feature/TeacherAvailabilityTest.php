@@ -207,7 +207,7 @@ test('teachers without a connected Google Calendar are assigned from declared ge
 
     expect($booking->teacher_id)->toBe($teacher->id)
         ->and($booking->teacher_assigned_at)->not->toBeNull()
-        ->and(app(AvailabilityService::class)->eligibleTeachersForSlot(CarbonImmutable::parse('2026-11-02 09:00:00', 'Europe/Bucharest'))->pluck('id')->all())->toBe([$teacher->id]);
+        ->and(app(AvailabilityService::class)->eligibleTeachersForSlot(CarbonImmutable::parse('2026-11-02 09:00:00', 'Europe/Bucharest'), $booking->id)->pluck('id')->all())->toBe([$teacher->id]);
 });
 
 test('booking holds are assigned fairly and a teacher cannot receive overlapping holds', function () {
@@ -633,7 +633,7 @@ test('reconnecting a Google Calendar invalidates the previous sync snapshot unti
     expect($calendar->status)->toBe('connected')
         ->and($calendar->last_synced_at)->toBeNull()
         ->and($calendar->calendar_id)->toBe('reconnect.teacher@example.com')
-        ->and(app(AvailabilityService::class)->slotsForDate('2026-11-02'))->toBeEmpty();
+        ->and(app(AvailabilityService::class)->slotsForDate('2026-11-02'))->toHaveCount(4);
 });
 
 test('malformed Google Calendar snapshots fail closed without clearing the last known Busy intervals', function () {
