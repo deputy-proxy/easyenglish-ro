@@ -575,7 +575,7 @@ class PublicSiteController extends Controller
             'password' => ['required', 'string', Password::default(), 'confirmed'],
             'starts_at' => ['required', 'date'],
             'accepted_policy' => ['accepted'],
-            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' || $hasWhatsAppConsent ? 'nullable' : 'accepted'],
         ]);
 
         $validated['password_confirmation'] = $request->input('password_confirmation');
@@ -696,6 +696,13 @@ class PublicSiteController extends Controller
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
     {
         $this->applyLocale($request);
+
+        // Registration and verification can record WhatsApp service consent before
+        // the final booking form is shown. Reuse that consent if the form omits its checkbox.
+        $phone = $request->input('phone');
+        $hasWhatsAppConsent = is_string($phone)
+            && WhatsAppContact::query()->where('phone', PhoneNumber::normalize($phone))
+                ->first()?->canReceiveServiceMessages() === true;
 
         // Registration records policy acceptance before the authenticated booking
         // form is shown. Preserve that consent when the final form omits its checkbox.
