@@ -996,3 +996,33 @@ test('booking submission rejects a slot that is no longer available on the serve
 
     expect(Booking::query()->count())->toBe(0);
 });
+
+
+test('final booking submission preserves policy acceptance recorded during registration', function () {
+    $user = User::factory()->create([
+        'email' => 'policy-final-submit@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)->withSession([
+        'locale' => 'en',
+        'contact_verification_form_data' => [
+            'accepted_policy' => '1',
+        ],
+    ])->postJson(route('booking.submit'), [
+        'type' => 'intro',
+        'starts_at' => '2026-10-27T09:00:00+03:00',
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently at work',
+        'whatsapp_service_consent' => '1',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['starts_at'])
+        ->assertJsonMissingValidationErrors(['accepted_policy']);
+
+    expect(Booking::query()->count())->toBe(0);
+});
