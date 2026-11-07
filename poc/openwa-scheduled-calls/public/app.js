@@ -9,11 +9,12 @@ async function refresh() {
     const response = await fetch('/pairing/status', { cache: 'no-store' });
     const status = await response.json();
     statusEl.textContent = 'Status: ' + status.phase + (status.error ? ' · ' + status.error : '');
-    if (status.phase === 'qr_ready') {
+    if (status.phase === 'qr_ready' && status.qrAvailable) {
       qr.src = '/pairing/qr?t=' + Date.now();
       qr.hidden = false;
     } else {
       qr.hidden = true;
+      if (status.phase === 'qr_ready') statusEl.textContent += ' · QR payload unavailable; waiting for a fresh code.';
     }
   } catch {
     statusEl.textContent = 'Service unavailable';
@@ -44,3 +45,9 @@ document.querySelector('#eventForm').addEventListener('submit', async (event) =>
 });
 
 refresh();
+
+
+qr.addEventListener('error', () => {
+  qr.hidden = true;
+  statusEl.textContent = 'QR image could not be loaded. Waiting for the next pairing code…';
+});

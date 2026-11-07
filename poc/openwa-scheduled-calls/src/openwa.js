@@ -1,5 +1,10 @@
 import { create, ev } from '@open-wa/wa-automate';
 
+export function extractQrPayload(event) {
+  const qr = event?.details?.qr;
+  return typeof qr === 'string' && qr.trim() ? qr.trim() : null;
+}
+
 export function buildOpenWaOptions(config) {
   return {
     sessionId: config.sessionId,
@@ -22,7 +27,10 @@ export function buildOpenWaOptions(config) {
 }
 
 export async function startOpenWa(config, callbacks) {
-  ev.on('launch.auth.qr.generated', ({ qr }) => callbacks.onQr(qr));
+  ev.on('launch.auth.qr.generated', (event) => {
+    const qr = extractQrPayload(event);
+    if (qr) callbacks.onQr(qr);
+  });
   ev.on('launch.auth.qr.scanned', () => callbacks.onQrScanned());
   ev.on('launch.auth.qr.expired', () => callbacks.onQrExpired());
   ev.on('session.connection.reconnecting', () => callbacks.onReconnectStart?.());

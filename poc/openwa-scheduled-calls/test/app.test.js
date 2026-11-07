@@ -35,6 +35,41 @@ test('pairing interface is not exposed unless the pairing feature is explicitly 
 
 test('pairing routes require Basic authentication when the pairing window is explicitly enabled', async () => { const s = await setup({}, 'disabled', undefined, { pairingEnabled: true }); try { assert.equal((await fetch(s.base + '/pairing/status')).status, 401); const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64'); assert.equal((await fetch(s.base + '/pairing/status', { headers: { Authorization: 'Basic ' + credentials } })).status, 200); } finally { await s.close(); } });
 
+test('pairing status reports QR availability without exposing the QR credential', async () => {
+  const s = await setup({}, 'qr_ready', undefined, { pairingEnabled: true });
+  s.server.close();
+  const state = { phase: 'qr_ready', qr: 'easyenglish-test-pairing-payload', startedAt: '2026-11-07T13:00:00.000Z' };
+  const server = createServer(createApp({ config: { ...config, pairingEnabled: true }, state, store: s.store, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64');
+  const headers = { Authorization: 'Basic ' + credentials };
+  try {
+    const status = await fetch(base + '/pairing/status', { headers });
+    assert.deepEqual(await status.json(), { phase: 'qr_ready', qrAvailable: true, startedAt: state.startedAt });
+    const qr = await fetch(base + '/pairing/qr', { headers });
+    assert.equal(qr.status, 200);
+    assert.ok(qr.headers.get('content-type').includes('image/png'));
+    assert.ok((await qr.arrayBuffer()).byteLength > 0);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('pairing status reports when QR data is missing instead of implying it is available', async () => {
+  const s = await setup({}, 'qr_ready', undefined, { pairingEnabled: true });
+  s.server.close();
+  const state = { phase: 'qr_ready', qr: null, startedAt: '2026-11-07T13:00:00.000Z' };
+  const server = createServer(createApp({ config: { ...config, pairingEnabled: true }, state, store: s.store, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64');
+  try {
+    const status = await fetch(base + '/pairing/status', { headers: { Authorization: 'Basic ' + credentials } });
+    assert.deepEqual(await status.json(), { phase: 'qr_ready', qrAvailable: false, startedAt: state.startedAt });
+    const qr = await fetch(base + '/pairing/qr', { headers: { Authorization: 'Basic ' + credentials } });
+    assert.equal(qr.status, 404);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
 test('sends OpenWA messages once with durable idempotency and rejects conflicting replays', async () => {
   const records = [], calls = [];
   const messageStore = {
