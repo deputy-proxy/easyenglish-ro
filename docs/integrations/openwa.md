@@ -332,3 +332,17 @@ Teacher booking-confirmation parameters are teacher name, customer name/email/ph
 Staff can inspect event state, retry exhausted event setup, and review sanitized errors at **Admin → Scheduling → Call events**. Exhausted automatic retries create a staff database notification and a booking audit record. Customer/teacher message delivery is tracked separately at **Admin → Operations → Notification delivery**; a failed recipient delivery can be retried without creating another provider event. The call-event retry action reuses the original idempotency key and chooses create, retrieve, or cancel according to the persisted provider state.
 
 `OPENWA_ENABLED` is a hard stop for all provider operations, including cancellation and reconciliation. Do not disable it while provider events are still active; cancel or resolve active events first. Keep `OPENWA_ENABLED=false` until the assembled booking and notification flow passes #220 and the product owner explicitly approves rollout. No customer traffic or real WhatsApp account is enabled by this integration change.
+
+## Transactional messaging capability (separate from scheduled calls)
+
+The isolated OpenWA service can optionally act as the Easy English outbound WhatsApp messaging provider. This is a separate feature from the existing scheduled call-event integration and is disabled by default.
+
+- Set `OPENWA_MESSAGING_ENABLED=true` on both the Railway service and the Hostinger Laravel application only after the messaging acceptance checks pass. The Node service additionally requires `OPENWA_ALLOW_LIVE_TEST=true` as an explicit live-account gate.
+- Set `OPENWA_MESSAGING_CALLBACK_URL=https://<easyenglish-host>/webhooks/openwa` and a high-entropy `OPENWA_MESSAGING_CALLBACK_SECRET` on Railway. Configure the same callback secret on Hostinger. The callback uses HMAC-SHA256 in `X-OpenWA-Signature`.
+- Laravel uses the existing `OPENWA_BASE_URL` and `OPENWA_SERVICE_TOKEN` for the authenticated `/v1/messages` API. The API requires an E.164 recipient, text body, and `Idempotency-Key`.
+- The Node service persists outbound idempotency records and inbound callback records in the encrypted message store on the existing persistent volume. It serializes outbound submissions, returns accepted/replayed/ambiguous states, and never blindly retries an uncertain submission.
+- `GET /v1/messages/{idempotencyKey}` exposes only the normalized state, provider message ID, attempt count, and acceptance timestamp for reconciliation. `GET /v1/capabilities` reports whether messaging is enabled and ready.
+- Inbound direct messages are normalized and forwarded to Laravel; group and messages sent by the business account are ignored. Message payloads are encrypted at rest and removed from the record after a successful callback; logs contain no phone number or message body.
+- Keep exactly one replica and the existing persistent volume. The message store is single-writer, just like the scheduled call-event store.
+
+Do not interpret OpenWA readiness as proof that the WhatsApp account is unrestricted. OpenWA is unofficial automation and remains subject to account restrictions. See the [provider failover runbook](../operations/whatsapp-provider-failover.md) for the business-continuity procedure.

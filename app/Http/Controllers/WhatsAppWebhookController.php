@@ -74,4 +74,34 @@ class WhatsAppWebhookController extends Controller
 
         return response('EVENT_RECEIVED', 200);
     }
+
+    public function receiveOpenWa(Request $request, WhatsAppWebhookService $webhooks): \Symfony\Component\HttpFoundation\Response
+    {
+        if (! (bool) config('services.whatsapp.openwa.enabled')) {
+            return response('OpenWA messaging is disabled.', 503);
+        }
+        $payload = $request->getContent();
+        $secret = config('services.whatsapp.openwa.callback_secret');
+        $signature = $request->header('X-OpenWA-Signature', '');
+        if (! is_string($secret) || strlen($secret) < 32 || ! str_starts_with($signature, 'sha256=')) {
+            return response('Invalid OpenWA callback signature.', 401);
+        }
+        $expected = 'sha256='.hash_hmac('sha256', $payload, $secret);
+        if (! hash_equals($expected, $signature)) {
+            return response('Invalid OpenWA callback signature.', 401);
+        }
+        $message = json_decode($payload, true);
+        if (! is_array($message)) {
+            return response('Invalid OpenWA callback payload.', 400);
+        }
+        try {
+            $summary = $webhooks->handleOpenWaInbound($message);
+
+            return response()->json(['status' => 'received'] + $summary);
+        } catch (\Throwable $exception) {
+            Log::error('OpenWA inbound callback processing failed.', ['exception' => $exception::class]);
+
+            return response('Callback processing failed.', 500);
+        }
+    }
 }

@@ -166,3 +166,21 @@ Suggested teacher/call-link template copy (teacher templates are English-only; c
 - `easyenglish_teacher_booking_cancelled`: `Hi {{1}}, {{2}}'s appointment on {{3}} has been cancelled or reassigned. Update: {{4}}.`
 
 These are positional examples matching the application payload. Submit them to Meta for Utility-template review and adjust copy to meet Meta's current policy before setting `WHATSAPP_ENABLED=true`.
+
+## Provider selection and business continuity
+
+The application-facing `WhatsAppGateway` supports provider-neutral template and text messages. Select the active **outbound** provider with `WHATSAPP_PROVIDER=meta` (default) or `WHATSAPP_PROVIDER=openwa`. Both provider configurations should be maintained simultaneously so the operator can switch without a code deployment or database migration.
+
+- `WHATSAPP_ENABLED` controls the Meta Cloud API adapter.
+- `OPENWA_MESSAGING_ENABLED` controls OpenWA messaging in Laravel and the Node service.
+- `OPENWA_ENABLED` continues to control the separate scheduled call-event integration. Do not use it as a messaging flag.
+- `WHATSAPP_PROVIDER` controls only outbound notification routing. It does not disable scheduled call events. Meta free-form text is disabled unless `WHATSAPP_ALLOW_FREE_FORM=true` is deliberately enabled for a valid customer-service window; approved templates remain the default.
+- OpenWA text rendering uses the application notification template key and localized parameter catalogue; Meta continues to use the approved template name and components configured in Meta WhatsApp Manager. Meta free-form text is disabled by default and can only be enabled with `WHATSAPP_ALLOW_FREE_FORM=true` for a verified customer-service window; normal business-initiated notifications must continue to use approved templates.
+
+Use `php artisan whatsapp:provider-status` to inspect the selected provider, secret-free configuration readiness, and (when OpenWA is selected) the remote messaging capability readiness. See [the provider failover runbook](../operations/whatsapp-provider-failover.md) for exact Hostinger/Railway setup, emergency switch, reconciliation, and failback steps.
+
+OpenWA messaging adds authenticated `POST /v1/messages`, `GET /v1/messages/{idempotencyKey}`, and `GET /v1/capabilities` endpoints. Outbound submissions use a durable encrypted idempotency record and are serialized through the single OpenWA process. A timeout or uncertain provider result is never resubmitted automatically. Inbound text messages are durably queued in the encrypted OpenWA store and forwarded to `POST /webhooks/openwa` with an HMAC-SHA256 signature in `X-OpenWA-Signature`. Laravel validates the signature and routes the normalized event through the same message persistence and opt-out handling used by Meta. Use the same high-entropy `OPENWA_MESSAGING_CALLBACK_SECRET` in Hostinger and Railway.
+
+Each WhatsApp outbox delivery records the selected provider and an append-only provider-attempt summary. If a send outcome is uncertain, the delivery is marked `ambiguous` and excluded from automatic retries. For OpenWA, staff can use **Admin → Operations → Notification delivery → Reconcile OpenWA** to check the durable idempotency record before retrying. A provider switch never replays deliveries already accepted by the previous provider.
+
+**Account compatibility warning:** the Meta Cloud API sender and OpenWA WhatsApp Web session may not be usable concurrently on the same phone number/account. Validate the actual Meta/WhatsApp coexistence and registration arrangement before enabling both. A separate fallback number may be required and can change the sender displayed to customers after a switch.

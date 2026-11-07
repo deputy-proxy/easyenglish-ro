@@ -2,15 +2,14 @@
 
 namespace App\Contracts\Notifications;
 
+use App\Data\Notifications\WhatsAppTemplateMessage;
+use App\Data\Notifications\WhatsAppTextMessage;
+
 interface WhatsAppGateway
 {
-    /**
-     * @param list<
-     *     array{type:'body',parameters:list<array{type:'text',text:string}>}
-     *     | array{type:'button',sub_type:'url',index:string,parameters:list<array{type:'text',text:string}>}
-     *     | array{type:string,parameters:list<array{type:string,text:string}>}
-     * > $components
-     * @return array{message_id:string,status:string}
-     */
-    public function sendTemplate(string $recipient, string $template, string $language, array $components, string $callbackData): array;
+    /** @return array{message_id:string,status:string} */
+    public function sendTemplate(WhatsAppTemplateMessage $message): array;
+
+    /** @return array{message_id:string,status:string} */
+    public function sendText(WhatsAppTextMessage $message): array;
 }
