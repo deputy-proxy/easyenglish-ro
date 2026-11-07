@@ -32,6 +32,32 @@ const pageDiagnosticScript = `(() => {
       // Read only the message in-page; never cross stacks, causes, payloads, or arbitrary fields.
       errorMessage: message.replace(/[^A-Za-z0-9 _.:()[\\]\\-]/g, '?').slice(0, 160),
       errorProperties: typeof value === 'object' ? Object.getOwnPropertyNames(value).filter(key => /^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(key)).slice(0, 8) : [],
+      // Browser error frames are reduced to function names, file basenames and numeric locations.
+      // Never log frame source text, URLs, query strings, arguments, or arbitrary properties.
+      frames: Array.isArray(value.frames) ? value.frames.slice(0, 8).map(frame => {
+        if (typeof frame === 'string') {
+          const match = frame.match(/(?:at\s+)?([^\n(]+)?(?:\((?:.*[\\/])?([^/\\():?]+):(\d+):(\d+)\)|(?:.*[\\/])?([^/\\():?]+):(\d+):(\d+)/);
+          return match ? {
+            functionName: typeof match[1] === 'string' ? match[1].replace(/[^A-Za-z0-9_$ .<>-]/g, '').slice(0, 80) : null,
+            file: (match[2] || match[5] || '').slice(0, 80),
+            line: Number(match[3] || match[6]),
+            column: Number(match[4] || match[7]),
+          } : { frameType: 'string', parseable: false };
+        }
+        if (!frame || typeof frame !== 'object') return { frameType: typeof frame };
+        const safe = {};
+        for (const key of ['functionName', 'methodName', 'name']) {
+          if (typeof frame[key] === 'string') safe[key] = frame[key].replace(/[^A-Za-z0-9_$ .<>-]/g, '').slice(0, 80);
+        }
+        for (const key of ['fileName', 'file', 'sourceURL']) {
+          if (typeof frame[key] === 'string') safe.file = frame[key].split(/[\\/]/).pop().split(/[?#]/)[0].replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 80);
+        }
+        for (const key of ['lineNumber', 'columnNumber', 'line', 'column']) {
+          if (Number.isSafeInteger(frame[key]) && frame[key] >= 0) safe[key] = frame[key];
+        }
+        return safe;
+      }) : [],
+      frameCount: Array.isArray(value.frames) ? value.frames.length : 0,
     };
   };
   return { phase: diagnostic.phase, error: describe(diagnostic.error), commitError: describe(diagnostic.commitError) };
