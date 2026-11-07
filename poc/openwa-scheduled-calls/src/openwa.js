@@ -8,13 +8,13 @@ export function extractQrPayload(event) {
 export function buildOpenWaOptions(config) {
   return {
     sessionId: config.sessionId,
-    userDataDir: config.userDataDir,
+    sessionDataPath: config.sessionDataPath,
+    sessionDataEncryptionKeyFile: config.encryptionKeyFile,
     headless: true,
     qrTimeout: 0,
     qrLogSkip: true,
     qrFormat: 'png',
     qrMax: 10,
-    ephemeral: false,
     skipSessionSave: false,
     logConsole: false,
     logConsoleErrors: false,
