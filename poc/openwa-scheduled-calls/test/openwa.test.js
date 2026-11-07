@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOpenWaOptions } from '../src/openwa.js';
+import { buildOpenWaOptions, extractQrPayload } from '../src/openwa.js';
+
+test('extracts the QR pairing string from the current OpenWA lifecycle event shape', () => {
+  assert.equal(extractQrPayload({ details: { qr: 'pairing-payload' } }), 'pairing-payload');
+});
+
+test('does not accept missing or malformed QR event payloads', () => {
+  assert.equal(extractQrPayload({ qr: 'legacy-shape' }), null);
+  assert.equal(extractQrPayload({ details: {} }), null);
+  assert.equal(extractQrPayload({ details: { qr: '  ' } }), null);
+  assert.equal(extractQrPayload(null), null);
+});
+
 test('OpenWA uses the durable encrypted session path and does not disable session saving', () => {
   const options = buildOpenWaOptions({ sessionId: 'easyenglish', sessionDataPath: '/data/session/session.data.json', encryptionKeyFile: '/data/keys/session.key', chromeExecutable: '/usr/bin/chromium', chromeNoSandbox: true });
   assert.equal(options.sessionDataPath, '/data/session/session.data.json');
