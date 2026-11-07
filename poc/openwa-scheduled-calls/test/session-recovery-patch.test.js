@@ -13,7 +13,10 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /refusing an unsafe install/);
   assert.match(patch, /resetSessionForPairing/);
   assert.match(patch, /errorMessage/);
-  assert.match(patch, /never include stack, cause, payload, or object fields/);
+  assert.match(patch, /pageDiagnosticScript/);
+  assert.match(patch, /evaluateScript\(\$\{JSON\.stringify\(pageDiagnosticScript\)\}/);
+  assert.match(patch, /Object\.getOwnPropertyNames\(value\)/);
+  assert.match(patch, /never cross stacks, causes, payloads, or arbitrary fields/);
 });
 
 test('startup failure logging exposes only a safe restoration error code', async () => {
