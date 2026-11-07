@@ -52,9 +52,10 @@ class BookingService
         return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified, $customerUserId): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
-            $assignedTeacher = $this->availability->eligibleTeachersForSlot($startsAt)->first();
+            $eligibleTeachers = $this->availability->eligibleTeachersForSlot($startsAt);
+            $assignedTeacher = $eligibleTeachers->first();
             if ($assignedTeacher === null) {
-                throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
+                $this->availability->assertBookable($startsAt);
             }
 
             if ($freeIntroduction === ($entitlementId !== null)) {
@@ -117,8 +118,8 @@ class BookingService
                 'public_reference' => (string) Str::uuid(),
                 'bundle_entitlement_id' => $entitlement?->id,
                 'customer_user_id' => $customerUserId,
-                'teacher_id' => $assignedTeacher->id,
-                'teacher_assigned_at' => now(),
+                'teacher_id' => $assignedTeacher?->id,
+                'teacher_assigned_at' => $assignedTeacher ? now() : null,
                 'customer_name' => trim($customer['name']),
                 'customer_email' => mb_strtolower(trim($customer['email'])),
                 'customer_phone' => trim($customer['phone']),
@@ -211,9 +212,11 @@ class BookingService
             $previousTeacherId = $booking->teacher_id;
             $eligibleTeachers = $this->availability->eligibleTeachersForSlot($booking->starts_at, $booking->id);
             if ($eligibleTeachers->isEmpty()) {
-                throw ValidationException::withMessages(['booking' => 'No teacher can fulfil this time any longer. Please choose another slot.']);
-            }
-            if (! $eligibleTeachers->contains('id', $booking->teacher_id)) {
+                if ($booking->teacher_id !== null) {
+                    throw ValidationException::withMessages(['booking' => 'No teacher can fulfil this time any longer. Please choose another slot.']);
+                }
+                $this->availability->assertBookable($booking->starts_at, $booking->id);
+            } elseif (! $eligibleTeachers->contains('id', $booking->teacher_id)) {
                 $teacher = $eligibleTeachers->first();
                 $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
             }
