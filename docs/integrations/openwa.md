@@ -98,8 +98,9 @@ A replay returns `200` and adds `"replayed": true`. An uncertain provider result
 
 ## Reliability and storage
 
-- Session data and event metadata are stored on the persistent Railway volume, outside the application directory and public web root.
-- Session data and the encryption-key directory are separate and have private directory permissions. The session encryption key is supplied as a Railway secret and written with file mode `0600`; directories use `0700`.
+- The WhatsApp browser profile is stored at `OPENWA_USER_DATA_DIR` on the persistent Railway volume (`/data/profile`), outside the application directory and public web root. OpenWA receives `userDataDir`; it does not receive `sessionDataPath` or `sessionDataEncryptionKeyFile`, so startup does not enter the failing portable compact-session restore path.
+- The old `/data/session/session.data.json` compact-session checkpoint is retained as a recovery artifact and backed up before startup, but is no longer used for authentication. Do not delete it until profile-based restart recovery has passed acceptance.
+- Event/message metadata remains encrypted with AES-256-GCM using `OPENWA_SESSION_ENCRYPTION_KEY`; the separate key directory and session directory retain private permissions. The key is not used to encrypt the browser profile. Protect the profile itself as credential material and include it in Railway volume backups. Directories use `0700`.
 - Event metadata, including provider IDs and join URLs needed for idempotency/recovery, is encrypted with AES-256-GCM and written atomically. A corrupt/unreadable encrypted store causes startup to fail closed.
 - A `creating` record is persisted before the provider call. If the process restarts during an uncertain submission, the same idempotency key returns a non-retryable pending result instead of creating another event.
 - Event creation is serialized in-process and the service must run one replica. Multiple writers are not supported.
@@ -112,9 +113,10 @@ A replay returns `200` and adds `"replayed": true`. An uncertain provider result
 
 Copy `.env.example` and provide secrets through the deployment platform, not a committed file. Required variables:
 
-- `OPENWA_SESSION_DIR`
-- `OPENWA_SESSION_KEY_DIR`
-- `OPENWA_SESSION_ENCRYPTION_KEY` (base64-encoded 32-byte key)
+- `OPENWA_SESSION_DIR` (encrypted event/message stores and retained legacy checkpoint)
+- `OPENWA_SESSION_KEY_DIR` (private key-file directory for the legacy checkpoint; retained during migration)
+- `OPENWA_USER_DATA_DIR` (persistent Chromium profile directory, `/data/profile` on Railway)
+- `OPENWA_SESSION_ENCRYPTION_KEY` (base64-encoded 32-byte key for encrypted event/message stores)
 - `OPENWA_PAIRING_USERNAME`
 - `OPENWA_PAIRING_PASSWORD` (at least 32 random characters)
 - `OPENWA_PUBLIC_BASE_URL` (HTTPS URL used by the protected pairing interface)
@@ -157,7 +159,7 @@ Deployment steps:
 
 1. Use the existing `easyenglish-openwa` Railway project, production environment, and `openwa-poc` service. Do not create a second service or replica.
 2. Keep the `openwa-session-data` volume mounted at `/data` in `europe-west4-drams3a`; its current capacity is 5 GB.
-3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, `OPENWA_SERVICE_TOKEN`, Chromium settings, `OPENWA_ALLOW_LIVE_TEST=true`, and `OPENWA_PAIRING_ENABLED=false` after pairing. Store secrets only in Railway Variables.
+3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, `OPENWA_USER_DATA_DIR=/data/profile`, the event-store encryption key, pairing credentials, HTTPS pairing URL, `OPENWA_SERVICE_TOKEN`, Chromium settings, `OPENWA_ALLOW_LIVE_TEST=true`, and `OPENWA_PAIRING_ENABLED=false` after pairing. The `/data/profile` directory is the active WhatsApp authentication store. Store secrets only in Railway Variables.
 4. Configure the Railway health check to `GET /health/live`; use restart policy `ALWAYS`; do not enable serverless sleep or multiple replicas. The service serializes event creation and its persistent volume is single-writer.
 5. The Docker entrypoint runs `node src/preflight.js` as the unprivileged `node` user and then starts `node src/server.js`. Verify Node, Chromium headless launch, `zstd`, HTTPS configuration, token/key validation, and volume write permissions in deploy logs.
 6. Keep `OPENWA_ALLOW_LIVE_TEST=true` for the paired dedicated account. If it is false, the service will not restore an authenticated live session and readiness remains unavailable. If the service token is missing, authenticated `/v1` requests cannot be used. Never disable this flag as routine cleanup while OpenWA is the selected messaging provider.
@@ -352,6 +354,6 @@ Do not interpret OpenWA readiness as proof that the WhatsApp account is unrestri
 
 `WHATSAPP_PROVIDER=openwa` is the intended production selection. On Hostinger, keep `OPENWA_MESSAGING_ENABLED=true`, `OPENWA_BASE_URL` pointed at the Railway public HTTPS domain, and the matching service token and callback secret configured as secrets. On Railway, keep `OPENWA_MESSAGING_ENABLED=true`, `OPENWA_ALLOW_LIVE_TEST=true`, the callback URL/secret, service token, session encryption key, and persistent `/data` volume. Never commit secret values. After changing Laravel environment values, run `php artisan config:cache` and `php artisan queue:restart`, then verify `php artisan whatsapp:provider-status` reports OpenWA selected and ready. The authenticated `/v1/capabilities` endpoint must report `provider=openwa`, `messagingEnabled=true`, `messagingReady=true`, and `connectionState=authenticated` before sending.
 
-The service must remain single-replica because the WhatsApp session and encrypted message store are single-writer. Preserve the `/data` volume and exact session encryption key across deploys and restarts. A missing/unreadable session restore must be treated as not ready; a successful container deployment does not mean the WhatsApp account is authenticated. Pairing is a recovery action, not a routine deployment step.
+The service must remain single-replica because the WhatsApp session and encrypted message store are single-writer. Preserve the `/data` volume, especially `/data/profile`, across deploys and restarts. The event-store encryption key must also remain unchanged for encrypted event/message records. The legacy compact session file and its key are not the active WhatsApp login store after the profile migration. A missing/unreadable browser profile must be treated as not ready; a successful container deployment does not mean the WhatsApp account is authenticated. Pairing is a recovery action, not a routine deployment step.
 
 Meta remains available as a manual fallback. To switch, set `WHATSAPP_PROVIDER=meta` in Hostinger, confirm Meta configuration and templates remain valid, run `php artisan config:cache` and `php artisan queue:restart`, and verify provider status before sending. Reconcile ambiguous OpenWA deliveries first; never blindly replay them through Meta. See the [provider continuity runbook](../operations/whatsapp-provider-failover.md).
