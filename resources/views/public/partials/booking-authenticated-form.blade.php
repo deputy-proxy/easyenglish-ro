@@ -1,3 +1,13 @@
+@if($contactsVerified && $eligibility && ! $eligibility['eligible'])
+    <section class="rounded-2xl border border-line bg-white p-6 text-center shadow-sm sm:p-8" role="status" aria-live="polite" data-booking-dashboard-redirect="{{ route('dashboard', ['view' => 'purchases']) }}">
+        <div class="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden="true">
+            <span class="text-xl">✓</span>
+        </div>
+        <h2 class="mt-4 text-xl font-bold tracking-tight text-ink">{{ __('public.booking_account_validated_title') }}</h2>
+        <p class="mt-2 text-sm leading-6 text-muted">{{ __('public.booking_account_validated_redirect') }}</p>
+        <a class="mt-5 inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" href="{{ route('dashboard', ['view' => 'purchases']) }}">{{ __('public.booking_account_validated_link') }}</a>
+    </section>
+@else
 <form method="post" action="{{ route('booking.submit') }}" class="space-y-5" data-free-session-form data-booking-async-form data-booking-verification-form data-contacts-verified="{{ $contactsVerified ? 'true' : 'false' }}" data-email-only="{{ config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'true' : 'false' }}" data-verified-phone="{{ auth()->user()->phone }}" data-initial-eligible="{{ ($eligibility['eligible'] ?? false) ? 'true' : 'false' }}">
     @csrf
     @if($errors->any())
@@ -156,3 +166,5 @@
         <p class="m-0 text-xs leading-relaxed text-muted">{{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_required_email_only' : 'public.verification_required') }}</p>
     @endif
 </form>
+
+@endif
