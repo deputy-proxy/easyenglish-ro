@@ -11,6 +11,7 @@ import { inspectAndBackupSession } from './session-diagnostics.js';
 const config = readConfig();
 await mkdir(config.sessionDir, { recursive: true, mode: 0o700 }); await chmod(config.sessionDir, 0o700);
 await mkdir(config.sessionKeyDir, { recursive: true, mode: 0o700 }); await chmod(config.sessionKeyDir, 0o700);
+await mkdir(config.userDataDir, { recursive: true, mode: 0o700 }); await chmod(config.userDataDir, 0o700);
 await writeFile(config.encryptionKeyFile, process.env.OPENWA_SESSION_ENCRYPTION_KEY, { mode: 0o600 }); await chmod(config.encryptionKeyFile, 0o600);
 const sessionDiagnostics = await inspectAndBackupSession({ sessionDataPath: config.sessionDataPath, encryptionKey: config.encryptionKey });
 logStartupSessionDiagnostics(sessionDiagnostics);

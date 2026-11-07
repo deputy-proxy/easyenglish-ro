@@ -13,10 +13,11 @@ test('does not accept missing or malformed QR event payloads', () => {
   assert.equal(extractQrPayload(null), null);
 });
 
-test('OpenWA uses the durable encrypted session path and does not disable session saving', () => {
-  const options = buildOpenWaOptions({ sessionId: 'easyenglish', sessionDataPath: '/data/session/session.data.json', encryptionKeyFile: '/data/keys/session.key', chromeExecutable: '/usr/bin/chromium', chromeNoSandbox: true });
-  assert.equal(options.sessionDataPath, '/data/session/session.data.json');
-  assert.equal(options.sessionDataEncryptionKeyFile, '/data/keys/session.key');
+test('OpenWA uses a persistent browser profile instead of the failing portable session-file restore path', () => {
+  const options = buildOpenWaOptions({ sessionId: 'easyenglish', userDataDir: '/data/profile/easyenglish', chromeExecutable: '/usr/bin/chromium', chromeNoSandbox: true });
+  assert.equal(options.userDataDir, '/data/profile/easyenglish');
+  assert.equal('sessionDataPath' in options, false);
+  assert.equal('sessionDataEncryptionKeyFile' in options, false);
   assert.equal(options.skipSessionSave, false);
   assert.equal(options.ephemeral, false);
   assert.equal(options.executablePath, '/usr/bin/chromium');

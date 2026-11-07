@@ -64,7 +64,7 @@ async function main() {
   else if (!(await checkBrowser(chrome))) failures.push('Chrome/Chromium could not launch headlessly with its current sandbox configuration.');
 
   if (config) {
-    for (const [directory, label] of [[config.sessionDir, 'Encrypted session-data directory'], [config.sessionKeyDir, 'Encryption-key directory']]) {
+    for (const [directory, label] of [[config.sessionDir, 'Legacy session-data directory'], [config.sessionKeyDir, 'Encryption-key directory'], [config.userDataDir, 'Persistent browser-profile directory']]) {
       try { await checkPrivateDirectory(directory, label); }
       catch (error) { failures.push(label + ' check failed: ' + error.message); }
     }
