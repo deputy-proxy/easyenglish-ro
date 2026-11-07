@@ -66,6 +66,17 @@ test('recognizes base64-wrapped OpenWA payloads', async () => {
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
+test('recognizes raw base64 OpenWA payloads', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'openwa-session-'));
+  try {
+    const file = path.join(dir, 'session.data.json');
+    const payload = Buffer.from(JSON.stringify({ auth: 'opaque-auth', data: 'opaque-data' })).toString('base64');
+    await writeFile(file, payload);
+    const result = await inspectAndBackupSession({ sessionDataPath: file, encryptionKey: Buffer.alloc(32, 4), now: 793 });
+    assert.equal(result.checkpoint.payloadFormat, 'valid-auth-data-payload');
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('distinguishes invalid JSON and logout markers', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'openwa-session-'));
   try {
