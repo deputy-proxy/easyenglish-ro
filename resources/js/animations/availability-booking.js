@@ -293,6 +293,12 @@ export function initializeAvailabilityBookingTransition(gsap) {
                 if (freshCsrfToken && csrfMeta) csrfMeta.content = freshCsrfToken;
                 getSelectedSlots().forEach((input) => { input.value = payload.slot ?? ''; });
 
+                const dashboardRedirect = stepContent.querySelector('[data-booking-dashboard-redirect]');
+                if (dashboardRedirect) {
+                    window.setTimeout(() => window.location.assign(dashboardRedirect.dataset.bookingDashboardRedirect), 1800);
+                    return;
+                }
+
                 if (feedback) {
                     feedback.textContent = payload.message ?? '';
                     feedback.hidden = feedback.textContent === '';
