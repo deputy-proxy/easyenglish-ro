@@ -49,7 +49,7 @@ test('pairing status reports QR availability without exposing the QR credential'
     assert.deepEqual(await status.json(), { phase: 'qr_ready', qrAvailable: true, startedAt: state.startedAt });
     const qr = await fetch(base + '/pairing/qr', { headers });
     assert.equal(qr.status, 200);
-    assert.match(qr.headers.get('content-type'), /image\\/png/);
+    assert.ok(qr.headers.get('content-type').includes('image/png'));
     assert.ok((await qr.arrayBuffer()).byteLength > 0);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
