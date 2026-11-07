@@ -177,6 +177,19 @@ test('guest can create an account from the free booking form and is logged in wi
         ->assertSee('action="'.route('booking.submit').'"', false);
 });
 
+test('a validated account that already used its free session sees a dashboard redirect instead of package selection', function () {
+    $html = view('public.partials.booking-authenticated-form', [
+        'contactsVerified' => true,
+        'eligibility' => ['eligible' => false, 'status' => 'already_used'],
+    ])->render();
+
+    expect($html)
+        ->toContain('Your account has been validated.')
+        ->toContain('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"')
+        ->toContain('Go to my purchases')
+        ->not->toContain('data-used-free-bundle-modal');
+});
+
 test('guest can sign in from the free booking form and keep the selected slot', function () {
     $user = User::factory()->create(['email' => 'existing-learner@example.com']);
     $slot = '2026-10-27T09:00:00+03:00';
