@@ -575,7 +575,7 @@ class PublicSiteController extends Controller
             'password' => ['required', 'string', Password::default(), 'confirmed'],
             'starts_at' => ['required', 'date'],
             'accepted_policy' => ['accepted'],
-            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' || $hasWhatsAppConsent ? 'nullable' : 'accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
         ]);
 
         $validated['password_confirmation'] = $request->input('password_confirmation');
@@ -730,7 +730,7 @@ class PublicSiteController extends Controller
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy' => ['accepted'],
-            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' || $hasWhatsAppConsent ? 'nullable' : 'accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
             'verification_id' => ['nullable', 'uuid'],
         ], [
