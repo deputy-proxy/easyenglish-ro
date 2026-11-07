@@ -211,12 +211,17 @@ class BookingService
             }
             $previousTeacherId = $booking->teacher_id;
             $eligibleTeachers = $this->availability->eligibleTeachersForSlot($booking->starts_at, $booking->id);
-            if ($eligibleTeachers->isEmpty()) {
-                if ($booking->teacher_id !== null) {
+            if ($eligibleTeachers->isEmpty() && $booking->teacher_id !== null) {
+                $assignedTeacherIsActive = User::query()
+                    ->whereKey($booking->teacher_id)
+                    ->where('is_teacher', true)
+                    ->where('teacher_active', true)
+                    ->exists();
+
+                if (! $assignedTeacherIsActive) {
                     throw ValidationException::withMessages(['booking' => 'No teacher can fulfil this time any longer. Please choose another slot.']);
                 }
-                $this->availability->assertBookable($booking->starts_at, $booking->id);
-            } elseif (! $eligibleTeachers->contains('id', $booking->teacher_id)) {
+            } elseif ($eligibleTeachers->isNotEmpty() && ! $eligibleTeachers->contains('id', $booking->teacher_id)) {
                 $teacher = $eligibleTeachers->first();
                 $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
             }
