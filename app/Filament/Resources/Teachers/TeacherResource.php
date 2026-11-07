@@ -39,7 +39,7 @@ class TeacherResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->where('is_teacher', true)->with('teacherCalendar');
+        return parent::getEloquentQuery()->where('is_teacher', true)->with(['teacherCalendar', 'teacherProfile']);
     }
 
     public static function form(Schema $schema): Schema
@@ -50,10 +50,12 @@ class TeacherResource extends Resource
                 TextInput::make('name')->required()->maxLength(255),
                 TextInput::make('email')->email()->required()->maxLength(254)->unique(ignoreRecord: true),
                 TextInput::make('phone')->tel()->label('Contact phone')->maxLength(32),
-                FileUpload::make('teacher_photo_path')->label('Public profile photo')->image()->disk('public')->directory('teachers')->visibility('public')->imageEditor()->maxSize(5120),
-                Textarea::make('teacher_bio')->label('Public biography')->rows(4)->maxLength(500)->columnSpanFull(),
                 TextInput::make('password')->password()->revealable()->required(fn (string $operation): bool => $operation === 'create')->dehydrated(fn (?string $state): bool => filled($state)),
                 Toggle::make('teacher_active')->label('Active for new assignments')->default(false)->required(),
+            ])->columns(2),
+            Section::make('Public teacher profile')->relationship('teacherProfile')->schema([
+                FileUpload::make('photo_path')->label('Public profile photo')->image()->disk('public')->directory('teachers')->visibility('public')->imageEditor()->maxSize(5120),
+                Textarea::make('bio')->label('Public biography')->rows(4)->maxLength(500)->columnSpanFull(),
             ])->columns(2),
             Section::make('Weekly availability')->description('Times are in Europe/Bucharest. Multiple intervals per day are supported.')->schema([
                 Repeater::make('availabilityRules')->relationship()->schema([

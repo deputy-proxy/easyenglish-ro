@@ -45,15 +45,15 @@
 
                     @if ($booking->teacher)
                         <div class="mt-4 flex items-start gap-3">
-                            @if ($booking->teacher->teacher_photo_path)
-                                <img src="{{ Storage::disk('public')->url($booking->teacher->teacher_photo_path) }}" alt="" class="h-11 w-11 rounded-full object-cover">
+                            @if ($booking->teacher->teacherProfile?->photo_path)
+                                <img src="{{ Storage::disk('public')->url($booking->teacher->teacherProfile?->photo_path) }}" alt="" class="h-11 w-11 rounded-full object-cover">
                             @else
                                 <div aria-hidden="true" class="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-sm font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{{ mb_substr($booking->teacher->name, 0, 1) }}</div>
                             @endif
                             <div>
                                 <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('public.dashboard_session_teacher') }}: {{ $booking->teacher->name }}</p>
-                                @if ($booking->teacher->teacher_bio)
-                                    <p class="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">{{ $booking->teacher->teacher_bio }}</p>
+                                @if ($booking->teacher->teacherProfile?->bio)
+                                    <p class="mt-1 text-sm leading-5 text-zinc-600 dark:text-zinc-300">{{ $booking->teacher->teacherProfile?->bio }}</p>
                                 @endif
                             </div>
                         </div>

@@ -34,9 +34,10 @@ class Profile extends Component
     {
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
-        $this->english_level = Auth::user()->english_level ?? '';
-        $this->session_goal = Auth::user()->session_goal ?? '';
-        $this->session_notes = Auth::user()->session_notes ?? '';
+        $studentProfile = Auth::user()->studentProfile;
+        $this->english_level = $studentProfile->english_level ?? '';
+        $this->session_goal = $studentProfile->learning_goal ?? '';
+        $this->session_notes = $studentProfile->notes ?? '';
     }
 
     /**
@@ -57,6 +58,13 @@ class Profile extends Component
         $validated['session_goal'] = filled($validated['session_goal']) ? trim($validated['session_goal']) : null;
         $validated['session_notes'] = filled($validated['session_notes']) ? trim($validated['session_notes']) : null;
 
+        $studentProfileData = [
+            'english_level' => $validated['english_level'],
+            'learning_goal' => $validated['session_goal'],
+            'notes' => $validated['session_notes'],
+        ];
+        unset($validated['english_level'], $validated['session_goal'], $validated['session_notes']);
+
         $user->fill($validated);
 
         if ($user->isDirty('email')) {
@@ -64,6 +72,9 @@ class Profile extends Component
         }
 
         $user->save();
+        if (! $user->is_teacher && ! $user->is_staff) {
+            $user->studentProfile()->updateOrCreate([], $studentProfileData);
+        }
 
         Flux::toast(variant: 'success', text: __('Profile updated.'));
     }

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\User;
+
 test('customers can register and are returned to the selected customer journey', function () {
     $this->get('/register')->assertOk()->assertSee('Create an account');
 
@@ -14,6 +16,7 @@ test('customers can register and are returned to the selected customer journey',
         'password_confirmation' => 'StrongPassword123!',
     ])->assertRedirect();
 
-    $this->assertDatabaseHas('users', ['email' => 'new-learner@example.com', 'name' => 'New Learner', 'phone' => '+40722123456', 'english_level' => 'B1', 'session_goal' => 'Work conversations']);
+    $this->assertDatabaseHas('users', ['email' => 'new-learner@example.com', 'name' => 'New Learner', 'phone' => '+40722123456']);
+    $this->assertDatabaseHas('student_profiles', ['user_id' => User::query()->where('email', 'new-learner@example.com')->value('id'), 'english_level' => 'B1', 'learning_goal' => 'Work conversations', 'notes' => 'Prepare for meetings']);
     $this->assertAuthenticated();
 });

@@ -31,7 +31,7 @@ class CustomerResource extends Resource
     {
         return parent::getEloquentQuery()
             ->where('is_staff', false)
-            ->where('is_teacher', false);
+            ->where('is_teacher', false)->with('studentProfile');
     }
 
     public static function form(Schema $schema): Schema
@@ -46,9 +46,9 @@ class CustomerResource extends Resource
                 TextEntry::make('name'),
                 TextEntry::make('email'),
                 TextEntry::make('phone')->placeholder('Not provided'),
-                TextEntry::make('english_level')->label('English level')->placeholder('Not provided'),
-                TextEntry::make('session_goal')->label('Learning goal')->placeholder('Not provided'),
-                TextEntry::make('session_notes')->label('Notes')->placeholder('None'),
+                TextEntry::make('studentProfile.english_level')->label('English level')->placeholder('Not provided'),
+                TextEntry::make('studentProfile.learning_goal')->label('Learning goal')->placeholder('Not provided'),
+                TextEntry::make('studentProfile.notes')->label('Notes')->placeholder('None'),
                 TextEntry::make('email_verified_at')->label('Email verified')->dateTime(),
                 TextEntry::make('phone_verified_at')->label('Phone verified')->dateTime(),
                 TextEntry::make('created_at')->label('Registered')->dateTime(),
@@ -62,7 +62,7 @@ class CustomerResource extends Resource
             TextColumn::make('name')->searchable()->sortable(),
             TextColumn::make('email')->searchable(),
             TextColumn::make('phone')->searchable()->placeholder('—'),
-            TextColumn::make('english_level')->label('Level')->badge()->placeholder('—'),
+            TextColumn::make('studentProfile.english_level')->label('Level')->badge()->placeholder('—'),
             TextColumn::make('email_verified_at')->label('Email verified')->dateTime('d M Y')->placeholder('No'),
             TextColumn::make('created_at')->label('Registered')->dateTime('d M Y')->sortable(),
         ])->filters([

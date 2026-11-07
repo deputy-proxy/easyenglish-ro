@@ -34,18 +34,18 @@
                 <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.profile_assessment_empty') }}</p>
             @endif
 
-            @if ($latestAssessedProgressReport && auth()->user()->english_level)
+            @if ($latestAssessedProgressReport && auth()->user()->studentProfile?->english_level)
                 <div class="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
                     <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('public.profile_level_self_reported') }}</p>
-                    <p class="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ auth()->user()->english_level }}</p>
+                    <p class="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-200">{{ auth()->user()->studentProfile?->english_level }}</p>
                 </div>
             @endif
         </article>
 
         <article class="dashboard-panel">
             <h3 class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('public.profile_learning_goal') }}</h3>
-            @if (auth()->user()->session_goal)
-                <p class="mt-3 whitespace-pre-wrap text-base leading-7 text-zinc-900 dark:text-white">{{ auth()->user()->session_goal }}</p>
+            @if (auth()->user()->studentProfile?->learning_goal)
+                <p class="mt-3 whitespace-pre-wrap text-base leading-7 text-zinc-900 dark:text-white">{{ auth()->user()->studentProfile?->learning_goal }}</p>
             @else
                 <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.profile_no_goal') }}</p>
             @endif
@@ -54,8 +54,8 @@
 
     <article class="dashboard-panel">
         <h3 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('public.profile_learning_preferences') }}</h3>
-        @if (auth()->user()->session_notes)
-            <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-200">{{ auth()->user()->session_notes }}</p>
+        @if (auth()->user()->studentProfile?->notes)
+            <p class="mt-3 whitespace-pre-wrap text-sm leading-7 text-zinc-700 dark:text-zinc-200">{{ auth()->user()->studentProfile?->notes }}</p>
         @else
             <p class="mt-3 text-sm leading-6 text-zinc-600 dark:text-zinc-300">{{ __('public.profile_no_preferences') }}</p>
         @endif
