@@ -30,10 +30,6 @@ class AvailabilityService
             return collect();
         }
 
-        if (! $this->teacherAvailabilityEnabled()) {
-            return $this->legacySlotsForDate($day, $ignoreBookingId);
-        }
-
         $slots = collect();
         foreach ($this->eligibleTeachers() as $teacher) {
             foreach ($this->slotsForTeacherDate($teacher, $day, $ignoreBookingId) as $slot) {
@@ -52,10 +48,6 @@ class AvailabilityService
     /** @return Collection<int, User> */
     public function eligibleTeachersForSlot(CarbonImmutable $startsAt, ?int $ignoreBookingId = null): Collection
     {
-        if (! $this->teacherAvailabilityEnabled()) {
-            return collect();
-        }
-
         $day = $startsAt->setTimezone(self::TIMEZONE)->startOfDay();
 
         return $this->eligibleTeachers()->filter(function (User $teacher) use ($startsAt, $day, $ignoreBookingId): bool {
@@ -66,17 +58,7 @@ class AvailabilityService
 
     public function assertBookable(CarbonImmutable $startsAt, ?int $ignoreBookingId = null): void
     {
-        if ($this->teacherAvailabilityEnabled()) {
-            if ($this->eligibleTeachersForSlot($startsAt, $ignoreBookingId)->isNotEmpty()) {
-                return;
-            }
-
-            throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
-        }
-
-        $local = $startsAt->setTimezone(self::TIMEZONE);
-        $slot = $this->slotsForDate($local->format('Y-m-d'), $ignoreBookingId)->first(fn (array $candidate): bool => $candidate['starts_at']->utc()->equalTo($startsAt->utc()));
-        if ($slot === null) {
+        if ($this->eligibleTeachersForSlot($startsAt, $ignoreBookingId)->isEmpty()) {
             throw ValidationException::withMessages(['starts_at' => 'That time is no longer available. Please choose another slot.']);
         }
     }
@@ -87,7 +69,6 @@ class AvailabilityService
         return User::query()
             ->where('is_teacher', true)
             ->where('teacher_active', true)
-            ->whereHas('teacherCalendar', fn ($query) => $query->where('status', 'connected')->where('last_synced_at', '>=', now()->subMinutes(10)))
             ->with('teacherCalendar')
             ->withMax(['bookingsAsTeacher as last_assigned_at' => function ($query): void {
                 $query->whereNotIn('status', ['cancelled', 'expired', 'failed', 'refunded'])
@@ -169,10 +150,6 @@ class AvailabilityService
     /** @return Collection<int, array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}> */
     private function slotsForTeacherDate(User $teacher, CarbonImmutable $day, ?int $ignoreBookingId): Collection
     {
-        if (! $teacher->teacherCalendar?->isFreshFor($day)) {
-            return collect();
-        }
-
         $weekday = $day->dayOfWeekIso % 7;
         $previousWeekday = ($weekday + 6) % 7;
         $exceptions = $teacher->availabilityExceptions()
@@ -216,10 +193,12 @@ class AvailabilityService
                 });
         }
 
-        $busyIntervals = TeacherCalendarBusyInterval::query()->where('user_id', $teacher->id)
-            ->where('starts_at', '<', $day->endOfDay()->utc()->addMinutes(self::BUFFER_MINUTES)->toDateTimeString())
-            ->where('ends_at', '>', $day->utc()->subMinutes(self::BUFFER_MINUTES)->toDateTimeString())
-            ->get();
+        $busyIntervals = $teacher->teacherCalendar?->isFreshFor($day)
+            ? TeacherCalendarBusyInterval::query()->where('user_id', $teacher->id)
+                ->where('starts_at', '<', $day->endOfDay()->utc()->addMinutes(self::BUFFER_MINUTES)->toDateTimeString())
+                ->where('ends_at', '>', $day->utc()->subMinutes(self::BUFFER_MINUTES)->toDateTimeString())
+                ->get()
+            : collect();
 
         $slots = collect();
         foreach ($windows as $window) {
