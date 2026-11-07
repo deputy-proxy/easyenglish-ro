@@ -23,6 +23,8 @@ test('configures OpenWA compact-session persistence on the Railway volume', () =
   });
   assert.equal(options.sessionDataPath, '/data/session/session.data.json');
   assert.equal(options.sessionDataEncryptionKeyFile, '/data/keys/session-encryption.key');
+  assert.equal(options.qrTimeoutMs, 0);
+  assert.equal('qrTimeout' in options, false);
   assert.equal(options.skipSessionSave, false);
   assert.equal('userDataDir' in options, false);
   assert.equal('ephemeral' in options, false);
