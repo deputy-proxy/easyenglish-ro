@@ -70,7 +70,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('I have a presentation next week.')
         ->assertSee('data-hero-shell', false)
         ->assertSee('pt-6', false)
-        ->assertSee('md:pt-[88px]', false)
+        ->assertSee('md:pt-[140px]', false)
         ->assertSeeInOrder(['images/teacher-mobile-hero.webp', 'images/student-mobile-hero.webp'])
         ->assertSee('my-5 max-w-[38ch]', false)
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
