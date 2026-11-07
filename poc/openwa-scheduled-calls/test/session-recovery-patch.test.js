@@ -24,8 +24,8 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /stackFrames/);
   assert.match(patch, /openwa_detached_frame_cleanup_v1/);
   assert.match(patch, /PAGE_CONTEXT_CHANGED/);
-  assert.match(patch, /openwa_identity_import_diagnostic_v1/);
-  assert.match(patch, /openwa_identity_import_set_me_failed_v1/);
+  assert.match(patch, /openwa_identity_set_me_pn_compat_v1/);
+  assert.match(patch, /_0x56aad0\.setMePn/);
   assert.match(patch, /source\.indexOf\('const startupDiagnostic = await this\.page\.evaluateScript\('/);
   assert.match(patch, /versioned/);
   assert.match(patch, /loggerMarker/);
@@ -102,11 +102,28 @@ test('detached-frame cleanup races are skipped without failing runtime cleanup',
 });
 
 
-test('portable identity import diagnostics expose only module API and type metadata', async () => {
+test('portable identity import uses the current WhatsApp setMePn API when legacy setMe is absent', async () => {
   const preInit = await readFile(new URL('../node_modules/@open-wa/core/dist/transport/assets/pre_init.js', import.meta.url), 'utf8');
-  assert.match(preInit, /openwa_identity_import_diagnostic_v1/);
-  assert.match(preInit, /meUserKeys/);
-  assert.match(preInit, /openwa_identity_import_set_me_failed_v1/);
-  assert.match(preInit, /selfPnType/);
-  assert.doesNotMatch(preInit, /selfPn:[^,}]+/);
+  assert.match(preInit, /openwa_identity_set_me_pn_compat_v1/);
+  assert.match(preInit, /_0x56aad0\.setMePn/);
+  assert.doesNotMatch(preInit, /openwa_identity_import_diagnostic_v1/);
+  assert.doesNotMatch(preInit, /openwa_identity_import_set_me_failed_v1/);
+});
+
+
+test('identity compatibility prefers setMe and falls back to setMePn without changing the receiver', async () => {
+  const patch = await readFile(new URL('../scripts/patch-openwa-session-recovery.js', import.meta.url), 'utf8');
+  const template = patch.match(/const identitySetMeCompatCall = `([\s\S]*?)`;/)?.[1];
+  assert.ok(template);
+  const invoke = new Function('_0x56aad0', '_0x1cb772', `return ${template.replace(/^,/, '')};`);
+  const identity = { wid: 'test' };
+  const legacy = { setMe(value) { this.method = 'setMe'; this.value = value; }, setMePn() { throw new Error('should not be used'); } };
+  invoke(legacy, identity);
+  assert.equal(legacy.method, 'setMe');
+  assert.equal(legacy.value, identity);
+  const current = { setMePn(value) { this.method = 'setMePn'; this.value = value; } };
+  invoke(current, identity);
+  assert.equal(current.method, 'setMePn');
+  assert.equal(current.value, identity);
+  assert.throws(() => invoke({}, identity), /OPENWA_IDENTITY_SET_ME_METHOD_UNAVAILABLE/);
 });
