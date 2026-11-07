@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import vm from 'node:vm';
 
 test('production install applies a version-pinned checkpoint-preserving OpenWA recovery patch', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
@@ -16,9 +17,13 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /pageDiagnosticScript/);
   assert.match(patch, /evaluateScript\(\$\{JSON\.stringify\(pageDiagnosticScript\)\}/);
   assert.match(patch, /Object\.getOwnPropertyNames\(value\)/);
-  assert.match(patch, /frames: Array\.isArray\(value\.frames\)/);
-  assert.match(patch, /frameCount: Array\.isArray\(value\.frames\)/);
+  assert.match(patch, /framesType: Array\.isArray\(frames\)/);
+  assert.match(patch, /frameCount: Array\.isArray\(frames\)/);
   assert.match(patch, /openwa_restore_frames_v2/);
+  assert.match(patch, /getFunctionName/);
+  assert.match(patch, /stackFrames/);
+  assert.match(patch, /openwa_detached_frame_cleanup_v1/);
+  assert.match(patch, /PAGE_CONTEXT_CHANGED/);
   assert.match(patch, /source\.indexOf\('const startupDiagnostic = await this\.page\.evaluateScript\('/);
   assert.match(patch, /versioned/);
   assert.match(patch, /loggerMarker/);
@@ -28,8 +33,10 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   for (const filename of ['index.cjs', 'index.mjs']) {
     const installed = await readFile(new URL(`../node_modules/@open-wa/core/dist/${filename}`, import.meta.url), 'utf8');
     assert.match(installed, /openwa_restore_frames_v2/);
-    assert.match(installed, /frameCount: Array\.isArray\(value\.frames\)/);
+    assert.match(installed, /frameCount: Array\.isArray\(frames\)/);
     assert.match(installed, /SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED/);
+    assert.match(installed, /openwa_detached_frame_cleanup_v1/);
+    assert.match(installed, /PAGE_CONTEXT_CHANGED/);
   }
 });
 
@@ -38,4 +45,56 @@ test('startup failure logging exposes only a safe restoration error code', async
   assert.match(server, /SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED/);
   assert.match(server, /openwa\.session\.restore_failed/);
   assert.doesNotMatch(server, /log\('error', 'openwa\.session\.start_failed', \{ error: error \}\)/);
+});
+
+
+test('startup diagnostics safely extract bounded frame metadata', async () => {
+  const patch = await readFile(new URL('../scripts/patch-openwa-session-recovery.js', import.meta.url), 'utf8');
+  const template = patch.match(/const pageDiagnosticScript = String\.raw`([\s\S]*?)`;/)?.[1];
+  assert.ok(template);
+  const diagnosticScript = vm.runInNewContext('String.raw`' + template + '`');
+  const result = vm.runInNewContext(diagnosticScript, {
+    OpenWA_PortableSession: {
+      startupDiagnostic: () => ({
+        phase: 'launch-failed',
+        error: Object.assign(new TypeError('restore failed'), {
+          code: 'UNCLASSIFIED_STARTUP_ERROR',
+          frames: [{
+            getFunctionName: () => 'restoreAuth',
+            getFileName: () => '/private/pre_init.js',
+            getLineNumber: () => 42,
+            getColumnNumber: () => 7,
+          }],
+        }),
+      }),
+    },
+  });
+  assert.equal(result.phase, 'launch-failed');
+  assert.deepEqual({ ...result.error.frames[0] }, { functionName: 'restoreAuth', file: 'pre_init.js', line: 42, column: 7 });
+  assert.equal(result.error.errorMessage, 'restore failed');
+});
+
+
+test('detached-frame cleanup races are skipped without failing runtime cleanup', async () => {
+  const patch = await readFile(new URL('../scripts/patch-openwa-session-recovery.js', import.meta.url), 'utf8');
+  const template = patch.match(/const cleanupPatch = `([\s\S]*?)`;/)?.[1];
+  assert.ok(template);
+  const PatchedTransport = new Function(`return class PatchedTransport { ${template} }`)();
+  const calls = [];
+  const transport = new PatchedTransport();
+  transport.runtimeBridgeResetTimeoutMs = 100;
+  transport.logger = {
+    debug: (...args) => calls.push(['debug', ...args]),
+    warn: (...args) => calls.push(['warn', ...args]),
+  };
+  transport.page = {
+    isClosed: () => false,
+    mainFrame: () => ({ unwrap: () => ({ isDetached: () => false }) }),
+    evaluate: () => Promise.reject(new Error("Attempted to use detached Frame 'frame-id'")),
+  };
+  await transport.resetPageRuntimeBridgeState('runtime_cleanup:test');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0], 'debug');
+  assert.equal(calls[0][1], 'injection_controller_runtime_bridge_reset_skipped');
+  assert.deepEqual(calls[0][2], { reason: 'runtime_cleanup:test', code: 'PAGE_CONTEXT_CHANGED' });
 });
