@@ -710,7 +710,7 @@ test('the landing page performs a read-only eligibility check for already verifi
         ->assertOk()
         ->assertSee(__('public.booking_account_validated_title'))
         ->assertSee('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"', false)
-        ->assertSee('Go to my purchases')
+        ->assertSee(__('public.booking_account_validated_link'))
         ->assertDontSee('data-used-free-bundle-modal', false)
         ->assertDontSee(__('public.booking_submit_intro'));
 
@@ -756,7 +756,7 @@ test('final inline verification returns only an already-used outcome when either
 
     expect($response->json('html'))->toContain(__('public.booking_account_validated_title'))
         ->and($response->json('html'))->toContain('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"')
-        ->and($response->json('html'))->toContain('Go to my purchases')
+        ->and($response->json('html'))->toContain(__('public.booking_account_validated_link'))
         ->and(Booking::query()->count())->toBe(0)
         ->and(BookingCallEvent::query()->count())->toBe(0)
         ->and(FreeSessionClaim::query()->count())->toBe(1);
