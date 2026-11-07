@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Booking\BookingCallEventController;
+use App\Http\Controllers\OpenWaSessionStatusController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\StripeWebhookController;
 use App\Http\Controllers\TeacherAvailabilityController;
@@ -32,6 +33,7 @@ Route::post('/stripe/webhook', StripeWebhookController::class)->withoutMiddlewar
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:60,1')->name('whatsapp.webhook.verify');
 Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('whatsapp.webhook.receive');
 Route::post('/webhooks/openwa', [WhatsAppWebhookController::class, 'receiveOpenWa'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('openwa.webhook.receive');
+Route::post('/webhooks/openwa/status', [OpenWaSessionStatusController::class, 'disconnected'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:30,1')->name('openwa.webhook.status');
 Route::get('/purchase/success', [PublicSiteController::class, 'purchaseSuccess'])->middleware('throttle:30,1')->name('purchase.success');
 Route::get('/purchase/cancel/{bundle}', [PublicSiteController::class, 'purchaseCancel'])->middleware('throttle:30,1')->name('purchase.cancel');
 Route::post('/purchase/{bundle}/checkout', [PublicSiteController::class, 'startCheckout'])->middleware(['auth', 'throttle:10,1'])->name('purchase.checkout');
