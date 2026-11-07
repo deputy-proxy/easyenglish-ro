@@ -29,14 +29,19 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        return User::create([
+        $user = User::create([
             'name' => $input['name'],
             'email' => mb_strtolower(trim($input['email'])),
             'password' => $input['password'],
             'phone' => PhoneNumber::normalize($input['phone']),
-            'english_level' => $input['english_level'],
-            'session_goal' => trim($input['session_goal']),
-            'session_notes' => $input['session_notes'] ?? null,
         ]);
+
+        $user->studentProfile()->create([
+            'english_level' => $input['english_level'],
+            'learning_goal' => trim($input['session_goal']),
+            'notes' => $input['session_notes'] ?? null,
+        ]);
+
+        return $user;
     }
 }

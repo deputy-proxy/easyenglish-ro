@@ -26,15 +26,10 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $email
  * @property string|null $phone
  * @property Carbon|null $phone_verified_at
- * @property string|null $english_level
- * @property string|null $session_goal
- * @property string|null $session_notes
  * @property bool $is_staff
  * @property bool $is_admin
  * @property bool $is_teacher
  * @property bool $teacher_active
- * @property string|null $teacher_photo_path
- * @property string|null $teacher_bio
  * @property TeacherCalendar|null $teacherCalendar
  * @property Carbon|null $email_verified_at
  * @property string $password
@@ -45,15 +40,62 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'english_level', 'session_goal', 'session_notes', 'is_staff', 'is_admin', 'is_teacher', 'teacher_active', 'teacher_photo_path', 'teacher_bio'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'is_staff', 'is_admin', 'is_teacher', 'teacher_active', 'english_level', 'session_goal', 'session_notes', 'teacher_photo_path', 'teacher_bio'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
+    /** @var array<string, mixed> Temporary compatibility values for legacy callers. */
+    protected array $pendingProfileAttributes = [];
+
+    /** @var array<string, array{relation: string, field: string}> */
+    private const LEGACY_PROFILE_ATTRIBUTES = [
+        'english_level' => ['relation' => 'studentProfile', 'field' => 'english_level'],
+        'session_goal' => ['relation' => 'studentProfile', 'field' => 'learning_goal'],
+        'session_notes' => ['relation' => 'studentProfile', 'field' => 'notes'],
+        'teacher_photo_path' => ['relation' => 'teacherProfile', 'field' => 'photo_path'],
+        'teacher_bio' => ['relation' => 'teacherProfile', 'field' => 'bio'],
+    ];
+
+    public function setAttribute($key, $value): static
+    {
+        if (isset(self::LEGACY_PROFILE_ATTRIBUTES[$key])) {
+            $this->pendingProfileAttributes[$key] = $value;
+
+            return $this;
+        }
+
+        return parent::setAttribute($key, $value);
+    }
+
+    public function getAttribute($key): mixed
+    {
+        if (isset(self::LEGACY_PROFILE_ATTRIBUTES[$key])) {
+            $mapping = self::LEGACY_PROFILE_ATTRIBUTES[$key];
+            $profile = $this->getRelationValue($mapping['relation']);
+
+            if ($profile !== null) {
+                return $profile->{$mapping['field']} ?? $this->pendingProfileAttributes[$key] ?? null;
+            }
+
+            return $this->pendingProfileAttributes[$key] ?? null;
+        }
+
+        return parent::getAttribute($key);
+    }
+
     protected static function booted(): void
     {
+        static::created(function (User $user): void {
+            $user->persistPendingProfileAttributes();
+        });
+
+        static::saved(function (User $user): void {
+            $user->persistPendingProfileAttributes();
+        });
+
         static::saving(function (User $user): void {
             if ($user->is_admin) {
                 $user->is_staff = true;
@@ -100,6 +142,46 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
     public function canAccessPanel(Panel $panel): bool
     {
         return (bool) $this->is_staff;
+    }
+
+    /** Persist legacy mass-assigned profile values while callers transition to profile relations. */
+    protected function persistPendingProfileAttributes(): void
+    {
+        if ($this->pendingProfileAttributes === []) {
+            return;
+        }
+
+        $student = [];
+        $teacher = [];
+        foreach ($this->pendingProfileAttributes as $key => $value) {
+            $mapping = self::LEGACY_PROFILE_ATTRIBUTES[$key];
+            if ($mapping['relation'] === 'teacherProfile') {
+                $teacher[$mapping['field']] = $value;
+            } else {
+                $student[$mapping['field']] = $value;
+            }
+        }
+
+        if ($student !== [] && ! $this->is_teacher && ! $this->is_staff) {
+            $this->studentProfile()->updateOrCreate([], $student);
+        }
+        if ($teacher !== [] && $this->is_teacher) {
+            $this->teacherProfile()->updateOrCreate([], $teacher);
+        }
+
+        $this->pendingProfileAttributes = [];
+    }
+
+    /** @return HasOne<StudentProfile, $this> */
+    public function studentProfile(): HasOne
+    {
+        return $this->hasOne(StudentProfile::class);
+    }
+
+    /** @return HasOne<TeacherProfile, $this> */
+    public function teacherProfile(): HasOne
+    {
+        return $this->hasOne(TeacherProfile::class);
     }
 
     /** @return HasMany<AvailabilityRule, $this> */

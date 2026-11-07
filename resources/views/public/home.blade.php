@@ -158,8 +158,8 @@
                     <div class="teacher-carousel" data-teacher-carousel>
                         @foreach ($teachers as $teacher)
                             <article class="teacher-card relative aspect-[3/4] w-full overflow-hidden rounded-[28px] bg-primary-strong shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-teacher-card>
-                                @if ($teacher->teacher_photo_path)
-                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
+                                @if ($teacher->teacherProfile?->photo_path)
+                                    <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacherProfile?->photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
                                 @else
                                     <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
                                 @endif
@@ -174,8 +174,8 @@
                                 </div>
                                 <dialog class="teacher-dialog" data-teacher-dialog aria-labelledby="teacher-dialog-title-{{ $teacher->id }}">
                                     <div class="teacher-dialog__background" aria-hidden="true">
-                                        @if ($teacher->teacher_photo_path)
-                                            <img src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="">
+                                        @if ($teacher->teacherProfile?->photo_path)
+                                            <img src="{{ '/storage/'.ltrim($teacher->teacherProfile?->photo_path, '/') }}" alt="">
                                         @else
                                             <div class="teacher-dialog__background-fallback"></div>
                                         @endif
@@ -183,14 +183,14 @@
                                     <div class="teacher-dialog__content">
                                         <button class="teacher-dialog__close" type="button" data-teacher-close aria-label="{{ __('public.teacher_close') }}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m18 6-12 12M6 6l12 12" /></svg></button>
                                         <div class="teacher-dialog__profile">
-                                            @if ($teacher->teacher_photo_path)
-                                                <img class="teacher-dialog__photo" src="{{ '/storage/'.ltrim($teacher->teacher_photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}">
+                                            @if ($teacher->teacherProfile?->photo_path)
+                                                <img class="teacher-dialog__photo" src="{{ '/storage/'.ltrim($teacher->teacherProfile?->photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}">
                                             @else
                                                 <div class="teacher-dialog__photo teacher-dialog__photo--fallback" aria-hidden="true">{{ mb_substr($teacher->name, 0, 1) }}</div>
                                             @endif
                                             <div class="teacher-dialog__biography">
                                                 <h3 class="mb-3 text-2xl font-semibold leading-tight tracking-tight sm:text-3xl" id="teacher-dialog-title-{{ $teacher->id }}">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
-                                                <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacher_bio) ? $teacher->teacher_bio : __('public.teacher_bio_fallback') }}</p>
+                                                <p class="m-0 leading-[1.75] text-muted whitespace-pre-line">{{ filled($teacher->teacherProfile?->bio) ? $teacher->teacherProfile?->bio : __('public.teacher_bio_fallback') }}</p>
                                             </div>
                                         </div>
                                     </div>

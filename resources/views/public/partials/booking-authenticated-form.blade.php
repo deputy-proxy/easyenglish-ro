@@ -84,7 +84,7 @@
             <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone', $bookingFormData['phone'] ?? $verification?->customer_phone ?? auth()->user()->phone) }}" autocomplete="tel" required maxlength="32" pattern="[+0-9 () .-]{7,32}">
         </div>
     </div>
-    @if(! auth()->user()->english_level)
+    @if(! auth()->user()->studentProfile?->english_level)
         <div class="grid gap-2">
             <label class="text-sm font-semibold text-ink" for="free-session-level">{{ __('public.field_level') }}</label>
             <select class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-level" name="english_level" required>
@@ -95,23 +95,23 @@
             </select>
         </div>
     @else
-        <input type="hidden" name="english_level" value="{{ auth()->user()->english_level }}">
+        <input type="hidden" name="english_level" value="{{ auth()->user()->studentProfile?->english_level }}">
     @endif
-    @if(! auth()->user()->session_goal)
+    @if(! auth()->user()->studentProfile?->learning_goal)
         <div class="grid gap-2">
             <label class="text-sm font-semibold text-ink" for="free-session-goal">{{ __('public.field_goal') }}</label>
             <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-goal" name="session_goal" value="{{ old('session_goal', $bookingFormData['session_goal'] ?? '') }}" placeholder="{{ __('public.field_goal_placeholder') }}" required maxlength="500">
         </div>
     @else
-        <input type="hidden" name="session_goal" value="{{ auth()->user()->session_goal }}">
+        <input type="hidden" name="session_goal" value="{{ auth()->user()->studentProfile?->learning_goal }}">
     @endif
-    @if(! auth()->user()->english_level)
+    @if(! auth()->user()->studentProfile?->english_level)
         <div class="grid gap-2">
             <label class="text-sm font-semibold text-ink" for="free-session-notes">{{ __('public.field_notes') }}</label>
-            <textarea class="min-h-28 rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-notes" name="notes" maxlength="5000" placeholder="{{ __('public.field_notes_placeholder') }}">{{ old('notes', $bookingFormData['notes'] ?? auth()->user()->session_notes) }}</textarea>
+            <textarea class="min-h-28 rounded-xl border border-line bg-white px-4 py-3 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-notes" name="notes" maxlength="5000" placeholder="{{ __('public.field_notes_placeholder') }}">{{ old('notes', $bookingFormData['notes'] ?? auth()->user()->studentProfile?->notes) }}</textarea>
         </div>
     @else
-        <input type="hidden" name="notes" value="{{ auth()->user()->session_notes }}">
+        <input type="hidden" name="notes" value="{{ auth()->user()->studentProfile?->notes }}">
     @endif
     <div class="rounded-xl bg-surface-subtle p-4 text-xs leading-relaxed text-muted">
         {{ __('public.policy_summary') }} <a class="font-semibold text-primary underline" href="{{ route('policy','terms') }}">{{ __('public.footer_terms') }}</a> · <a class="font-semibold text-primary underline" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a>

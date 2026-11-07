@@ -77,7 +77,7 @@ class PublicSiteController extends Controller
 
         return view('public.home', [
             'bundles' => BundleDefinition::query()->where('is_active', true)->orderBy('sort_order')->orderBy('price_ron')->get(),
-            'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->orderBy('name')->get(['id', 'name', 'teacher_photo_path', 'teacher_bio']),
+            'teachers' => User::query()->where('is_teacher', true)->where('teacher_active', true)->with('teacherProfile')->orderBy('name')->get(['id', 'name']),
             'faqs' => Faq::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderBy('id')->get(['id', 'question', 'answer', 'category']),
             'testimonials' => Testimonial::query()->publiclyVisible()->where('locale', app()->getLocale())->orderBy('sort_order')->orderByDesc('updated_at')->get(['id', 'quote', 'author_name', 'author_context']),
             'weekStart' => CarbonImmutable::now(AvailabilityService::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY),
@@ -592,9 +592,9 @@ class PublicSiteController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
-            'english_level' => $user->english_level,
-            'session_goal' => $user->session_goal,
-            'notes' => $user->session_notes,
+            'english_level' => $user->studentProfile?->english_level,
+            'session_goal' => $user->studentProfile?->learning_goal,
+            'notes' => $user->studentProfile?->notes,
             'starts_at' => $validated['starts_at'],
             'accepted_policy' => $validated['accepted_policy'],
             'whatsapp_service_consent' => $validated['whatsapp_service_consent'] ?? null,
@@ -663,9 +663,9 @@ class PublicSiteController extends Controller
             'name' => Auth::user()->name,
             'email' => Auth::user()->email,
             'phone' => Auth::user()->phone,
-            'english_level' => Auth::user()->english_level,
-            'session_goal' => Auth::user()->session_goal,
-            'notes' => Auth::user()->session_notes,
+            'english_level' => Auth::user()->studentProfile?->english_level,
+            'session_goal' => Auth::user()->studentProfile?->learning_goal,
+            'notes' => Auth::user()->studentProfile?->notes,
             'starts_at' => $validated['starts_at'],
             'type' => 'intro',
             'return_to' => 'booking',
@@ -1025,7 +1025,7 @@ class PublicSiteController extends Controller
     public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy, CustomerPurchasePresenter $purchasePresenter): Response|RedirectResponse
     {
         $this->applyLocale($request);
-        $customer = $request->user();
+        $customer = $request->user()->loadMissing('studentProfile');
         if ($customer->isTeacher()) {
             return redirect()->route($customer->teacher_active ? 'teacher.dashboard' : 'teacher.availability');
         }
@@ -1054,7 +1054,7 @@ class PublicSiteController extends Controller
 
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()
-            ->with(['teacher:id,name,teacher_photo_path,teacher_bio', 'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
+            ->with(['teacher:id,name', 'teacher.teacherProfile', 'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision')])
             ->ownedBy($customer)
             ->whereIn('status', ['confirmed', 'pending'])
             ->where('starts_at', '>=', $now)
@@ -1217,10 +1217,10 @@ class PublicSiteController extends Controller
                 ->first();
         }
 
-        $learnerProfileLevel = $latestAssessedProgressReport->overall_level ?? $customer->english_level;
+        $learnerProfileLevel = $latestAssessedProgressReport->overall_level ?? $customer->studentProfile?->english_level;
         $learnerProfileLevelSource = $latestAssessedProgressReport !== null
             ? 'assessed'
-            : ($customer->english_level !== null ? 'self_reported' : 'unset');
+            : ($customer->studentProfile?->english_level !== null ? 'self_reported' : 'unset');
 
         $nextSession = $bookings->first();
         $nextSessionUrl = $nextSession instanceof Booking ? $this->signedBookingDetailsUrl($nextSession) : null;
@@ -1329,7 +1329,7 @@ class PublicSiteController extends Controller
             $sessionQuery = Booking::query()
                 ->ownedBy($customer)
                 ->with([
-                    'teacher:id,name,teacher_photo_path,teacher_bio',
+                    'teacher:id,name', 'teacher.teacherProfile',
                     'callEvents' => fn ($query) => $query->where('provider', 'openwa')->orderByDesc('revision'),
                 ]);
 
