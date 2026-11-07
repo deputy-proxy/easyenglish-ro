@@ -6,7 +6,7 @@ import { validateCallEvent } from './events.js';
 import { decideEventRequest, hashRequest } from './idempotency.js';
 import { createHash } from 'node:crypto';
 
-export function createApp({ config, state, store, messageStore = null, messageTimeoutMs = 15000, pairingDirectory = path.join(process.cwd(), 'public'), logger = console, providerTimeouts = { create: 25000, read: 10000, cancel: 10000 } }) {
+export function createApp({ config, state, store, messageStore = null, resetSession = null, messageTimeoutMs = 15000, pairingDirectory = path.join(process.cwd(), 'public'), logger = console, providerTimeouts = { create: 25000, read: 10000, cancel: 10000 } }) {
   const app = express();
   let createQueue = Promise.resolve();
   let messageQueue = Promise.resolve();
