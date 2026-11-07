@@ -818,6 +818,55 @@ test('registration submits asynchronously and returns the authenticated contact-
     expect(WhatsAppContact::query()->where('phone', '+40722123456')->first()?->canReceiveServiceMessages())->toBeTrue();
 });
 
+test('contact verification preserves policy acceptance from asynchronous registration when checkbox data is omitted', function () {
+    $user = User::factory()->create([
+        'email' => 'policy-session@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($user)->withSession([
+        'locale' => 'ro',
+        'contact_verification_form_data' => [
+            'accepted_policy' => '1',
+        ],
+    ])->postJson(route('verification.start'), [
+        'return_to' => 'booking',
+        'type' => 'intro',
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'starts_at' => '2026-10-27T09:00:00+02:00',
+        'english_level' => 'B1',
+        'session_goal' => 'Work conversations',
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('eligibility.eligible', true)
+        ->assertJsonPath('next_step', 'eligible');
+});
+
+test('contact verification returns a localized policy acceptance error when consent was never recorded', function () {
+    $user = User::factory()->create([
+        'email' => 'policy-required@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+
+    $this->actingAs($user)->withSession(['locale' => 'ro'])
+        ->postJson(route('verification.start'), [
+            'return_to' => 'booking',
+            'type' => 'intro',
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'starts_at' => '2026-10-27T09:00:00+02:00',
+            'english_level' => 'B1',
+            'session_goal' => 'Work conversations',
+        ])->assertUnprocessable()
+        ->assertJsonPath('errors.accepted_policy.0', __('public.policy_accept_required'));
+});
+
 test('existing account login submits asynchronously and advances directly to booking when contacts are already verified', function () {
     $user = User::factory()->create([
         'email' => 'async-existing@example.com',
