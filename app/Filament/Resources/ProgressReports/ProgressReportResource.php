@@ -65,8 +65,12 @@ class ProgressReportResource extends Resource
             }),
         ])->defaultSort('updated_at', 'desc')->recordActions([
             EditAction::make()->mutateDataUsing(fn (array $data): array => [...$data, 'created_by' => Auth::id()]),
-            DeleteAction::make(),
-        ])->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()])]);
+            DeleteAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
+        ])->toolbarActions([BulkActionGroup::make([DeleteBulkAction::make()
+            ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+            ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)])]);
     }
 
     public static function canCreate(): bool
@@ -81,7 +85,12 @@ class ProgressReportResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return true;
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getPages(): array

@@ -2,6 +2,7 @@
 
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Teachers\Pages\ManageTeachers;
+use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,4 +47,49 @@ test('creating a teacher through the teachers resource creates a user account fl
     expect($teacher)->not->toBeNull()
         ->and($teacher->is_teacher)->toBeTrue()
         ->and($teacher->teacher_active)->toBeTrue();
+});
+
+test('administrator access is separate from staff access and always grants panel access', function () {
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => false]);
+    $admin = User::factory()->create(['is_staff' => false, 'is_admin' => true]);
+
+    expect($staff->isAdmin())->toBeFalse()
+        ->and($admin->fresh()->isAdmin())->toBeTrue()
+        ->and($admin->fresh()->is_staff)->toBeTrue();
+});
+
+test('staff cannot grant administrator access through user management', function () {
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => false]);
+
+    Livewire::actingAs($staff)
+        ->test(ManageUsers::class)
+        ->callAction('create', data: [
+            'name' => 'Attempted Admin',
+            'email' => 'attempted.admin@example.com',
+            'password' => 'A-secure-password-123',
+            'is_staff' => true,
+            'is_admin' => true,
+        ]);
+
+    $created = User::query()->where('email', 'attempted.admin@example.com')->firstOrFail();
+
+    expect($created->isAdmin())->toBeFalse();
+});
+
+test('administrators can grant administrator access through user management', function () {
+    $admin = User::factory()->create(['is_staff' => true, 'is_admin' => true]);
+
+    Livewire::actingAs($admin)
+        ->test(ManageUsers::class)
+        ->callAction('create', data: [
+            'name' => 'New Admin',
+            'email' => 'new.admin@example.com',
+            'password' => 'A-secure-password-123',
+            'is_admin' => true,
+        ]);
+
+    $created = User::query()->where('email', 'new.admin@example.com')->firstOrFail();
+
+    expect($created->isAdmin())->toBeTrue()
+        ->and($created->is_staff)->toBeTrue();
 });

@@ -62,9 +62,13 @@ class TestimonialResource extends Resource
             SelectFilter::make('is_published')->label('Publication status')->options(['1' => 'Published', '0' => 'Unpublished']),
         ])->defaultSort('sort_order')->recordActions([
             EditAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
         ])->toolbarActions([
-            BulkActionGroup::make([DeleteBulkAction::make()]),
+            BulkActionGroup::make([DeleteBulkAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)]),
         ]);
     }
 
@@ -80,7 +84,12 @@ class TestimonialResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return true;
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getPages(): array

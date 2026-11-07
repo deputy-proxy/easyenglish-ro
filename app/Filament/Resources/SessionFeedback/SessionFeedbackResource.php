@@ -69,9 +69,13 @@ class SessionFeedbackResource extends Resource
             TextColumn::make('updated_at')->dateTime('d M Y H:i')->sortable(),
         ])->defaultSort('updated_at', 'desc')->recordActions([
             EditAction::make()->mutateDataUsing(fn (array $data): array => [...$data, 'recorded_by' => Auth::id()]),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
         ])->toolbarActions([
-            BulkActionGroup::make([DeleteBulkAction::make()]),
+            BulkActionGroup::make([DeleteBulkAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)]),
         ]);
     }
 
@@ -87,7 +91,12 @@ class SessionFeedbackResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return true;
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getPages(): array

@@ -20,6 +20,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class BundleDefinitionResource extends Resource
@@ -87,8 +88,20 @@ class BundleDefinitionResource extends Resource
             IconColumn::make('is_active')->label('Available')->boolean(),
         ])->defaultSort('sort_order')->recordActions([
             EditAction::make(),
-            DeleteAction::make()->visible(fn (BundleDefinition $record): bool => ! $record->entitlements()->exists()),
+            DeleteAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (BundleDefinition $record): bool => (auth()->user()?->isAdmin() ?? false) && ! $record->entitlements()->exists()),
         ]);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getPages(): array

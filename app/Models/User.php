@@ -30,6 +30,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string|null $session_goal
  * @property string|null $session_notes
  * @property bool $is_staff
+ * @property bool $is_admin
  * @property bool $is_teacher
  * @property bool $teacher_active
  * @property string|null $teacher_photo_path
@@ -44,7 +45,7 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'english_level', 'session_goal', 'session_notes', 'is_staff', 'is_teacher', 'teacher_active', 'teacher_photo_path', 'teacher_bio'])]
+#[Fillable(['name', 'email', 'password', 'phone', 'phone_verified_at', 'english_level', 'session_goal', 'session_notes', 'is_staff', 'is_admin', 'is_teacher', 'teacher_active', 'teacher_photo_path', 'teacher_bio'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, PasskeyUser
 {
@@ -53,6 +54,12 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
 
     protected static function booted(): void
     {
+        static::saving(function (User $user): void {
+            if ($user->is_admin) {
+                $user->is_staff = true;
+            }
+        });
+
         static::deleting(function (User $user): void {
             if ($user->isTeacher()) {
                 if ($user->bookingsAsTeacher()->exists()) {
@@ -80,6 +87,7 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'is_staff' => 'boolean',
+            'is_admin' => 'boolean',
             'is_teacher' => 'boolean',
             'teacher_active' => 'boolean',
             'password' => 'hashed',
@@ -133,6 +141,11 @@ class User extends Authenticatable implements FilamentUser, PasskeyUser
     public function isTeacher(): bool
     {
         return (bool) $this->is_teacher;
+    }
+
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin;
     }
 
     public function initials(): string
