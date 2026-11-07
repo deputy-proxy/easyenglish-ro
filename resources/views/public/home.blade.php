@@ -327,7 +327,7 @@
                             <button class="font-bold text-primary underline" type="button" data-booking-branch-toggle="login">{{ __('public.booking_existing_account') }}</button>
                             <button class="hidden font-bold text-primary underline" type="button" data-booking-branch-toggle="register">{{ __('public.booking_new_account') }}</button>
                         </div>
-                        <form method="post" action="{{ route('booking.register') }}" class="space-y-5" data-booking-register-branch data-booking-async-form data-booking-auth-form>
+                        <form method="post" action="{{ route('booking.register') }}" data-booking-endpoint="{{ route('booking.register') }}" class="space-y-5" data-booking-register-branch data-booking-async-form data-booking-auth-form>
                             @csrf
                             <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
                             <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
@@ -388,7 +388,7 @@
                             <input type="hidden" name="starts_at" value="{{ request('slot', old('starts_at', '')) }}" data-booking-starts-at required>
                             <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.booking_create_account_continue') }}</button>
                         </form>
-                        <form method="post" action="{{ route('booking.login') }}" class="hidden space-y-5" data-booking-login-branch data-booking-async-form data-booking-auth-form>
+                        <form method="post" action="{{ route('booking.login') }}" data-booking-endpoint="{{ route('booking.login') }}" class="hidden space-y-5" data-booking-login-branch data-booking-async-form data-booking-auth-form>
                             @csrf
                             <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
                             <input type="hidden" name="locale" value="{{ app()->getLocale() }}">

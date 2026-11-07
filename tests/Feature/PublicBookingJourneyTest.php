@@ -138,6 +138,8 @@ test('free session availability offers account creation first and an existing-ac
         ->assertSee('data-booking-feedback', false)
         ->assertSee('Do you already have an account?', false)
         ->assertSee('data-booking-register-branch', false)
+        ->assertSee('data-booking-endpoint="'.route('booking.register').'"', false)
+        ->assertSee('action="'.route('booking.register').'"', false)
         ->assertSee('data-booking-login-branch', false)
         ->assertSee('data-booking-branch-toggle="login"', false)
         ->assertSee('name="password_confirmation"', false)

@@ -26,8 +26,8 @@ export async function submitBookingAuthForm(form, {
     onState('submitting');
 
     try {
-        const action = submitter?.formAction || form.action;
-        const method = submitter?.formMethod || form.method || 'POST';
+        const action = submitter?.getAttribute('formaction') || form.getAttribute('action') || form.dataset.bookingEndpoint || form.action;
+        const method = submitter?.getAttribute('formmethod') || form.getAttribute('method') || 'POST';
         const response = await fetcher(action, {
             method: method.toUpperCase(),
             body: formDataFactory(form, submitter),
