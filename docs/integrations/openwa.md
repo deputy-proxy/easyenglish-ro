@@ -4,7 +4,7 @@
 
 OpenWA is isolated in a standalone Node.js service. Laravel remains the system of record for users, bookings, teacher assignment, payment state, and notification delivery. Laravel calls this service over an HTTPS service-to-service API protected by a high-entropy Bearer token; it must never connect to the OpenWA browser or raw client directly.
 
-The existing Meta WhatsApp Business Platform integration remains the approved channel for transactional messages. OpenWA is an unofficial WhatsApp Web automation package used only to create, retrieve, and cancel scheduled WhatsApp video-call events. It is not an approved replacement for Meta messaging. Its use may conflict with WhatsApp terms and may result in account restrictions. Use a dedicated disposable non-production WhatsApp account only.
+OpenWA is the selected primary outbound provider for Easy English transactional WhatsApp messages and scheduled WhatsApp video-call events. Meta WhatsApp Cloud API remains configured as an operator-selected fallback, not the normal outbound route. OpenWA uses unofficial WhatsApp Web automation, is not an official WhatsApp Business Platform API, and may conflict with WhatsApp terms or result in account restrictions. The business has explicitly accepted this operational risk for the dedicated EasyEnglish account. Do not use a personal WhatsApp account.
 
 The service owns one OpenWA session and one durable encrypted event store. Outbound networking requires DNS and HTTPS/WSS egress to WhatsApp Web and required provider endpoints; inbound traffic is limited to the Railway HTTPS listener on port 8080. Do not expose raw Chromium debugging ports. Run exactly one replica. Do not embed OpenWA, Chromium, or browser automation in the Laravel runtime. The service is deployed separately from the EasyEnglish website because the confirmed Hostinger Cloud Startup plan does not support the persistent browser process and separate services required by OpenWA. Laravel runs on Hostinger while OpenWA runs in Railway. Railway private DNS is scoped to services in the same Railway project and environment, so Hostinger must use the Railway HTTPS domain with a mandatory high-entropy Bearer token. Do not configure a `.railway.internal` URL in Hostinger.
 
@@ -20,7 +20,7 @@ The service owns one OpenWA session and one durable encrypted event store. Outbo
 
 The installed v5.10.0 declarations and PoC verify that `sendEvent` returns a serialized WhatsApp message ID accepted by `getEvent`; a retrieved event can expose `joinLink` and `isCanceled`. Event creation and URL availability are separate operations. The adapter polls retrieval for up to six attempts. If creation or retrieval has an uncertain outcome, the service records that state and refuses automatic resubmission.
 
-The provider receives a destination E.164 phone number, which is converted to the OpenWA chat ID. The same returned join URL is then available to Laravel so Laravel can deliver it to the teacher using the approved messaging workflow. The service does not send teacher/customer message content.
+The provider receives a destination E.164 phone number, which is converted to the OpenWA chat ID. The same returned join URL is then available to Laravel. Participant notifications are sent by Laravel through the selected WhatsApp messaging gateway, currently OpenWA. The call-event API and messaging API remain separate capabilities with independent feature flags and idempotency stores.
 
 ## HTTP API v1
 
@@ -119,7 +119,7 @@ Copy `.env.example` and provide secrets through the deployment platform, not a c
 - `OPENWA_PAIRING_PASSWORD` (at least 32 random characters)
 - `OPENWA_PUBLIC_BASE_URL` (HTTPS URL used by the protected pairing interface)
 - `OPENWA_SERVICE_TOKEN` (at least 32 random characters, shared only with Laravel; required before live provider startup or API access)
-- `OPENWA_ALLOW_LIVE_TEST` (keep `false` until the final acceptance gate)
+- `OPENWA_ALLOW_LIVE_TEST` (`true` for the currently paired, approved dedicated account)
 - `OPENWA_PAIRING_ENABLED` (default `false`; enable only for an approved pairing window, then disable immediately)
 
 `OPENWA_CHROME_EXECUTABLE` and `OPENWA_CHROME_NO_SANDBOX` must match the container runtime. Railway currently requires Chromium's no-sandbox flags in this isolated PoC; the process still runs as the unprivileged `node` user. This weakens browser isolation and is not production approval.
@@ -157,14 +157,14 @@ Deployment steps:
 
 1. Use the existing `easyenglish-openwa` Railway project, production environment, and `openwa-poc` service. Do not create a second service or replica.
 2. Keep the `openwa-session-data` volume mounted at `/data` in `europe-west4-drams3a`; its current capacity is 5 GB.
-3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, a new `OPENWA_SERVICE_TOKEN`, Chromium settings, `OPENWA_ALLOW_LIVE_TEST=false`, and `OPENWA_PAIRING_ENABLED=false`. Store secrets only in Railway Variables.
+3. Configure `OPENWA_SESSION_DIR=/data/session`, `OPENWA_SESSION_KEY_DIR=/data/keys`, the session encryption key, pairing credentials, HTTPS pairing URL, `OPENWA_SERVICE_TOKEN`, Chromium settings, `OPENWA_ALLOW_LIVE_TEST=true`, and `OPENWA_PAIRING_ENABLED=false` after pairing. Store secrets only in Railway Variables.
 4. Configure the Railway health check to `GET /health/live`; use restart policy `ALWAYS`; do not enable serverless sleep or multiple replicas. The service serializes event creation and its persistent volume is single-writer.
 5. The Docker entrypoint runs `node src/preflight.js` as the unprivileged `node` user and then starts `node src/server.js`. Verify Node, Chromium headless launch, `zstd`, HTTPS configuration, token/key validation, and volume write permissions in deploy logs.
-6. Keep `OPENWA_ALLOW_LIVE_TEST=false` until #220 explicitly authorizes pairing. In this mode liveness works while readiness correctly remains `503`. If the service token is missing, all `/v1` requests return `503`. Configure the token before Laravel integration or enabling the live provider.
+6. Keep `OPENWA_ALLOW_LIVE_TEST=true` for the paired dedicated account. If it is false, the service will not restore an authenticated live session and readiness remains unavailable. If the service token is missing, authenticated `/v1` requests cannot be used. Never disable this flag as routine cleanup while OpenWA is the selected messaging provider.
 7. Configure Hostinger Laravel with the public HTTPS Railway base URL and matching service token. Do not use the private Railway hostname from Hostinger or expose either value in client-side code.
-8. Pair only the dedicated non-production account when authorized by #220. Temporarily set `OPENWA_PAIRING_ENABLED=true` for pairing, confirm readiness, then set it back to `false` and verify `/pairing/status` and `/pairing/qr` return `404`.
+8. Pair only the dedicated EasyEnglish account. Temporarily set `OPENWA_PAIRING_ENABLED=true` for an approved pairing/recovery window, confirm readiness, then set it back to `false` and verify `/pairing/status` and `/pairing/qr` return `404`.
 
-**Observed deployment state (5 November 2026):** the connected Railway environment reports the `openwa-poc` service online with one configured replica, the 5 GB `/data` volume, and the public HTTPS domain `openwa-poc-production.up.railway.app`. The latest deployment reports success and the Docker entrypoint now runs preflight once before starting the server. This verifies container liveness only. The deployed Railway variable inventory does not include `OPENWA_SERVICE_TOKEN`, so the authenticated API remains intentionally unavailable. `OPENWA_PAIRING_ENABLED` is absent and defaults to false. Other sealed values are not readable through the connected account. The latest 24-hour metrics sample while the service was unpaired showed 0.331 GB peak memory and 0.12 GB disk usage; CPU and network activity were negligible. This is not a representative authenticated-session or production-load baseline, and no explicit CPU/memory limits are configured. Treat this as an isolated prototype, not a staging integration or production-ready endpoint. Do not enable Laravel integration or pair an account until the #220 staging prerequisites and explicit approval are satisfied.
+**Observed deployment and acceptance state (7 November 2026):** the `openwa-poc` service is deployed in the separate `easyenglish-openwa` Railway project, with one replica, a persistent `/data` volume, and the public HTTPS domain `openwa-poc-production.up.railway.app`. The dedicated WhatsApp account has been paired and a live EasyEnglish verification message has succeeded through Laravel and the OpenWA `/v1/messages` endpoint. Production selects OpenWA as its primary outbound WhatsApp provider. This is an operational acceptance milestone, not a guarantee against future WhatsApp Web changes or account restrictions. Verify current deployment, volume, and backup state in Railway rather than treating this dated observation as a live status assertion.
 
 ## Production capacity, backups, and monitoring
 
@@ -250,7 +250,7 @@ At each stage, verify readiness, event creation/cancellation, current-revision l
 
 The implementation issues establish the isolated service, API contract, fake-provider tests, authentication, encrypted persistence, idempotency, lifecycle/readiness handling, and operational documentation. The assembled Laravel flow now redirects confirmed bookings to the authenticated dashboard and exposes pending/ready/failed call-link status without embedding the join URL. This still does not establish that real WhatsApp accounts can reliably join the same scheduled event on Android/iOS.
 
-Real-account pairing, restart/reconnect acceptance against an authenticated account, customer/teacher Android/iOS join testing, backup restore, final GO/NO-GO, and production enablement remain in issue #220. The traceable automated/manual matrix is maintained in [public booking journey acceptance](../testing/public-booking-journey-acceptance.md). Keep `OPENWA_ALLOW_LIVE_TEST=false` and do not send production traffic before #220 passes and the product owner explicitly approves rollout.
+The dedicated account has been paired and a live transactional verification message has succeeded. Remaining acceptance work includes restart/reconnect recovery, customer/teacher Android/iOS join testing, backup restore, inbound opt-out, transactional notification coverage, and final review of the rollout scope. The traceable automated/manual matrix is maintained in [public booking journey acceptance](../testing/public-booking-journey-acceptance.md).
 
 ## Laravel integration
 
@@ -258,7 +258,7 @@ The Laravel application uses a provider-neutral `CallEventProvider` contract. `O
 
 ### Application configuration
 
-The Laravel integration is disabled by default. Configure the following values only in the application environment, never in source control:
+Configure the following values only in the application environment, never in source control. The call-event rollout flag remains independent of outbound messaging:
 
 - `OPENWA_ENABLED=false` (leave false until the rollout gate approves it)
 - `OPENWA_APPLY_TO_PAID_SESSIONS=false` (paid bundle-credit sessions are excluded by default; free introductions and bundle-included free credits are included)
@@ -331,13 +331,13 @@ Teacher booking-confirmation parameters are teacher name, customer name/email/ph
 
 Staff can inspect event state, retry exhausted event setup, and review sanitized errors at **Admin → Scheduling → Call events**. Exhausted automatic retries create a staff database notification and a booking audit record. Customer/teacher message delivery is tracked separately at **Admin → Operations → Notification delivery**; a failed recipient delivery can be retried without creating another provider event. The call-event retry action reuses the original idempotency key and chooses create, retrieve, or cancel according to the persisted provider state.
 
-`OPENWA_ENABLED` is a hard stop for all provider operations, including cancellation and reconciliation. Do not disable it while provider events are still active; cancel or resolve active events first. Keep `OPENWA_ENABLED=false` until the assembled booking and notification flow passes #220 and the product owner explicitly approves rollout. No customer traffic or real WhatsApp account is enabled by this integration change.
+`OPENWA_ENABLED` is a hard stop for all provider operations, including cancellation and reconciliation. Do not disable it while provider events are still active; cancel or resolve active events first. Keep `OPENWA_ENABLED` aligned with the separately approved scheduled-call rollout stage; it is not the messaging switch. OpenWA messaging remains enabled as the primary outbound WhatsApp provider. No customer traffic or real WhatsApp account is enabled by this integration change.
 
 ## Transactional messaging capability (separate from scheduled calls)
 
-The isolated OpenWA service can optionally act as the Easy English outbound WhatsApp messaging provider. This is a separate feature from the existing scheduled call-event integration and is disabled by default.
+The isolated OpenWA service is the selected primary Easy English outbound WhatsApp messaging provider. Messaging remains a separate capability from scheduled call-event creation, with independent feature flags and readiness checks.
 
-- Set `OPENWA_MESSAGING_ENABLED=true` on both the Railway service and the Hostinger Laravel application only after the messaging acceptance checks pass. The Node service additionally requires `OPENWA_ALLOW_LIVE_TEST=true` as an explicit live-account gate.
+- Keep `OPENWA_MESSAGING_ENABLED=true` on both the Railway service and the Hostinger Laravel application. The Node service also requires `OPENWA_ALLOW_LIVE_TEST=true` for the paired live account. These are current production settings; do not disable them during routine deployments.
 - Set `OPENWA_MESSAGING_CALLBACK_URL=https://<easyenglish-host>/webhooks/openwa` and a high-entropy `OPENWA_MESSAGING_CALLBACK_SECRET` on Railway. Configure the same callback secret on Hostinger. The callback uses HMAC-SHA256 in `X-OpenWA-Signature`.
 - Laravel uses the existing `OPENWA_BASE_URL` and `OPENWA_SERVICE_TOKEN` for the authenticated `/v1/messages` API. The API requires an E.164 recipient, text body, and `Idempotency-Key`.
 - The Node service persists outbound idempotency records and inbound callback records in the encrypted message store on the existing persistent volume. It serializes outbound submissions, returns accepted/replayed/ambiguous states, and never blindly retries an uncertain submission.
@@ -345,4 +345,11 @@ The isolated OpenWA service can optionally act as the Easy English outbound What
 - Inbound direct messages are normalized and forwarded to Laravel; group and messages sent by the business account are ignored. Message payloads are encrypted at rest and removed from the record after a successful callback; logs contain no phone number or message body.
 - Keep exactly one replica and the existing persistent volume. The message store is single-writer, just like the scheduled call-event store.
 
-Do not interpret OpenWA readiness as proof that the WhatsApp account is unrestricted. OpenWA is unofficial automation and remains subject to account restrictions. See the [provider failover runbook](../operations/whatsapp-provider-failover.md) for the business-continuity procedure.
+Do not interpret OpenWA readiness as proof that the WhatsApp account is unrestricted. OpenWA is unofficial automation and remains subject to account restrictions and upstream web-client changes. See the [provider failover runbook](../operations/whatsapp-provider-failover.md) for the business-continuity procedure.
+## Current production provider policy
+
+`WHATSAPP_PROVIDER=openwa` is the intended production selection. On Hostinger, keep `OPENWA_MESSAGING_ENABLED=true`, `OPENWA_BASE_URL` pointed at the Railway public HTTPS domain, and the matching service token and callback secret configured as secrets. On Railway, keep `OPENWA_MESSAGING_ENABLED=true`, `OPENWA_ALLOW_LIVE_TEST=true`, the callback URL/secret, service token, session encryption key, and persistent `/data` volume. Never commit secret values. After changing Laravel environment values, run `php artisan config:cache` and `php artisan queue:restart`, then verify `php artisan whatsapp:provider-status` reports OpenWA selected and ready. The authenticated `/v1/capabilities` endpoint must report `provider=openwa`, `messagingEnabled=true`, `messagingReady=true`, and `connectionState=authenticated` before sending.
+
+The service must remain single-replica because the WhatsApp session and encrypted message store are single-writer. Preserve the `/data` volume and exact session encryption key across deploys and restarts. A missing/unreadable session restore must be treated as not ready; a successful container deployment does not mean the WhatsApp account is authenticated. Pairing is a recovery action, not a routine deployment step.
+
+Meta remains available as a manual fallback. To switch, set `WHATSAPP_PROVIDER=meta` in Hostinger, confirm Meta configuration and templates remain valid, run `php artisan config:cache` and `php artisan queue:restart`, and verify provider status before sending. Reconcile ambiguous OpenWA deliveries first; never blindly replay them through Meta. See the [provider continuity runbook](../operations/whatsapp-provider-failover.md).

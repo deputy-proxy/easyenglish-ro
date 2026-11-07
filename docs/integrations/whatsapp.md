@@ -1,8 +1,8 @@
 # WhatsApp Business Platform: setup and operations
 
-Easy English uses the Meta WhatsApp Business Platform Cloud API for approved transactional service messages only. The Cloud API adapter does not create or place voice/video calls. A separate, isolated OpenWA service is used only to create scheduled WhatsApp call events and return a join link; the teacher and customer conduct the 15-minute speaking session in the WhatsApp application. OpenWA does not send messages and does not replace the Cloud API or its notification outbox. Email remains a separate notification channel.
+Easy English uses the isolated OpenWA service as its primary outbound WhatsApp provider for transactional service messages and scheduled WhatsApp call events. Meta WhatsApp Cloud API remains configured as a manual fallback. The messaging gateway and scheduled call-event integration are separate capabilities with independent APIs and feature flags. The teacher and customer conduct the 15-minute speaking session in the WhatsApp application. Email remains a separate notification channel.
 
-Production sending is disabled by default. Keep `WHATSAPP_ENABLED=false` until the Meta business assets, templates, secrets, webhook, consent flow, and live end-to-end tests have been completed. CI uses a fake gateway and does not require Meta credentials. The OpenWA call-event integration has a separate `OPENWA_ENABLED=false` feature flag and a separate service token; enabling one integration does not enable the other. Laravel stores the OpenWA join URL encrypted and only the authenticated, verified customer and assigned teacher may retrieve it through the authorized booking call-link endpoint. The approved Cloud API template/outbox remains responsible for distributing call details; OpenWA session credentials and QR data never enter Laravel.
+The current production selection is `WHATSAPP_PROVIDER=openwa`, with `OPENWA_MESSAGING_ENABLED=true` in Laravel and Railway and `OPENWA_ALLOW_LIVE_TEST=true` on Railway for the dedicated paired account. Meta credentials and approved templates are retained for manual fallback. CI uses a fake gateway and does not require live provider credentials. The scheduled call-event integration has a separate `OPENWA_ENABLED` feature flag; enabling or disabling it does not enable or disable messaging. Laravel stores the OpenWA join URL encrypted and only the authenticated, verified customer and assigned teacher may retrieve it through the authorized booking call-link endpoint. OpenWA session credentials and QR data never enter Laravel. OpenWA is unofficial WhatsApp Web automation and carries account-restriction and upstream-compatibility risk.
 
 ## 1. Meta assets and access
 
@@ -34,7 +34,7 @@ WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_RO=ro
 WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_EN=en
 ```
 
-Set each `WHATSAPP_TEMPLATE_*` variable to the exact approved template name in Meta. The contact-verification template is `easyenglish_activation`, with approved locale variants `ro` and `en`. Its authentication payload contains one `body` text parameter and a URL copy-code button parameter at index `0`; do not send it as a body-only template. The defaults for other transactional templates remain proposed names only, not templates that have been created or approved. Keep sending disabled while testing or while any required template is unavailable.
+Set each `WHATSAPP_TEMPLATE_*` variable to the exact approved template name in Meta. The contact-verification template is `easyenglish_activation`, with approved locale variants `ro` and `en`. Its authentication payload contains one `body` text parameter and a URL copy-code button parameter at index `0`; do not send it as a body-only template. The defaults for other transactional templates remain proposed names only, not templates that have been created or approved. Keep Meta sending disabled while testing the fallback or while any required Meta template is unavailable; this does not disable the currently selected OpenWA provider.
 
 **Current verification-template expiry mismatch:** both approved `easyenglish_activation` variants currently display a 10-minute expiry and their copy-code URL declares `code_expiration_minutes=10`, while the application challenge remains valid for 30 minutes. Before enabling WhatsApp, edit both Authentication variants in WhatsApp Manager so the body/footer and copy-code expiry consistently state 30 minutes, then wait for approval and re-fetch their definitions. The template MCP cannot edit Authentication templates directly. Do not shorten or extend the application challenge as a workaround; its 30-minute expiry is part of the verification contract.
 
@@ -68,7 +68,7 @@ Write each template in plain, helpful language and clearly state that it is a se
 
 The booking and bundle checkout forms require a separate, unchecked WhatsApp service-message consent checkbox. Its wording identifies purchase, appointment, reminder, cancellation, and expiry messages, explicitly excludes marketing, and explains that replying `STOP` opts out. This consent is separate from acceptance of the privacy/cancellation policy and is not treated as marketing consent.
 
-`whatsapp_contacts` stores the normalized phone number, consent timestamp/source, and opt-out timestamp/source. A WhatsApp delivery is created only when `WHATSAPP_ENABLED=true` and that phone has current service-message consent with no opt-out. If the customer replies with `STOP`, `STOPALL`, `UNSUBSCRIBE`, `CANCEL`, `END`, `QUIT`, `PARAR`, `OPRIRE`, `DEZABONARE`, or `NU MAI TRIMITE`, the webhook records the opt-out and skips pending/queued WhatsApp deliveries for that number. Email notifications remain unaffected. A customer may opt back in only by explicitly checking the service-message consent box again.
+`whatsapp_contacts` stores the normalized phone number, consent timestamp/source, and opt-out timestamp/source. A WhatsApp delivery is created only when the selected provider is enabled and that phone has current service-message consent with no opt-out. For the current OpenWA selection, `OPENWA_MESSAGING_ENABLED=true` is required in both Laravel and the Node service; `WHATSAPP_ENABLED` controls only the Meta adapter. If the customer replies with `STOP`, `STOPALL`, `UNSUBSCRIBE`, `CANCEL`, `END`, `QUIT`, `PARAR`, `OPRIRE`, `DEZABONARE`, or `NU MAI TRIMITE`, the webhook records the opt-out and skips pending/queued WhatsApp deliveries for that number. Email notifications remain unaffected. A customer may opt back in only by explicitly checking the service-message consent box again.
 
 Do not import or message existing customer phone numbers without a documented lawful basis and the opt-in required by Meta. Do not use this integration for promotional offers, newsletters, or marketing campaigns.
 
@@ -103,14 +103,14 @@ Provider statuses progress through accepted/sent/delivered/read or failed. Dupli
 4. In Meta development mode, add the test recipient and send one approved template in each configured language. Confirm provider acceptance and a delivered webhook status.
 5. Test a rejected/failed template, duplicate webhook, invalid signature, `STOP` opt-out, and retry behavior.
 6. Confirm all required templates are approved and the system-user token/permissions are valid.
-7. Only after those checks, set `WHATSAPP_ENABLED=true` in production and reload Laravel's configuration cache.
+7. For a Meta fallback only, set `WHATSAPP_ENABLED=true` in production after those checks and reload Laravel's configuration cache. OpenWA production sending is controlled separately by `OPENWA_MESSAGING_ENABLED` in both Laravel and Railway.
 8. Send one real end-to-end purchase and appointment confirmation to an opted-in staff test number, verify status callbacks, then check reminders and opt-out before public launch.
 
 ## 8. Troubleshooting
 
-- **No WhatsApp delivery row:** verify `WHATSAPP_ENABLED=true`, the contact's consent timestamp, absence of opt-out, and the business event's eligibility.
+- **No WhatsApp delivery row:** verify the selected provider's messaging flag (`OPENWA_MESSAGING_ENABLED` for OpenWA or `WHATSAPP_ENABLED` for Meta), the contact's consent timestamp, absence of opt-out, and the business event's eligibility.
 - **Pending row never queues:** confirm the config flag is enabled, `notifications:dispatch` is running, and the queue uses the same database/environment.
-- **Failed delivery:** check the HTTP status and exception class in restricted application logs, then inspect `provider_error_code` and the Meta message diagnostics. Do not log request headers or body.
+- **Failed delivery:** check the HTTP status and exception class in restricted application logs, then inspect the delivery's provider and attempt history. For OpenWA, reconcile its idempotency record; for Meta, inspect provider error diagnostics. Do not log request headers or body.
 - **Template rejected or paused:** fix/re-submit the template in Meta, update its configured name if needed, and use the audited retry action after confirming the template is approved.
 - **Webhook verification fails:** compare the verification token, public HTTPS callback URL, subscription, and the exact Meta app secret used for HMAC verification.
 - **Signature rejected:** verify that the proxy preserves the raw request body and `X-Hub-Signature-256` header and that `WHATSAPP_APP_SECRET` is the app secret, not the access token.
@@ -143,7 +143,7 @@ The provider adapter always sends the named approved template with the configure
 
 ## Scheduled call-link templates
 
-Scheduled-call events are created by the isolated OpenWA service, but all participant notifications continue through the existing Laravel transactional outbox and Meta WhatsApp Cloud API. Keep the two integrations independently disabled until their own rollout checks pass.
+Scheduled-call events are created by the isolated OpenWA service. Participant notifications continue through the Laravel transactional outbox and provider-neutral WhatsApp gateway, currently routed to OpenWA. Keep the call-event and messaging feature flags independent.
 
 The following approved Meta templates are required before enabling WhatsApp call-link delivery:
 
@@ -169,7 +169,7 @@ These are positional examples matching the application payload. Submit them to M
 
 ## Provider selection and business continuity
 
-The application-facing `WhatsAppGateway` supports provider-neutral template and text messages. Select the active **outbound** provider with `WHATSAPP_PROVIDER=meta` (default) or `WHATSAPP_PROVIDER=openwa`. Both provider configurations should be maintained simultaneously so the operator can switch without a code deployment or database migration.
+The application-facing `WhatsAppGateway` supports provider-neutral template and text messages. The current production selection is `WHATSAPP_PROVIDER=openwa`. `meta` remains an operator-selected fallback. Maintain both provider configurations so the operator can switch without a code deployment or database migration.
 
 - `WHATSAPP_ENABLED` controls the Meta Cloud API adapter.
 - `OPENWA_MESSAGING_ENABLED` controls OpenWA messaging in Laravel and the Node service.
@@ -177,10 +177,10 @@ The application-facing `WhatsAppGateway` supports provider-neutral template and 
 - `WHATSAPP_PROVIDER` controls only outbound notification routing. It does not disable scheduled call events. Meta free-form text is disabled unless `WHATSAPP_ALLOW_FREE_FORM=true` is deliberately enabled for a valid customer-service window; approved templates remain the default.
 - OpenWA text rendering uses the application notification template key and localized parameter catalogue; Meta continues to use the approved template name and components configured in Meta WhatsApp Manager. Meta free-form text is disabled by default and can only be enabled with `WHATSAPP_ALLOW_FREE_FORM=true` for a verified customer-service window; normal business-initiated notifications must continue to use approved templates.
 
-Use `php artisan whatsapp:provider-status` to inspect the selected provider, secret-free configuration readiness, and (when OpenWA is selected) the remote messaging capability readiness. See [the provider failover runbook](../operations/whatsapp-provider-failover.md) for exact Hostinger/Railway setup, emergency switch, reconciliation, and failback steps.
+Use `php artisan whatsapp:provider-status` to inspect the selected provider, secret-free configuration readiness, and (when OpenWA is selected) remote messaging capability readiness. Production should report OpenWA selected and ready; authenticated `/v1/capabilities` should report `messagingEnabled=true`, `messagingReady=true`, and `connectionState=authenticated`. See [the provider failover runbook](../operations/whatsapp-provider-failover.md) for exact Hostinger/Railway setup, emergency switch, reconciliation, and failback steps.
 
 OpenWA messaging adds authenticated `POST /v1/messages`, `GET /v1/messages/{idempotencyKey}`, and `GET /v1/capabilities` endpoints. Outbound submissions use a durable encrypted idempotency record and are serialized through the single OpenWA process. A timeout or uncertain provider result is never resubmitted automatically. Inbound text messages are durably queued in the encrypted OpenWA store and forwarded to `POST /webhooks/openwa` with an HMAC-SHA256 signature in `X-OpenWA-Signature`. Laravel validates the signature and routes the normalized event through the same message persistence and opt-out handling used by Meta. Use the same high-entropy `OPENWA_MESSAGING_CALLBACK_SECRET` in Hostinger and Railway.
 
 Each WhatsApp outbox delivery records the selected provider and an append-only provider-attempt summary. If a send outcome is uncertain, the delivery is marked `ambiguous` and excluded from automatic retries. For OpenWA, staff can use **Admin → Operations → Notification delivery → Reconcile OpenWA** to check the durable idempotency record before retrying. A provider switch never replays deliveries already accepted by the previous provider.
 
-**Account compatibility warning:** the Meta Cloud API sender and OpenWA WhatsApp Web session may not be usable concurrently on the same phone number/account. Validate the actual Meta/WhatsApp coexistence and registration arrangement before enabling both. A separate fallback number may be required and can change the sender displayed to customers after a switch.
+**Account compatibility warning:** the Meta Cloud API sender and OpenWA WhatsApp Web session may not be usable concurrently on the same phone number/account. Keep the dedicated OpenWA account as the active sender. Before activating Meta fallback, verify the actual coexistence/registration arrangement and whether a separate fallback number is required; changing providers may change the sender displayed to customers.
