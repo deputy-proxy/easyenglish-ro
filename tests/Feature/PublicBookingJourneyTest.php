@@ -178,6 +178,8 @@ test('guest can create an account from the free booking form and is logged in wi
 });
 
 test('a validated account that already used its free session sees a dashboard redirect instead of package selection', function () {
+    app()->setLocale('en');
+
     $html = view('public.partials.booking-authenticated-form', [
         'contactsVerified' => true,
         'eligibility' => ['eligible' => false, 'status' => 'already_used'],
