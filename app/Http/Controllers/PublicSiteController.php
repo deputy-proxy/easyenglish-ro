@@ -696,6 +696,18 @@ class PublicSiteController extends Controller
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
     {
         $this->applyLocale($request);
+
+        // Registration records policy acceptance before the authenticated booking
+        // form is shown. Preserve that consent when the final form omits its checkbox.
+        if (! $request->exists('accepted_policy')) {
+            $bookingFormData = $request->session()->get('contact_verification_form_data', []);
+            $acceptedValues = ['1', 1, true, 'yes', 'on'];
+
+            if (is_array($bookingFormData) && in_array($bookingFormData['accepted_policy'] ?? null, $acceptedValues, true)) {
+                $request->merge(['accepted_policy' => '1']);
+            }
+        }
+
         $validated = $request->validate([
             'type' => ['required', 'in:intro,bundle'],
             'starts_at' => ['required', 'date'],
@@ -714,6 +726,8 @@ class PublicSiteController extends Controller
             'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
             'verification_id' => ['nullable', 'uuid'],
+        ], [
+            'accepted_policy.accepted' => __('public.policy_accept_required'),
         ]);
 
         $validated['name'] = (string) $request->user()->name;
