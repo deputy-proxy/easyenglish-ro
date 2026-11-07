@@ -11,7 +11,7 @@ export function buildOpenWaOptions(config) {
     sessionDataPath: config.sessionDataPath,
     sessionDataEncryptionKeyFile: config.encryptionKeyFile,
     headless: true,
-    qrTimeout: 0,
+    qrTimeoutMs: 0,
     qrLogSkip: true,
     qrFormat: 'png',
     qrMax: 10,
