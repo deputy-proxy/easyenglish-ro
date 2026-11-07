@@ -18,6 +18,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class AvailabilityExceptionResource extends Resource
 {
@@ -58,12 +59,26 @@ class AvailabilityExceptionResource extends Resource
             TextColumn::make('creator.name')->label('Created by'),
         ])->defaultSort('starts_at', 'desc')->recordActions([
             EditAction::make(),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
         ])->toolbarActions([
             BulkActionGroup::make([
-                DeleteBulkAction::make(),
+                DeleteBulkAction::make()
+                    ->authorize(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
             ]),
         ]);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getPages(): array

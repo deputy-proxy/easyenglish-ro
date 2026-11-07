@@ -15,6 +15,7 @@ use App\Filament\Resources\CreditTransactions\CreditTransactionResource;
 use App\Filament\Resources\CreditTransactions\Pages\ManageCreditTransactions;
 use App\Filament\Resources\Customers\CustomerResource;
 use App\Filament\Resources\Customers\Pages\ManageCustomers;
+use App\Filament\Resources\Faqs\FaqResource;
 use App\Filament\Resources\Faqs\Pages\ManageFaqs;
 use App\Filament\Resources\Messages\MessageResource;
 use App\Filament\Resources\Messages\Pages\ManageMessages;
@@ -48,7 +49,7 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 it('registers a per-record delete action on every resource that permits deletion', function () {
-    $staff = User::factory()->create(['is_staff' => true]);
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => true]);
 
     foreach ([
         ManageAvailabilityExceptions::class,
@@ -66,7 +67,7 @@ it('registers a per-record delete action on every resource that permits deletion
 });
 
 it('keeps delete actions unavailable on resources that protect operational and account records', function () {
-    $staff = User::factory()->create(['is_staff' => true]);
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => true]);
 
     foreach ([
         ManageBookingAudits::class,
@@ -104,7 +105,7 @@ it('explicitly denies deletion for protected resources', function () {
 });
 
 it('deletes an eligible record through the confirmed Filament row action', function () {
-    $staff = User::factory()->create(['is_staff' => true]);
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => true]);
     $faq = Faq::query()->create([
         'question' => 'Can I delete this FAQ?',
         'answer' => 'Yes, when it is no longer needed.',
@@ -124,4 +125,49 @@ it('does not expose the delete-capable admin page to non-staff accounts', functi
     $this->actingAs($customer)
         ->get('/admin/faqs')
         ->assertForbidden();
+});
+
+it('allows staff to use Filament but hides and rejects deletion actions', function () {
+    $staff = User::factory()->create(['is_staff' => true, 'is_admin' => false]);
+    $faq = Faq::query()->create([
+        'question' => 'Staff cannot delete this FAQ',
+        'answer' => 'Deletion is an administrator capability.',
+        'locale' => 'en',
+    ]);
+
+    $this->actingAs($staff)->get('/admin/faqs')->assertOk();
+
+    Livewire::actingAs($staff)
+        ->test(ManageFaqs::class)
+        ->assertTableActionHidden('delete', $faq)
+        ->assertTableBulkActionHidden('delete');
+
+    $this->actingAs($staff);
+
+    expect(FaqResource::canDelete($faq))->toBeFalse()
+        ->and(FaqResource::canDeleteAny())->toBeFalse();
+
+    $this->assertDatabaseHas('faqs', ['id' => $faq->id]);
+});
+
+it('allows only administrators to use per-record and bulk deletion', function () {
+    $admin = User::factory()->create(['is_staff' => true, 'is_admin' => true]);
+    $faq = Faq::query()->create([
+        'question' => 'Admin can delete this FAQ',
+        'answer' => 'Administrator deletion is permitted.',
+        'locale' => 'en',
+    ]);
+
+    $this->actingAs($admin);
+
+    expect(FaqResource::canDelete($faq))->toBeTrue()
+        ->and(FaqResource::canDeleteAny())->toBeTrue();
+
+    Livewire::actingAs($admin)
+        ->test(ManageFaqs::class)
+        ->assertTableActionExists('delete')
+        ->assertTableBulkActionExists('delete')
+        ->callTableAction('delete', $faq);
+
+    $this->assertDatabaseMissing('faqs', ['id' => $faq->id]);
 });

@@ -39,6 +39,9 @@ class UserResource extends Resource
             ])->columns(2),
             Section::make('Account roles')->schema([
                 Toggle::make('is_staff')->label('Staff access')->default(false),
+                Toggle::make('is_admin')->label('Administrator access')->default(false)
+                    ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
+                    ->dehydrated(fn (): bool => auth()->user()?->isAdmin() ?? false),
                 Toggle::make('is_teacher')->label('Teacher account')->default(false),
                 Toggle::make('teacher_active')->label('Active for new teaching assignments')->default(false),
             ])->columns(3),
@@ -52,6 +55,7 @@ class UserResource extends Resource
             TextColumn::make('email')->searchable(),
             TextColumn::make('phone')->placeholder('—'),
             IconColumn::make('is_staff')->label('Staff')->boolean(),
+            IconColumn::make('is_admin')->label('Admin')->boolean(),
             IconColumn::make('is_teacher')->label('Teacher')->boolean(),
             IconColumn::make('teacher_active')->label('Taking assignments')->boolean(),
             TextColumn::make('created_at')->label('Created')->dateTime('d M Y')->sortable(),

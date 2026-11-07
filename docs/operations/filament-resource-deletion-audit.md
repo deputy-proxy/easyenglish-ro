@@ -43,3 +43,8 @@ No resource was made deletable as part of this audit. Doing so would weaken exis
 - the protected resources' explicit `canDelete()` decisions remain false.
 
 If future product requirements change deletion policy for a protected resource, update its domain workflow, authorization, relationship handling, and tests deliberately rather than removing its guard.
+
+
+## Deletion authorization
+
+Filament panel access remains available to staff accounts (`is_staff`). Deletion is a separate capability and is restricted to accounts with `is_admin = true`. Both per-record and bulk deletion are authorized server-side by the resource `canDelete` / `canDeleteAny` methods. The administrator flag defaults to false; the initial migration grants it only to `admin@contes.ro`. Admins can grant or revoke the flag in user management. Setting administrator access also ensures staff panel access remains enabled.
