@@ -45,7 +45,7 @@ for (const filename of ['index.cjs', 'index.mjs']) {
     source = source.replace(original, safe);
   }
   if (!source.includes(diagnosticMarker)) {
-    const needle = /this\\.logger\\.warn\\((['"])portable_session_bootstrap_failed\\1,\\s*\\{/;
+    const needle = /this\.logger\.warn\\((['"])portable_session_bootstrap_failed\\1,\\s*\\{/;
     if (!needle.test(source)) throw new Error(`Expected OpenWA bootstrap failure logger not found in ${filename}; refusing an unsafe diagnostic patch.`);
     source = source.replace(needle, `${diagnosticPatch}this.logger.warn("portable_session_bootstrap_failed", {`);
   }
