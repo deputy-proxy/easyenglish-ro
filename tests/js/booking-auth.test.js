@@ -7,12 +7,14 @@ function makeForm() {
     const button = {
         disabled: false,
         attributes: {},
+        getAttribute(name) { return this.attributes[name] ?? null; },
         setAttribute(name, value) { this.attributes[name] = value; },
         removeAttribute(name) { delete this.attributes[name]; },
     };
     return {
         action: '/booking/register',
         dataset: {},
+        getAttribute(name) { return this.attributes[name] ?? null; },
         isConnected: true,
         attributes: {},
         button,
@@ -78,11 +80,27 @@ test('exposes an accessible loading state and disables the submit button while t
     assert.equal(form.attributes['aria-busy'], undefined);
 });
 
+test('uses the explicit registration endpoint when the form action attribute is missing', async () => {
+    const form = makeForm();
+    form.action = 'https://example.test/?slot=2026-11-11T09%3A00%3A00';
+    form.dataset.bookingEndpoint = '/book/register';
+    let requestedUrl;
+
+    await submitBookingAuthForm(form, {
+        formDataFactory: () => ({}),
+        fetcher: async (url) => { requestedUrl = url; return response(201, { status: 'authenticated', html: '<form></form>' }); },
+    });
+
+    assert.equal(requestedUrl, '/book/register');
+});
+
 test('submits the clicked inline verification action instead of the form default action', async () => {
     const form = makeForm();
     form.action = '/book';
     form.method = 'post';
-    const submitter = Object.assign(form.button, { formAction: '/verification/phone', formMethod: 'post' });
+    const submitter = form.button;
+    submitter.attributes.formaction = '/verification/phone';
+    submitter.attributes.formmethod = 'post';
     let request;
     let submittedBy;
 
