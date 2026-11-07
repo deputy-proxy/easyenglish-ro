@@ -1,4 +1,5 @@
-import { mkdir, writeFile, chmod, copyFile, lstat, rm, constants } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { mkdir, writeFile, chmod, copyFile, lstat, rm } from 'node:fs/promises';
 import { readConfig } from './config.js';
 import { startOpenWa } from './openwa.js';
 import { OpenWaProvider } from './provider.js';
