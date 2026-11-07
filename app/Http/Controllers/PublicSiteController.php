@@ -696,6 +696,25 @@ class PublicSiteController extends Controller
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
     {
         $this->applyLocale($request);
+
+        // Registration and verification can record WhatsApp service consent before
+        // the final booking form is shown. Reuse that consent if the form omits its checkbox.
+        $phone = $request->input('phone');
+        $hasWhatsAppConsent = is_string($phone)
+            && WhatsAppContact::query()->where('phone', PhoneNumber::normalize($phone))
+                ->first()?->canReceiveServiceMessages() === true;
+
+        // Registration records policy acceptance before the authenticated booking
+        // form is shown. Preserve that consent when the final form omits its checkbox.
+        if (! $request->exists('accepted_policy')) {
+            $bookingFormData = $request->session()->get('contact_verification_form_data', []);
+            $acceptedValues = ['1', 1, true, 'yes', 'on'];
+
+            if (is_array($bookingFormData) && in_array($bookingFormData['accepted_policy'] ?? null, $acceptedValues, true)) {
+                $request->merge(['accepted_policy' => '1']);
+            }
+        }
+
         $validated = $request->validate([
             'type' => ['required', 'in:intro,bundle'],
             'starts_at' => ['required', 'date'],
@@ -711,9 +730,11 @@ class PublicSiteController extends Controller
             'session_goal' => ['required', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:5000'],
             'accepted_policy' => ['accepted'],
-            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'nullable' : 'accepted'],
+            'whatsapp_service_consent' => [config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' || $hasWhatsAppConsent ? 'nullable' : 'accepted'],
             'entitlement' => ['nullable', 'integer', 'required_if:type,bundle'],
             'verification_id' => ['nullable', 'uuid'],
+        ], [
+            'accepted_policy.accepted' => __('public.policy_accept_required'),
         ]);
 
         $validated['name'] = (string) $request->user()->name;
