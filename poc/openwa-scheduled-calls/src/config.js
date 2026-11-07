@@ -16,7 +16,7 @@ export function readConfig(env = process.env) {
   if (!sessionKeyDir || !path.isAbsolute(sessionKeyDir)) throw new Error('OPENWA_SESSION_KEY_DIR must be an absolute private path.');
   const resolvedSessionDir = path.resolve(sessionDir), resolvedKeyDir = path.resolve(sessionKeyDir);
   const privateDirs = [resolvedSessionDir, resolvedKeyDir];
-  if (new Set(privateDirs).size !== privateDirs.length || privateDirs.some((dir, index) => privateDirs.some((other, otherIndex) => index !== otherIndex && (dir.startsWith(other + path.sep) || other.startsWith(dir + path.sep)))) throw new Error('Session data and encryption-key directories must be separate.');
+  if (new Set(privateDirs).size !== privateDirs.length || privateDirs.some((dir, index) => privateDirs.some((other, otherIndex) => index !== otherIndex && (dir.startsWith(other + path.sep) || other.startsWith(dir + path.sep))))) throw new Error('Session data and encryption-key directories must be separate.');
   if (!publicBaseUrl || new URL(publicBaseUrl).protocol !== 'https:') throw new Error('OPENWA_PUBLIC_BASE_URL must use HTTPS.');
   if (!pairingUsername || !pairingPassword || pairingPassword.length < 32) throw new Error('Pairing authentication requires a username and a password of at least 32 characters.');
   if (allowLiveTest && (!serviceToken || serviceToken.length < 32)) throw new Error('OPENWA_SERVICE_TOKEN must contain at least 32 characters before enabling the live provider.');
