@@ -5,8 +5,7 @@ ENV NODE_ENV=production \
     PORT=8080 \
     OPENWA_CHROME_EXECUTABLE=/usr/bin/chromium \
     OPENWA_SESSION_DIR=/data/session \
-    OPENWA_SESSION_KEY_DIR=/data/keys \
-    OPENWA_USER_DATA_DIR=/data/profile
+    OPENWA_SESSION_KEY_DIR=/data/keys
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
