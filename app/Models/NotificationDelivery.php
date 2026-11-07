@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $event
  * @property string $status
  * @property string $idempotency_key
+ * @property string|null $provider
+ * @property list<array<string, mixed>>|null $provider_attempts
  * @property string|null $provider_message_id
  * @property string|null $provider_status
  * @property string|null $provider_error_code
@@ -29,11 +31,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class NotificationDelivery extends Model
 {
-    protected $fillable = ['booking_id', 'recipient_type', 'recipient_user_id', 'booking_call_event_id', 'bundle_entitlement_id', 'payment_refund_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key', 'metadata', 'provider_message_id', 'provider_status', 'provider_error_code'];
+    protected $hidden = ['provider_attempts'];
+
+    protected $fillable = ['booking_id', 'recipient_type', 'recipient_user_id', 'booking_call_event_id', 'bundle_entitlement_id', 'payment_refund_id', 'channel', 'event', 'status', 'attempts', 'next_attempt_at', 'sent_at', 'last_error', 'idempotency_key', 'metadata', 'provider', 'provider_attempts', 'provider_message_id', 'provider_status', 'provider_error_code'];
 
     protected function casts(): array
     {
-        return ['next_attempt_at' => 'immutable_datetime', 'sent_at' => 'immutable_datetime', 'metadata' => 'array'];
+        return ['next_attempt_at' => 'immutable_datetime', 'sent_at' => 'immutable_datetime', 'metadata' => 'array', 'provider_attempts' => 'array'];
     }
 
     /** @return BelongsTo<Booking, $this> */

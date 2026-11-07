@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\SendNotificationDelivery;
 use App\Models\NotificationDelivery;
 use App\Services\Notifications\NotificationOutboxService;
+use App\Services\Notifications\WhatsAppProviderConfiguration;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -20,21 +21,42 @@ class DispatchNotificationOutbox extends Command
         $limit = max(1, min(1000, (int) $this->option('limit')));
         $reminders = $outbox->queueDueReminders();
 
-        // Recover leases left behind by a killed worker. Email and WhatsApp providers cannot guarantee exactly-once
-        // delivery after a connection drops mid-send, but the unique outbox record prevents duplicate logical events.
+        // Recover leases left behind by a killed worker. A WhatsApp request may have reached the provider before the worker
+        // stopped, so its outcome is quarantined as ambiguous instead of being replayed automatically.
         NotificationDelivery::query()->where('status', 'sending')
             ->where('updated_at', '<=', now()->subMinutes(20))
+            ->where('channel', 'email')
             ->update([
                 'status' => 'pending',
                 'next_attempt_at' => now(),
                 'last_error' => 'Delivery worker lease expired; record returned to the retry queue.',
             ]);
+        NotificationDelivery::query()->where('status', 'sending')->where('channel', 'whatsapp')
+            ->where('updated_at', '<=', now()->subMinutes(20))
+            ->get()
+            ->each(function (NotificationDelivery $delivery): void {
+                $attempts = $delivery->provider_attempts ?? [];
+                if ($attempts !== []) {
+                    $last = array_key_last($attempts);
+                    $attempts[$last] = array_merge($attempts[$last], [
+                        'status' => 'ambiguous',
+                        'completed_at' => now()->toIso8601String(),
+                        'reason' => 'worker_lease_expired',
+                    ]);
+                }
+                $delivery->update([
+                    'status' => 'ambiguous',
+                    'next_attempt_at' => null,
+                    'last_error' => 'WhatsApp send outcome is unknown; reconcile with the provider before retrying.',
+                    'provider_attempts' => $attempts,
+                ]);
+            });
 
         $queued = 0;
         $failures = 0;
         NotificationDelivery::query()->where(function ($query): void {
             $query->where('channel', 'email');
-            if ((bool) config('services.whatsapp.enabled')) {
+            if (app(WhatsAppProviderConfiguration::class)->isConfigured()) {
                 $query->orWhere('channel', 'whatsapp');
             }
         })->where('status', 'pending')

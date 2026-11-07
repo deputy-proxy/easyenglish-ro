@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Enums\NotificationEvent;
 use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Models\Booking;
@@ -13,8 +14,7 @@ use RuntimeException;
 
 class WhatsAppMessageFactory
 {
-    /** @return array{recipient:string,template:string,language:string,components:list<array{type:string,parameters:list<array{type:string,text:string}>}>} */
-    public function make(NotificationDelivery $delivery): array
+    public function make(NotificationDelivery $delivery): WhatsAppTemplateMessage
     {
         $delivery->loadMissing(['booking.teacher', 'booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition', 'recipientUser', 'bookingCallEvent']);
         $event = NotificationEvent::tryFrom($delivery->event);
@@ -132,18 +132,11 @@ class WhatsAppMessageFactory
             throw new RuntimeException('Required WhatsApp template is not configured: '.$key.'.');
         }
         $language = config('services.whatsapp.template_languages.'.$locale, $locale === 'en' ? 'en_US' : 'ro');
-        $textParameters = array_map(static fn (string $value): array => ['type' => 'text', 'text' => $value], $parameters);
 
-        return [
-            'recipient' => $phone,
-            'template' => $template,
-            'language' => (string) $language,
-            'components' => [['type' => 'body', 'parameters' => $textParameters]],
-        ];
+        return new WhatsAppTemplateMessage($phone, $key, (string) $language, $parameters, [], 'easyenglish-delivery-'.$delivery->id);
     }
 
-    /** @return array{recipient:string,template:string,language:string,components:list<array{type:string,parameters:list<array{type:string,text:string}>}>} */
-    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): array
+    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): WhatsAppTemplateMessage
     {
         $booking = $delivery->booking;
         $teacher = $delivery->recipientUser;
@@ -268,14 +261,8 @@ class WhatsAppMessageFactory
             throw new RuntimeException('Required WhatsApp template is not configured: '.$key.'.');
         }
         $language = config('services.whatsapp.template_languages.'.$locale, $locale === 'en' ? 'en_US' : 'ro');
-        $textParameters = array_map(static fn (string $value): array => ['type' => 'text', 'text' => $value], $parameters);
 
-        return [
-            'recipient' => $recipient,
-            'template' => $template,
-            'language' => (string) $language,
-            'components' => [['type' => 'body', 'parameters' => $textParameters]],
-        ];
+        return new WhatsAppTemplateMessage($recipient, $key, (string) $language, $parameters, [], 'easyenglish-delivery-'.$delivery->id);
     }
 
     private function normalizedPhone(?string $phone): ?string

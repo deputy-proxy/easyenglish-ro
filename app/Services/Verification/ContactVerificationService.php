@@ -3,7 +3,9 @@
 namespace App\Services\Verification;
 
 use App\Contracts\Notifications\WhatsAppGateway;
+use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Models\ContactVerificationChallenge;
+use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -34,10 +36,8 @@ class ContactVerificationService
         $verifyEmail = ! $emailAlreadyVerified;
         $verifyPhone = ! $emailOnly && ! $phoneAlreadyVerified;
 
-        if ($verifyPhone && (! (bool) config('services.whatsapp.enabled')
-            || ! is_string(config('services.whatsapp.access_token')) || config('services.whatsapp.access_token') === ''
-            || ! is_string(config('services.whatsapp.phone_number_id')) || config('services.whatsapp.phone_number_id') === '')) {
-            throw new RuntimeException('WhatsApp verification delivery is not configured.');
+        if ($verifyPhone && ! $this->whatsappProviderConfigured()) {
+            throw new RuntimeException('WhatsApp verification delivery is not configured for the selected provider.');
         }
         if ($verifyEmail && ! app()->environment('testing') && $this->usesNonDeliveringMailer((string) config('mail.default'))) {
             throw new RuntimeException('Email verification requires a real delivery transport; log/array transports can expose or discard verification secrets.');
@@ -123,18 +123,14 @@ class ContactVerificationService
 
             if ($verifyPhone) {
                 $language = config('services.whatsapp.contact_verification_template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en' : 'ro');
-                $this->whatsapp->sendTemplate($phone, (string) $template, $language, [
-                    [
-                        'type' => 'body',
-                        'parameters' => [['type' => 'text', 'text' => $phoneCode]],
-                    ],
-                    [
-                        'type' => 'button',
-                        'sub_type' => 'url',
-                        'index' => '0',
-                        'parameters' => [['type' => 'text', 'text' => $phoneCode]],
-                    ],
-                ], 'contact-verification:'.$challenge->id);
+                $this->whatsapp->sendTemplate(new WhatsAppTemplateMessage(
+                    $phone,
+                    'contact_verification',
+                    $language,
+                    [$phoneCode],
+                    [['index' => '0', 'parameters' => [$phoneCode]]],
+                    'contact-verification-'.$challenge->id,
+                ));
             }
         } catch (\Throwable $exception) {
             $challenge->forceFill([
@@ -153,6 +149,11 @@ class ContactVerificationService
         ]);
 
         return $challenge->refresh();
+    }
+
+    private function whatsappProviderConfigured(): bool
+    {
+        return app(WhatsAppProviderConfiguration::class)->isOutboundConfigured();
     }
 
     /** @param list<string> $visited */

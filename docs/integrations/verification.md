@@ -16,7 +16,7 @@ Verification messages are transactional only. The WhatsApp service-message conse
 
 ## WhatsApp phone flow
 
-1. The application sends a six-digit OTP using the configured WhatsApp Cloud API Authentication template `easyenglish_activation` only when the submitted phone is not already verified on the account. An already-verified phone is skipped only when its normalized value exactly matches the current submitted number.
+1. The application sends a six-digit OTP through the globally selected WhatsApp provider only when the submitted phone is not already verified on the account. Meta uses the configured approved Authentication template `easyenglish_activation`; OpenWA renders the same application template key as a transactional text message. An already-verified phone is skipped only when its normalized value exactly matches the current submitted number.
 2. The challenge stores an HMAC of the OTP, not the code itself. The OTP expires with the 30-minute challenge.
 3. A maximum of five incorrect attempts is allowed. The code is single-use. The request endpoint has an IP throttle, per-account and per-contact hourly limits, and a 60-second resend cooldown.
 4. Provider acceptance is not treated as verification; only a correct code submitted by the authenticated learner sets `phone_verified_at` and updates the account phone to the verified normalized value.
@@ -32,7 +32,7 @@ The verification JSON endpoints return a server-rendered booking step and one of
 ## Required configuration
 
 - Configure a real transactional mailer. Do not use `MAIL_MAILER=log` or `MAIL_MAILER=array` for verification: log transports expose the full verification link in application logs, while array transports silently discard it. The guard also rejects a failover chain containing either non-delivering transport.
-- Configure `WHATSAPP_ENABLED=true`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`, and the approved `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION` template name.
+- Configure the selected provider with `WHATSAPP_PROVIDER=meta` and `WHATSAPP_ENABLED=true` plus Meta sender/token/template settings, or `WHATSAPP_PROVIDER=openwa` and `OPENWA_MESSAGING_ENABLED=true` plus the OpenWA HTTPS base URL, service token, and callback secret. Both providers should be configured and tested before relying on failover.
 - The approved Meta Authentication template is `easyenglish_activation`, with Romanian locale `ro` and English locale `en`. It requires a body text parameter containing the six-digit code and a URL copy-code button parameter (`sub_type=url`, `index=0`) containing the same code. Configure `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION=easyenglish_activation`, `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_RO=ro`, and `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_EN=en`.
 - **Outstanding Meta-side mismatch:** both approved variants currently state that the code expires in 10 minutes and their copy-code URLs specify `code_expiration_minutes=10`, but the application challenge expires after 30 minutes. Edit both Authentication templates in WhatsApp Manager to reflect 30 minutes and wait for approval before enabling WhatsApp. The MCP template editor does not support Authentication edits; do not change the application's 30-minute challenge lifetime to hide this mismatch.
 - Keep WhatsApp disabled until the Meta business assets, template approval, secrets, sender and live delivery tests are complete. Never put credentials in source control.

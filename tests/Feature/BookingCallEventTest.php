@@ -32,6 +32,19 @@ use Illuminate\Support\Str;
 use Tests\Fakes\FakeCallEventProvider;
 use Tests\Support\FakeWhatsAppGateway;
 
+function enableWhatsAppForCallEventTests(): void
+{
+    config([
+        'services.whatsapp.provider' => 'meta',
+        'services.whatsapp.enabled' => true,
+        'services.whatsapp.api_version' => 'v26.0',
+        'services.whatsapp.phone_number_id' => '123456789',
+        'services.whatsapp.access_token' => 'test-access-token',
+        'services.whatsapp.app_secret' => 'meta-test-secret',
+        'services.whatsapp.verify_token' => 'verify-test-token',
+    ]);
+}
+
 function makeCallEventTestBooking(array $overrides = [], bool $assignTeacher = true): Booking
 {
     $teacher = $assignTeacher ? User::factory()->create(['is_teacher' => true, 'teacher_active' => true]) : null;
@@ -628,7 +641,7 @@ test('WhatsApp call-link deliveries respect separate customer and teacher consen
     ]);
     $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
 
     $event = $service->createForBooking($booking->id, 1);
@@ -638,11 +651,11 @@ test('WhatsApp call-link deliveries respect separate customer and teacher consen
         ->and($deliveries->first()->event)->toBe('customer_call_link_ready');
 
     $message = app(WhatsAppMessageFactory::class)->make($deliveries->first());
-    expect($message['recipient'])->toBe($booking->customer_phone)
-        ->and($message['template'])->toBe('easyenglish_call_link_ready')
-        ->and($message['components'][0]['parameters'])->toHaveCount(7)
-        ->and($message['components'][0]['parameters'][5]['text'])->toBe($event->join_url)
-        ->and($message['components'][0]['parameters'][6]['text'])->not->toBeEmpty();
+    expect($message->recipient)->toBe($booking->customer_phone)
+        ->and($message->template)->toBe('customer_call_link_ready')
+        ->and($message->bodyParameters)->toHaveCount(7)
+        ->and($message->bodyParameters[5])->toBe($event->join_url)
+        ->and($message->bodyParameters[6])->not->toBeEmpty();
 });
 
 test('WhatsApp teacher call-link delivery uses the verified teacher number and teacher-only template', function () {
@@ -656,7 +669,7 @@ test('WhatsApp teacher call-link delivery uses the verified teacher number and t
     $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
     WhatsAppContact::recordConsent($teacher->phone, 'test_teacher_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
 
     $event = $service->createForBooking($booking->id, 1);
@@ -669,9 +682,9 @@ test('WhatsApp teacher call-link delivery uses the verified teacher number and t
 
     expect($delivery->recipient_type)->toBe('teacher')
         ->and($delivery->recipient_user_id)->toBe($teacher->id)
-        ->and($message['recipient'])->toBe($teacher->phone)
-        ->and($message['template'])->toBe('easyenglish_teacher_call_link_ready')
-        ->and($message['components'][0]['parameters'][11]['text'])->toBe($event->join_url);
+        ->and($message->recipient)->toBe($teacher->phone)
+        ->and($message->template)->toBe('teacher_call_link_ready')
+        ->and($message->bodyParameters[11])->toBe($event->join_url);
 });
 
 test('repeated call-ready handling creates no duplicate recipient deliveries', function () {
@@ -768,7 +781,7 @@ test('teacher cancellation WhatsApp uses teacher consent and never sends teacher
     $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
     $booking->update(['status' => 'cancelled', 'cancelled_at' => now(), 'cancelled_by' => 'customer']);
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_shared_phone_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     enableFakeCallEventProvider($provider);
 
     app(NotificationOutboxService::class)
@@ -818,7 +831,7 @@ test('teacher WhatsApp delivery worker sends to the teacher contact and updates 
     ]);
     $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_booking_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
     $event = $service->createForBooking($booking->id, 1);
     $delivery = NotificationDelivery::query()
@@ -886,7 +899,7 @@ test('teacher receives an independent booking confirmation even before OpenWA cr
     $teacher = User::query()->findOrFail($teacher->id);
     expect(DB::table('users')->where('id', $teacher->id)->value('phone'))->toBe('+40722987654');
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_confirmation_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
 
     $delivery = app(NotificationOutboxService::class)->enqueueTeacherBookingConfirmed($booking);
     $message = app(NotificationMessageFactory::class)->make($delivery);
@@ -900,9 +913,9 @@ test('teacher receives an independent booking confirmation even before OpenWA cr
         ->and($message['recipient'])->toBe($teacher->email)
         ->and(collect($message['details'])->firstWhere('label', 'Customer phone')['value'])->toBe($booking->customer_phone)
         ->and($message['ctaUrl'])->toContain('/teacher/bookings/'.$booking->public_reference)
-        ->and($whatsappMessage['recipient'])->toBe($teacher->phone)
-        ->and($whatsappMessage['template'])->toBe('easyenglish_teacher_booking_confirmation')
-        ->and($whatsappMessage['components'][0]['parameters'])->toHaveCount(12);
+        ->and($whatsappMessage->recipient)->toBe($teacher->phone)
+        ->and($whatsappMessage->template)->toBe('teacher_booking_confirmed')
+        ->and($whatsappMessage->bodyParameters)->toHaveCount(12);
 });
 
 test('teacher receives the previous and new appointment time when a booking is rescheduled', function () {
@@ -918,7 +931,7 @@ test('teacher receives the previous and new appointment time when a booking is r
     DB::table('users')->where('id', $teacher->id)->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
     $teacher = User::query()->findOrFail($teacher->id);
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_reschedule_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
 
     $delivery = app(NotificationOutboxService::class)->enqueueTeacherBookingRescheduled($booking->fresh(), $teacher->id, $previousStart);
     $message = app(NotificationMessageFactory::class)->make($delivery);
@@ -930,10 +943,10 @@ test('teacher receives the previous and new appointment time when a booking is r
 
     expect($message['recipient'])->toBe($teacher->email)
         ->and(collect($message['details'])->firstWhere('label', 'Previous appointment time')['value'])->toContain($previousStart->setTimezone('Europe/Bucharest')->format('d.m.Y'))
-        ->and($whatsappMessage['template'])->toBe('easyenglish_teacher_booking_rescheduled')
-        ->and($whatsappMessage['components'][0]['parameters'])->toHaveCount(11)
-        ->and($whatsappMessage['components'][0]['parameters'][5]['text'])->toBe($previousStart->setTimezone('Europe/Bucharest')->format('H:i'))
-        ->and($whatsappMessage['components'][0]['parameters'][7]['text'])->toBe($newStart->setTimezone('Europe/Bucharest')->format('H:i'));
+        ->and($whatsappMessage->template)->toBe('teacher_booking_rescheduled')
+        ->and($whatsappMessage->bodyParameters)->toHaveCount(11)
+        ->and($whatsappMessage->bodyParameters[5])->toBe($previousStart->setTimezone('Europe/Bucharest')->format('H:i'))
+        ->and($whatsappMessage->bodyParameters[7])->toBe($newStart->setTimezone('Europe/Bucharest')->format('H:i'));
 });
 
 test('a transient teacher WhatsApp failure retries only that recipient without creating another call event', function () {
@@ -946,7 +959,7 @@ test('a transient teacher WhatsApp failure retries only that recipient without c
     ]);
     $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_delivery_retry_consent');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
     $event = $service->createForBooking($booking->id, 1);
     $teacherDelivery = NotificationDelivery::query()
@@ -991,7 +1004,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
     ]);
     WhatsAppContact::recordConsent($booking->customer_phone, 'customer_delivery_independence');
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_delivery_independence');
-    config(['services.whatsapp.enabled' => true]);
+    enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
     $event = $service->createForBooking($booking->id, 1);
     $customerDelivery = NotificationDelivery::query()

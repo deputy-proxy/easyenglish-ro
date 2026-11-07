@@ -47,6 +47,8 @@ return [
     ],
 
     'whatsapp' => [
+        'provider' => strtolower(trim((string) env('WHATSAPP_PROVIDER', 'meta'))),
+        'allow_free_form' => (bool) env('WHATSAPP_ALLOW_FREE_FORM', false),
         'enabled' => (bool) env('WHATSAPP_ENABLED', false),
         'api_version' => env('WHATSAPP_API_VERSION', 'v26.0'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
@@ -58,6 +60,13 @@ return [
         'contact_verification_template_languages' => [
             'ro' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_RO', env('WHATSAPP_TEMPLATE_LANGUAGE_RO', 'ro')),
             'en' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION_LANGUAGE_EN', 'en'),
+        ],
+        'openwa' => [
+            'enabled' => (bool) env('OPENWA_MESSAGING_ENABLED', false),
+            'base_url' => env('OPENWA_BASE_URL'),
+            'service_token' => env('OPENWA_SERVICE_TOKEN'),
+            'timeout' => (int) env('OPENWA_MESSAGING_TIMEOUT', 20),
+            'callback_secret' => env('OPENWA_MESSAGING_CALLBACK_SECRET'),
         ],
         'templates' => [
             'contact_verification' => env('WHATSAPP_TEMPLATE_CONTACT_VERIFICATION', 'easyenglish_activation'),

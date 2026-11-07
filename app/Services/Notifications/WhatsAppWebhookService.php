@@ -24,6 +24,33 @@ class WhatsAppWebhookService
     }
 
     /**
+     * @param  array<string, mixed>  $message
+     * @return array{messages_persisted: int, messages_duplicate: int, messages_ignored: int}
+     */
+    public function handleOpenWaInbound(array $message): array
+    {
+        $id = $message['id'] ?? null;
+        $from = $message['from'] ?? null;
+        if (! is_string($id) || ! is_string($from)) {
+            return ['messages_persisted' => 0, 'messages_duplicate' => 0, 'messages_ignored' => 1];
+        }
+        $normalized = [
+            'id' => 'openwa:'.$id,
+            'from' => $from,
+            'type' => 'text',
+            'text' => ['body' => is_string($message['text'] ?? null) ? $message['text'] : ''],
+            'timestamp' => is_scalar($message['timestamp'] ?? null) ? (string) $message['timestamp'] : null,
+        ];
+        $result = $this->handleInboundMessage($normalized, ['display_phone_number' => $message['to'] ?? null]);
+
+        return [
+            'messages_persisted' => $result === 'persisted' ? 1 : 0,
+            'messages_duplicate' => $result === 'duplicate' ? 1 : 0,
+            'messages_ignored' => $result === 'ignored' ? 1 : 0,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array{entries: int, changes: int, statuses_received: int, messages_received: int, messages_persisted: int, messages_duplicate: int, messages_ignored: int}
      */
@@ -88,6 +115,16 @@ class WhatsAppWebhookService
         $timestamp = (string) ($status['timestamp'] ?? '');
         $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->first();
         if (! $delivery) {
+            $callbackData = $status['biz_opaque_callback_data'] ?? null;
+            if (is_string($callbackData) && preg_match('/^easyenglish-delivery-(\d+)$/', $callbackData, $matches) === 1) {
+                $delivery = NotificationDelivery::query()->whereKey((int) $matches[1])
+                    ->where('channel', 'whatsapp')->where('provider', 'meta')->first();
+                if ($delivery) {
+                    $delivery->forceFill(['provider_message_id' => $messageId])->save();
+                }
+            }
+        }
+        if (! $delivery || ! in_array($delivery->provider, [null, 'meta'], true)) {
             return;
         }
         $eventKey = hash('sha256', implode('|', [$messageId, $providerStatus, $timestamp]));
@@ -119,6 +156,18 @@ class WhatsAppWebhookService
             return;
         }
 
+        $providerAttempts = $delivery->provider_attempts ?? [];
+        if ($providerAttempts !== []) {
+            $last = array_key_last($providerAttempts);
+            if (($providerAttempts[$last]['provider'] ?? null) === 'meta') {
+                $providerAttempts[$last] = array_merge($providerAttempts[$last], [
+                    'status' => $providerStatus,
+                    'completed_at' => now()->toIso8601String(),
+                    'message_id' => $messageId,
+                ]);
+                $changes['provider_attempts'] = $providerAttempts;
+            }
+        }
         $delivery->forceFill($changes)->save();
     }
 

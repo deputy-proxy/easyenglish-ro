@@ -18,6 +18,7 @@ use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\BookingService;
 use App\Services\Booking\CancellationPolicyService;
+use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Services\Payments\CustomerPurchasePresenter;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Progress\ProgressChartData;
@@ -1048,9 +1049,8 @@ class PublicSiteController extends Controller
             $whatsappNotificationStatus = $contact?->opted_out_at !== null ? 'opted_out' : ($contact?->canReceiveServiceMessages() ? 'enabled' : 'not_subscribed');
         }
         $contactVerificationEmailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
-        $phoneVerificationAvailable = ! $contactVerificationEmailOnly && (bool) config('services.whatsapp.enabled')
-            && filled(config('services.whatsapp.access_token')) && filled(config('services.whatsapp.phone_number_id'))
-            && filled(config('services.whatsapp.templates.contact_verification'));
+        $phoneVerificationAvailable = ! $contactVerificationEmailOnly
+            && app(WhatsAppProviderConfiguration::class)->isOutboundConfigured();
 
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()

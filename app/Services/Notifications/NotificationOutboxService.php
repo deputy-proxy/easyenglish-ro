@@ -327,7 +327,7 @@ class NotificationOutboxService
     /** @param array<string, mixed> $metadata */
     private function enqueueWhatsApp(string $event, string $phone, ?int $bookingId, ?int $entitlementId, ?int $refundId, array $metadata, ?string $eventKey): ?NotificationDelivery
     {
-        if (! (bool) config('services.whatsapp.enabled')) {
+        if (! $this->whatsappSendingEnabled()) {
             return null;
         }
         $contact = WhatsAppContact::query()->where('phone', $phone)->first();
@@ -389,7 +389,7 @@ class NotificationOutboxService
         array $metadata,
         string $key,
     ): ?NotificationDelivery {
-        if (! (bool) config('services.whatsapp.enabled')) {
+        if (! $this->whatsappSendingEnabled()) {
             return null;
         }
 
@@ -420,6 +420,11 @@ class NotificationOutboxService
         }
 
         return $this->enqueueRecipientWhatsApp($event, $booking, $teacher, null, $metadata, $key);
+    }
+
+    private function whatsappSendingEnabled(): bool
+    {
+        return app(WhatsAppProviderConfiguration::class)->isConfigured();
     }
 
     private function normalizedPhone(?string $phone): ?string

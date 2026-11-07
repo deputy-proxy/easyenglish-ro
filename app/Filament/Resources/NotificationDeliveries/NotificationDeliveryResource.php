@@ -5,8 +5,10 @@ namespace App\Filament\Resources\NotificationDeliveries;
 use App\Filament\Resources\NotificationDeliveries\Pages\ManageNotificationDeliveries;
 use App\Models\BookingAudit;
 use App\Models\NotificationDelivery;
+use App\Services\Notifications\OpenWaMessageReconciliationService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -44,6 +46,8 @@ class NotificationDeliveryResource extends Resource
             TextColumn::make('created_at')->label('Created')->dateTime('d M Y H:i:s')->sortable(),
             TextColumn::make('event')->badge()->searchable(),
             TextColumn::make('channel')->badge(),
+            TextColumn::make('provider')->label('Provider')->badge()->placeholder('Not submitted'),
+            TextColumn::make('provider_attempts')->label('Provider attempts')->state(fn (NotificationDelivery $record): string => collect($record->provider_attempts ?? [])->map(fn (array $attempt): string => ($attempt['provider'] ?? 'unknown').': '.($attempt['status'] ?? 'unknown'))->implode(' → '))->placeholder('No attempts'),
             TextColumn::make('recipient')->state(function (NotificationDelivery $record): string {
                 if ($record->recipient_type === 'teacher') {
                     return $record->channel === 'whatsapp'
@@ -57,7 +61,7 @@ class NotificationDeliveryResource extends Resource
             }),
             TextColumn::make('recipient_type')->label('Recipient type')->badge(),
             TextColumn::make('status')->badge()->color(fn (string $state): string => match ($state) {
-                'sent', 'delivered', 'read' => 'success', 'failed' => 'danger', 'sending', 'queued' => 'warning', 'skipped' => 'gray', default => 'gray',
+                'sent', 'delivered', 'read' => 'success', 'failed' => 'danger', 'sending', 'queued', 'ambiguous' => 'warning', 'skipped' => 'gray', default => 'gray',
             })->sortable(),
             TextColumn::make('attempts')->numeric()->sortable(),
             TextColumn::make('next_attempt_at')->dateTime('d M Y H:i:s')->placeholder('Not scheduled'),
@@ -66,11 +70,26 @@ class NotificationDeliveryResource extends Resource
             TextColumn::make('provider_error_code')->label('Provider error')->placeholder('None'),
             TextColumn::make('last_error')->limit(70)->placeholder('No error recorded'),
         ])->filters([
-            SelectFilter::make('status')->options(['pending' => 'Pending', 'queued' => 'Queued', 'sending' => 'Sending', 'sent' => 'Sent', 'failed' => 'Failed', 'skipped' => 'Skipped', 'delivered' => 'Delivered', 'read' => 'Read']),
+            SelectFilter::make('status')->options(['pending' => 'Pending', 'queued' => 'Queued', 'sending' => 'Sending', 'ambiguous' => 'Ambiguous', 'sent' => 'Sent', 'failed' => 'Failed', 'skipped' => 'Skipped', 'delivered' => 'Delivered', 'read' => 'Read']),
             SelectFilter::make('channel')->options(['email' => 'Email', 'whatsapp' => 'WhatsApp']),
         ])->defaultSort('created_at', 'desc')->recordActions([
+            Action::make('reconcile')->label('Reconcile OpenWA')->color('warning')->requiresConfirmation()
+                ->modalDescription('Check the durable OpenWA idempotency record before deciding whether this delivery was accepted or is safe to retry.')
+                ->visible(fn (NotificationDelivery $record): bool => $record->channel === 'whatsapp' && $record->provider === 'openwa' && $record->status === 'ambiguous')
+                ->action(function (NotificationDelivery $record, OpenWaMessageReconciliationService $reconciler): void {
+                    try {
+                        $status = $reconciler->reconcile($record->fresh());
+                        Notification::make()->title(match ($status) {
+                            'sent' => 'OpenWA confirms the message was accepted.',
+                            'failed' => 'OpenWA confirms the message was not accepted. A retry is now available.',
+                            default => 'The send outcome is still ambiguous. Do not retry yet.',
+                        })->{$status === 'sent' || $status === 'failed' ? 'success' : 'warning'}()->send();
+                    } catch (\Throwable $exception) {
+                        Notification::make()->title('Could not reconcile the OpenWA delivery.')->body($exception->getMessage())->danger()->send();
+                    }
+                }),
             Action::make('retry')->label('Retry delivery')->color('warning')->requiresConfirmation()
-                ->modalDescription('This requeues the same logical notification. Email and WhatsApp providers can accept a message before a connection fails, so transport-level duplicate delivery cannot be ruled out.')
+                ->modalDescription('This requeues the same logical notification. Ambiguous WhatsApp sends are deliberately excluded from automatic retry and must be reconciled with the provider first.')
                 ->visible(fn (NotificationDelivery $record): bool => $record->status === 'failed' && in_array($record->channel, ['email', 'whatsapp'], true))
                 ->action(function (NotificationDelivery $record): void {
                     DB::transaction(function () use ($record): void {

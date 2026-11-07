@@ -446,9 +446,9 @@ test('confirmed customer views and notifications disclose the assigned teacher o
     $confirmationUrl = URL::temporarySignedRoute('booking.confirmed', now()->addHour(), ['reference' => $booking->public_reference], false);
 
     expect(collect($email['details'])->pluck('value')->implode(' '))->toContain('Assigned Teacher')
-        ->and($whatsapp['components'][0]['parameters'])->toHaveCount(4)
-        ->and($whatsapp['components'][0]['parameters'][3]['text'])->toContain('assigned.teacher@example.com')
-        ->and($whatsapp['components'][0]['parameters'][3]['text'])->toContain('+40722123455');
+        ->and($whatsapp->bodyParameters)->toHaveCount(4)
+        ->and($whatsapp->bodyParameters[3])->toContain('assigned.teacher@example.com')
+        ->and($whatsapp->bodyParameters[3])->toContain('+40722123455');
 
     $this->get($confirmationUrl)->assertOk()->assertSee('Assigned Teacher')->assertSee('assigned.teacher@example.com');
 });

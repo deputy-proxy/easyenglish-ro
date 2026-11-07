@@ -5,10 +5,12 @@ namespace App\Console\Commands;
 use App\Models\NotificationDelivery;
 use App\Models\User;
 use App\Services\CallEvents\OpenWaHttpClient;
+use App\Services\Notifications\WhatsAppProviderConfiguration;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
@@ -25,6 +27,25 @@ class MonitorOpenWaOperations extends Command
         $openWaReady = null;
         $providerErrorsInWindow = null;
         $staleCallEvents = 0;
+        $activeWhatsAppProvider = (string) config('services.whatsapp.provider', 'meta');
+        $openWaMessagingReady = null;
+        $activeWhatsAppConfigured = false;
+        try {
+            $providerConfiguration = app(WhatsAppProviderConfiguration::class);
+            $activeWhatsAppConfigured = $providerConfiguration->provider() === 'openwa'
+                || ! $providerConfiguration->isEnabled()
+                || $providerConfiguration->isConfigured();
+        } catch (\Throwable) {
+            $activeWhatsAppConfigured = false;
+        }
+        $this->trackCondition(
+            'whatsapp-active-provider-configuration',
+            ! $activeWhatsAppConfigured,
+            'Active WhatsApp provider configuration is incomplete',
+            'The selected WhatsApp provider is missing required credentials or callback configuration. Check the provider environment variables and run php artisan whatsapp:provider-status after updating them.',
+            $alerts,
+            $recovered,
+        );
 
         if ((bool) config('services.openwa.enabled')) {
             $ready = $client->isReady();
@@ -84,6 +105,42 @@ class MonitorOpenWaOperations extends Command
             );
         }
 
+        if ($activeWhatsAppProvider === 'openwa' || (bool) config('services.whatsapp.openwa.enabled')) {
+            $baseUrl = rtrim((string) config('services.whatsapp.openwa.base_url'), '/');
+            $token = config('services.whatsapp.openwa.service_token');
+            $ready = false;
+            if ($baseUrl !== '' && is_string($token) && $token !== '') {
+                try {
+                    $response = Http::acceptJson()->withToken($token)->connectTimeout(5)->timeout(8)->get($baseUrl.'/v1/capabilities');
+                    $ready = $response->successful() && $response->json('messagingReady') === true;
+                } catch (\Throwable) {
+                    $ready = false;
+                }
+            }
+            $openWaMessagingReady = $ready;
+            $this->trackCondition(
+                'openwa-messaging-readiness',
+                $activeWhatsAppProvider === 'openwa' && ! $ready,
+                'Active WhatsApp provider is not ready',
+                'OpenWA is selected for outbound WhatsApp messaging but its messaging capability is not ready. Switch WHATSAPP_PROVIDER to meta after confirming Meta credentials and templates are operational.',
+                $alerts,
+                $recovered,
+            );
+        }
+
+        $ambiguousDeliveries = NotificationDelivery::query()
+            ->where('channel', 'whatsapp')
+            ->where('status', 'ambiguous')
+            ->count();
+        $this->trackCondition(
+            'whatsapp-ambiguous-deliveries',
+            $ambiguousDeliveries > 0,
+            'WhatsApp deliveries require reconciliation',
+            "{$ambiguousDeliveries} WhatsApp delivery(ies) have an unknown provider submission outcome. Reconcile with the recorded provider before retrying.",
+            $alerts,
+            $recovered,
+        );
+
         $failedDeliveries = NotificationDelivery::query()
             ->where('status', 'failed')
             ->where('updated_at', '>=', now()->subMinutes((int) config('services.openwa.monitor.delivery_failure_window_minutes', 30)))
@@ -122,12 +179,16 @@ class MonitorOpenWaOperations extends Command
 
         Log::info('OpenWA operations monitor completed.', [
             'openwa_enabled' => (bool) config('services.openwa.enabled'),
+            'active_whatsapp_provider' => $activeWhatsAppProvider,
+            'openwa_messaging_ready' => $openWaMessagingReady,
+            'active_whatsapp_configured' => $activeWhatsAppConfigured,
             'openwa_ready' => $openWaReady,
             'provider_errors_in_window' => $providerErrorsInWindow,
             'stale_call_event_operations' => $staleCallEvents,
             'alerts_created' => count($alerts),
             'conditions_recovered' => count($recovered),
             'failed_notification_deliveries' => $failedDeliveries,
+            'ambiguous_whatsapp_deliveries' => $ambiguousDeliveries,
             'queue_backlog' => $queueCount,
             'oldest_queue_job_age_minutes' => round($oldestJobAgeMinutes, 1),
         ]);

@@ -34,3 +34,96 @@ test('marks provider timeouts uncertain and prevents automatic duplicate submiss
 test('pairing interface is not exposed unless the pairing feature is explicitly enabled', async () => { const s = await setup(); try { assert.equal((await fetch(s.base + '/pairing/status')).status, 404); assert.equal((await fetch(s.base + '/')).status, 404); } finally { await s.close(); } });
 
 test('pairing routes require Basic authentication when the pairing window is explicitly enabled', async () => { const s = await setup({}, 'disabled', undefined, { pairingEnabled: true }); try { assert.equal((await fetch(s.base + '/pairing/status')).status, 401); const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64'); assert.equal((await fetch(s.base + '/pairing/status', { headers: { Authorization: 'Basic ' + credentials } })).status, 200); } finally { await s.close(); } });
+
+test('sends OpenWA messages once with durable idempotency and rejects conflicting replays', async () => {
+  const records = [], calls = [];
+  const messageStore = {
+    findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null,
+    async upsert(record) { const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey); if (index < 0) records.push(record); else records[index] = record; },
+    pendingInbound: () => [],
+  };
+  const s = await setup({ async sendText(to, text) { calls.push([to, text]); return { providerMessageId: 'openwa-message-123' }; } }, 'authenticated', undefined, { messagingEnabled: true });
+  await s.close();
+  const appServer = createServer(createApp({ config: { ...config, messagingEnabled: true }, state: { phase: 'authenticated', provider: { async sendText(to, text) { calls.push([to, text]); return { providerMessageId: 'openwa-message-123' }; } }, metrics: {} }, store: s.store, messageStore, messageTimeoutMs: 20, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => appServer.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + appServer.address().port;
+  const headers = { ...s.auth, 'Idempotency-Key': 'contact-verification:12345678' };
+  const body = JSON.stringify({ to: '+40712345678', text: 'Your verification code is 123456.' });
+  try {
+    const first = await fetch(base + '/v1/messages', { method: 'POST', headers, body });
+    assert.equal(first.status, 201);
+    assert.deepEqual(await first.json(), { providerMessageId: 'openwa-message-123', status: 'accepted' });
+    const replay = await fetch(base + '/v1/messages', { method: 'POST', headers, body });
+    assert.equal(replay.status, 200);
+    assert.equal((await replay.json()).replayed, true);
+    const conflict = await fetch(base + '/v1/messages', { method: 'POST', headers, body: JSON.stringify({ to: '+40712345678', text: 'Different message' }) });
+    assert.equal(conflict.status, 409);
+    assert.equal(calls.length, 1);
+  } finally { await new Promise((resolve) => appServer.close(resolve)); }
+});
+
+test('does not retry an ambiguous OpenWA send automatically', async () => {
+  const records = [], messageStore = { findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null, async upsert(record) { const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey); if (index < 0) records.push(record); else records[index] = record; }, pendingInbound: () => [] };
+  let sends = 0;
+  const server = createServer(createApp({ config: { ...config, messagingEnabled: true }, state: { phase: 'authenticated', provider: { async sendText() { sends++; return new Promise(() => {}); } }, metrics: {} }, store: createStore(), messageStore, messageTimeoutMs: 20, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const headers = { ...{ Authorization: 'Bearer ' + config.serviceToken, 'Content-Type': 'application/json' }, 'Idempotency-Key': 'ambiguous-send-key-0001' };
+  try {
+    const first = await fetch(base + '/v1/messages', { method: 'POST', headers, body: JSON.stringify({ to: '+40712345678', text: 'Hello' }) });
+    assert.equal(first.status, 202);
+    const replay = await fetch(base + '/v1/messages', { method: 'POST', headers, body: JSON.stringify({ to: '+40712345678', text: 'Hello' }) });
+    assert.equal(replay.status, 202);
+    assert.equal(sends, 1);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('serializes concurrent duplicate message submissions and exposes safe reconciliation status', async () => {
+  const records = [], calls = [];
+  const messageStore = {
+    findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null,
+    async upsert(record) { const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey); if (index < 0) records.push(record); else records[index] = record; },
+    pendingInbound: () => [],
+  };
+  const provider = { async sendText(to, text) { calls.push([to, text]); await new Promise((resolve) => setTimeout(resolve, 10)); return { providerMessageId: 'wamid-concurrent-1' }; } };
+  const server = createServer(createApp({ config: { ...config, messagingEnabled: true }, state: { phase: 'authenticated', provider, metrics: {} }, store: createStore(), messageStore, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const headers = { Authorization: 'Bearer ' + config.serviceToken, 'Content-Type': 'application/json', 'Idempotency-Key': 'concurrent-message-key-01' };
+  const body = JSON.stringify({ to: '+40712345678', text: 'Hello once' });
+  try {
+    const results = await Promise.all([fetch(base + '/v1/messages', { method: 'POST', headers, body }), fetch(base + '/v1/messages', { method: 'POST', headers, body })]);
+    assert.deepEqual(results.map((response) => response.status).sort(), [200, 201]);
+    assert.equal(calls.length, 1);
+    const status = await fetch(base + '/v1/messages/' + encodeURIComponent('concurrent-message-key-01'), { headers: { Authorization: 'Bearer ' + config.serviceToken } });
+    assert.equal(status.status, 200);
+    assert.deepEqual(await status.json(), { status: 'accepted', providerMessageId: 'wamid-concurrent-1', attempts: 1, acceptedAt: records[0].acceptedAt });
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
+test('does not replay a provider-accepted message when acknowledgement persistence fails', async () => {
+  const records = [], calls = [];
+  let rejectAcceptedWrite = true;
+  const messageStore = {
+    findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null,
+    async upsert(record) {
+      if (record.status === 'accepted' && rejectAcceptedWrite) { rejectAcceptedWrite = false; throw new Error('disk unavailable'); }
+      const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey);
+      if (index < 0) records.push({ ...record }); else records[index] = { ...record };
+    },
+    pendingInbound: () => [],
+  };
+  const provider = { async sendText() { calls.push('send'); return { providerMessageId: 'wamid-persist-failure' }; } };
+  const server = createServer(createApp({ config: { ...config, messagingEnabled: true }, state: { phase: 'authenticated', provider, metrics: {} }, store: createStore(), messageStore, logger: { info() {}, warn() {}, error() {} } }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const headers = { Authorization: 'Bearer ' + config.serviceToken, 'Content-Type': 'application/json', 'Idempotency-Key': 'accepted-persist-failure-1' };
+  const body = JSON.stringify({ to: '+40712345678', text: 'Accepted once' });
+  try {
+    const first = await fetch(base + '/v1/messages', { method: 'POST', headers, body });
+    assert.equal(first.status, 202);
+    const replay = await fetch(base + '/v1/messages', { method: 'POST', headers, body });
+    assert.equal(replay.status, 202);
+    assert.equal(calls.length, 1);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});

@@ -31,6 +31,7 @@ Route::get('/booking/confirmed/{reference}', [PublicSiteController::class, 'conf
 Route::post('/stripe/webhook', StripeWebhookController::class)->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('stripe.webhook');
 Route::get('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'verify'])->middleware('throttle:60,1')->name('whatsapp.webhook.verify');
 Route::post('/webhooks/whatsapp', [WhatsAppWebhookController::class, 'receive'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('whatsapp.webhook.receive');
+Route::post('/webhooks/openwa', [WhatsAppWebhookController::class, 'receiveOpenWa'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:120,1')->name('openwa.webhook.receive');
 Route::get('/purchase/success', [PublicSiteController::class, 'purchaseSuccess'])->middleware('throttle:30,1')->name('purchase.success');
 Route::get('/purchase/cancel/{bundle}', [PublicSiteController::class, 'purchaseCancel'])->middleware('throttle:30,1')->name('purchase.cancel');
 Route::post('/purchase/{bundle}/checkout', [PublicSiteController::class, 'startCheckout'])->middleware(['auth', 'throttle:10,1'])->name('purchase.checkout');

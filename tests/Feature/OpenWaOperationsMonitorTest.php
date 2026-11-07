@@ -91,3 +91,82 @@ test('alerts staff when provider errors exceed the configured rolling window thr
 
     expect(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1);
 });
+
+test('alerts staff when OpenWA is active but its messaging capability is not ready', function (): void {
+    $staff = User::factory()->create(['is_staff' => true]);
+    config([
+        'services.whatsapp.provider' => 'openwa',
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.test',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+    ]);
+    Http::fake([
+        'https://openwa.example.test/health/ready' => Http::response(['status' => 'ready'], 200),
+        'https://openwa.example.test/v1/capabilities' => Http::response(['messagingReady' => false], 200),
+        'https://openwa.example.test/v1/metrics' => Http::response(['providerErrors' => 0], 200),
+    ]);
+
+    $this->artisan('openwa:monitor')->assertSuccessful();
+
+    expect(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1);
+});
+
+test('inactive OpenWA messaging readiness does not alert while Meta is selected', function (): void {
+    $staff = User::factory()->create(['is_staff' => true]);
+    config([
+        'services.whatsapp.provider' => 'meta',
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.test',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+    ]);
+    Http::fake([
+        'https://openwa.example.test/health/ready' => Http::response(['status' => 'ready'], 200),
+        'https://openwa.example.test/v1/capabilities' => Http::response(['messagingReady' => false], 200),
+        'https://openwa.example.test/v1/metrics' => Http::response(['providerErrors' => 0], 200),
+    ]);
+
+    $this->artisan('openwa:monitor')->assertSuccessful();
+
+    expect(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(0);
+});
+
+test('ambiguous WhatsApp deliveries remain an active operations alert', function (): void {
+    $staff = User::factory()->create(['is_staff' => true]);
+    config(['services.openwa.enabled' => false]);
+    NotificationDelivery::query()->create([
+        'recipient_type' => 'customer',
+        'channel' => 'whatsapp',
+        'event' => 'customer_call_link_ready',
+        'status' => 'ambiguous',
+        'provider' => 'openwa',
+        'attempts' => 1,
+        'idempotency_key' => 'monitor-ambiguous-delivery',
+    ]);
+
+    $this->artisan('openwa:monitor')->assertSuccessful();
+
+    expect(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1);
+});
+
+test('expired WhatsApp worker leases become ambiguous and retain provider attempt history', function (): void {
+    $delivery = NotificationDelivery::query()->create([
+        'recipient_type' => 'customer',
+        'channel' => 'whatsapp',
+        'event' => 'customer_call_link_ready',
+        'status' => 'sending',
+        'provider' => 'meta',
+        'provider_attempts' => [[
+            'provider' => 'meta', 'attempt' => 1, 'status' => 'sending',
+            'started_at' => now()->subMinutes(30)->toIso8601String(),
+        ]],
+        'attempts' => 1,
+        'idempotency_key' => 'expired-whatsapp-worker-lease',
+    ]);
+    DB::table('notification_deliveries')->where('id', $delivery->id)->update(['updated_at' => now()->subMinutes(30)]);
+
+    $this->artisan('notifications:dispatch')->assertSuccessful();
+
+    expect($delivery->fresh()->status)->toBe('ambiguous')
+        ->and($delivery->fresh()->provider_attempts[0]['status'])->toBe('ambiguous')
+        ->and($delivery->fresh()->provider_attempts[0]['reason'])->toBe('worker_lease_expired');
+});
