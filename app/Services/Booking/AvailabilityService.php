@@ -86,7 +86,7 @@ class AvailabilityService
         $weekday = $day->dayOfWeekIso % 7;
         $previousWeekday = ($weekday + 6) % 7;
         $teacherRules = $teacher->availabilityRules()->where('is_active', true)->whereIn('weekday', [$weekday, $previousWeekday])->get();
-        $usesLegacyAvailability = ! $teacher->availabilityRules()->exists();
+        $usesLegacyAvailability = !$teacher->availabilityRules()->exists();
         $rules = $usesLegacyAvailability
             ? AvailabilityRule::query()->whereNull('user_id')->where('is_active', true)->whereIn('weekday', [$weekday, $previousWeekday])->get()
             : $teacherRules;
