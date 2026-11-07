@@ -7,7 +7,12 @@ export class InboundMessageForwarder {
     this.fetchImpl = fetchImpl;
     this.logger = logger;
     this.clock = clock;
+    this.resolvePhone = null;
     this.dispatching = false;
+  }
+
+  setPhoneResolver(resolvePhone) {
+    this.resolvePhone = typeof resolvePhone === 'function' ? resolvePhone : null;
   }
 
   async receive(message) {
@@ -16,14 +21,32 @@ export class InboundMessageForwarder {
     const id = typeof message.id === 'string' ? message.id : message.id?._serialized;
     const fromRaw = message.from;
     if (typeof id !== 'string' || typeof fromRaw !== 'string') return;
-    const fromDigits = fromRaw.replace(/@(?:c\.us|s\.whatsapp\.net)$/, '').replace(/\D/g, '');
-    if (!/^[1-9]\d{7,14}$/.test(fromDigits)) return;
-    const from = '+' + fromDigits;
+    const isLinkedId = /@lid$/i.test(fromRaw);
+    let from = null;
+    let senderId = null;
+    if (isLinkedId) {
+      senderId = fromRaw;
+      try {
+        const resolved = await this.resolvePhone?.(fromRaw);
+        const digits = typeof resolved === 'string' ? resolved.replace(/\D/g, '') : '';
+        if (/^[1-9]\d{7,14}$/.test(digits)) from = '+' + digits;
+      } catch {
+        // Keep the original LID when WhatsApp has not exposed its phone mapping.
+      }
+      from ??= fromRaw;
+    } else {
+      const fromDigits = fromRaw.replace(/@(?:c\.us|s\.whatsapp\.net)$/, '').replace(/\D/g, '');
+      if (!/^[1-9]\d{7,14}$/.test(fromDigits)) return;
+      from = '+' + fromDigits;
+    }
     const type = typeof message.type === 'string' ? message.type : 'unknown';
     const payload = {
       id,
       from,
-      to: typeof message.to === 'string' ? '+' + message.to.replace(/@(?:c\.us|s\.whatsapp\.net)$/, '').replace(/\D/g, '') : null,
+      ...(senderId ? { senderId } : {}),
+      to: typeof message.to === 'string' && /@(?:c\.us|s\.whatsapp\.net)$/.test(message.to)
+        ? '+' + message.to.replace(/@(?:c\.us|s\.whatsapp\.net)$/, '').replace(/\D/g, '')
+        : null,
       timestamp: Number.isFinite(Number(message.t)) ? String(message.t) : String(Math.floor(this.clock() / 1000)),
       type,
       text: type === 'chat' || type === 'text' ? (typeof message.body === 'string' ? message.body : '') : null,

@@ -4,6 +4,7 @@ use App\Contracts\Notifications\WhatsAppGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Jobs\SendNotificationDelivery;
 use App\Models\Booking;
+use App\Models\Message;
 use App\Models\NotificationDelivery;
 use App\Models\User;
 use App\Models\WhatsAppContact;
@@ -307,6 +308,56 @@ test('OpenWA inbound callback is authenticated and STOP opts out using the share
     expect(WhatsAppContact::query()->where('phone', '+40722123456')->firstOrFail()->opted_out_at)->not->toBeNull()
         ->and($delivery->fresh()->status)->toBe('skipped')
         ->and(DB::table('messages')->where('provider_message_id', 'openwa:wamid-openwa-stop-1')->exists())->toBeTrue();
+});
+
+test('OpenWA linked-id sender is resolved to a real phone number before persisting or applying opt-out', function () {
+    enableWhatsAppForTests();
+    config([
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.com',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.session_id' => 'easyenglish-openwa-poc',
+    ]);
+    WhatsAppContact::recordConsent('+40732999325', 'registration');
+    WhatsAppContact::recordOptOut('+151616808329283', 'whatsapp_reply');
+    Http::fake([
+        'openwa.example.com/api/sessions/easyenglish-openwa-poc/contacts/*/phone' => Http::response([
+            'contactId' => '151616808329283@lid', 'phone' => '40732999325',
+        ], 200),
+    ]);
+
+    $result = app(WhatsAppWebhookService::class)->handleOpenWaInbound([
+        'id' => 'openwa-lid-inbound-1', 'from' => '40732999325', 'senderId' => '151616808329283@lid', 'to' => '40700000000',
+        'timestamp' => '1794050000', 'text' => 'Hello',
+    ]);
+
+    expect($result['messages_persisted'])->toBe(1)
+        ->and(WhatsAppContact::query()->where('phone', '+40732999325')->value('opt_out_source'))->toBe('whatsapp_reply')
+        ->and(WhatsAppContact::query()->where('phone', '+151616808329283')->exists())->toBeFalse()
+        ->and(Message::query()->sole()->from_phone)->toBe('+40732999325')
+        ->and(Message::query()->sole()->context['openwa_sender_id'])->toBe('151616808329283@lid');
+
+});
+
+test('unresolved OpenWA linked-id is retained as an identifier but never stored as a phone contact or opted out', function () {
+    enableWhatsAppForTests();
+    config([
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.com',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.session_id' => 'easyenglish-openwa-poc',
+    ]);
+    Http::fake(['openwa.example.com/api/sessions/*/contacts/*/phone' => Http::response(['phone' => null], 200)]);
+
+    $result = app(WhatsAppWebhookService::class)->handleOpenWaInbound([
+        'id' => 'openwa-lid-unresolved-1', 'from' => '151616808329283@lid', 'senderId' => '151616808329283@lid', 'text' => 'STOP',
+    ]);
+
+    expect($result['messages_persisted'])->toBe(1)
+        ->and(Message::query()->sole()->from_phone)->toBe('151616808329283@lid')
+        ->and(Message::query()->sole()->context['phone_resolution'])->toBe('unresolved')
+        ->and(WhatsAppContact::query()->count())->toBe(0)
+        ->and(DB::table('whatsapp_webhook_events')->where('event_type', 'opt_out')->count())->toBe(0);
 });
 
 test('WhatsApp connection loss quarantines the delivery as ambiguous instead of automatically retrying through another provider', function () {
