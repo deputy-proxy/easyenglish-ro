@@ -35,6 +35,29 @@ test('pairing interface is not exposed unless the pairing feature is explicitly 
 
 test('pairing routes require Basic authentication when the pairing window is explicitly enabled', async () => { const s = await setup({}, 'disabled', undefined, { pairingEnabled: true }); try { assert.equal((await fetch(s.base + '/pairing/status')).status, 401); const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64'); assert.equal((await fetch(s.base + '/pairing/status', { headers: { Authorization: 'Basic ' + credentials } })).status, 200); } finally { await s.close(); } });
 
+test('manual pairing reset requires Basic auth and returns only safe reset status', async () => {
+  let resets = 0;
+  const s = await setup({}, 'failed', undefined, { pairingEnabled: true });
+  await s.close();
+  const server = createServer(createApp({
+    config: { ...config, pairingEnabled: true },
+    state: { phase: 'failed', qr: null, startedAt: new Date().toISOString() },
+    store: createStore(),
+    resetSession: async () => { resets += 1; return { checkpointBackedUp: true }; },
+    logger: { info() {}, warn() {}, error() {} },
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  const credentials = Buffer.from(config.pairingUsername + ':' + config.pairingPassword).toString('base64');
+  try {
+    assert.equal((await fetch(base + '/pairing/reset', { method: 'POST' })).status, 401);
+    const response = await fetch(base + '/pairing/reset', { method: 'POST', headers: { Authorization: 'Basic ' + credentials, 'Content-Type': 'application/json' }, body: '{}' });
+    assert.equal(response.status, 202);
+    assert.deepEqual(await response.json(), { status: 'pairing_restarted', checkpointBackedUp: true });
+    assert.equal(resets, 1);
+  } finally { await new Promise((resolve) => server.close(resolve)); }
+});
+
 test('pairing status reports QR availability without exposing the QR credential', async () => {
   const s = await setup({}, 'qr_ready', undefined, { pairingEnabled: true });
   s.server.close();
