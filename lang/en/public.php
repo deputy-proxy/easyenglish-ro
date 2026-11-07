@@ -724,4 +724,7 @@ return [
         'Friday',
         'Saturday',
     ],
+    'booking_account_validated_title' => 'Your account has been validated.',
+    'booking_account_validated_redirect' => 'You have already used your free introductory session. You will be redirected to your dashboard, where you can review your purchases.',
+    'booking_account_validated_link' => 'Go to my purchases',
 ];
