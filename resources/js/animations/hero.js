@@ -20,25 +20,31 @@ export function initializeHeroAnimations(gsap) {
     const trust = hero.querySelector('[data-hero-trust]');
 
     if (desktopImages.length) {
-        timeline.fromTo(desktopImages, {
-            clipPath: 'inset(100% 0 0 0)',
-        }, {
-            clipPath: 'inset(0% 0 0 0)',
-            duration: 1.05,
-            stagger: 0.12,
-        }, 0);
+        desktopImages.forEach((image, index) => {
+            timeline.fromTo(image, {
+                autoAlpha: 0,
+                x: index === 0 ? -44 : 44,
+            }, {
+                autoAlpha: 1,
+                x: 0,
+                duration: 1.15,
+                ease: 'power3.out',
+            }, index * 0.14);
+        });
     }
 
     if (mobileImages.length) {
-        timeline.fromTo(mobileImages, {
-            autoAlpha: 0,
-            y: 18,
-        }, {
-            autoAlpha: 1,
-            y: 0,
-            duration: 0.65,
-            stagger: 0.1,
-        }, 0.1);
+        mobileImages.forEach((image, index) => {
+            timeline.fromTo(image, {
+                autoAlpha: 0,
+                x: index === 0 ? -18 : 18,
+            }, {
+                autoAlpha: 1,
+                x: 0,
+                duration: 0.75,
+                ease: 'power3.out',
+            }, 0.1 + index * 0.1);
+        });
     }
 
     const mobileConversation = hero.querySelector('[data-mobile-conversation]');
