@@ -24,6 +24,8 @@ test('production install applies a version-pinned checkpoint-preserving OpenWA r
   assert.match(patch, /stackFrames/);
   assert.match(patch, /openwa_detached_frame_cleanup_v1/);
   assert.match(patch, /PAGE_CONTEXT_CHANGED/);
+  assert.match(patch, /openwa_identity_import_diagnostic_v1/);
+  assert.match(patch, /openwa_identity_import_set_me_failed_v1/);
   assert.match(patch, /source\.indexOf\('const startupDiagnostic = await this\.page\.evaluateScript\('/);
   assert.match(patch, /versioned/);
   assert.match(patch, /loggerMarker/);
@@ -97,4 +99,14 @@ test('detached-frame cleanup races are skipped without failing runtime cleanup',
   assert.equal(calls[0][0], 'debug');
   assert.equal(calls[0][1], 'injection_controller_runtime_bridge_reset_skipped');
   assert.deepEqual(calls[0][2], { reason: 'runtime_cleanup:test', code: 'PAGE_CONTEXT_CHANGED' });
+});
+
+
+test('portable identity import diagnostics expose only module API and type metadata', async () => {
+  const preInit = await readFile(new URL('../node_modules/@open-wa/core/dist/transport/assets/pre_init.js', import.meta.url), 'utf8');
+  assert.match(preInit, /openwa_identity_import_diagnostic_v1/);
+  assert.match(preInit, /meUserKeys/);
+  assert.match(preInit, /openwa_identity_import_set_me_failed_v1/);
+  assert.match(preInit, /selfPnType/);
+  assert.doesNotMatch(preInit, /selfPn:[^,}]+/);
 });
