@@ -209,11 +209,13 @@ The EasyEnglish retention schedule is still a legal/accounting draft. Do not inv
 
 ### Restart and recovery
 
-1. Keep the same `/data` volume attached and preserve the encryption key.
-2. Restart one service replica only.
+1. Keep the same `/data` volume attached and preserve the exact encryption key. Run one service replica only.
+2. On startup, the service logs `openwa.session.persistence_diagnostics`: a non-reversible key fingerprint plus checkpoint existence, size, modification time, and the path of a private startup backup. The encrypted checkpoint is copied to a new `.startup-backup-<timestamp>.enc` file without overwriting an existing backup.
 3. Wait for OpenWA to restore the session and `/health/ready` to return `200`.
-4. If readiness does not recover, inspect restricted service logs and the connection-state metric. Do not delete session files or rotate the encryption key as a first response.
-5. If the encrypted event store cannot be decrypted, keep event creation disabled and restore the matching key/volume backup. Do not create a new empty store over the old one.
+4. If a saved checkpoint cannot be restored, the pinned OpenWA 5.10.0 recovery patch stops startup with `SESSION_RESTORE_UNAVAILABLE_CHECKPOINT_PRESERVED`. It must not reset the session, generate a replacement QR, or delete the saved checkpoint automatically. The service logs `openwa.session.restore_failed`.
+5. For a restoration failure, preserve the volume and key, compare the logged key fingerprint with a known-good deployment, and inspect the checkpoint metadata and restricted logs. Do not rotate the key, delete the checkpoint, or pair a replacement session as an automatic recovery step.
+6. Restore a known-good checkpoint and its matching encryption key only through an operator-reviewed recovery procedure in an isolated service. A new pairing is an explicit destructive operation and must happen only after the old checkpoint and its backups have been preserved.
+7. If the encrypted event store cannot be decrypted, keep event creation disabled and restore the matching key/volume backup. Do not create a new empty store over the old one.
 
 ### Backup, restore, and key rotation
 

@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY package.json package-lock.json ./
+COPY scripts/patch-openwa-session-recovery.js ./scripts/patch-openwa-session-recovery.js
 RUN npm ci --omit=dev && npm cache clean --force
 COPY --chown=node:node . .
 COPY docker-entrypoint.sh /usr/local/bin/openwa-entrypoint

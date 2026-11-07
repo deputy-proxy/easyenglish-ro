@@ -2,8 +2,22 @@
   "name": "easyenglish-openwa-call-event-service",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.21.1" },
-  "scripts": { "start": "node src/server.js", "preflight": "node src/preflight.js", "test": "node --test" },
-  "dependencies": { "@open-wa/wa-automate": "5.10.0", "express": "5.1.0", "qrcode": "1.5.4" },
-  "overrides": { "basic-ftp": "6.2.6", "image-size": "2.0.4" }
+  "engines": {
+    "node": ">=22.21.1"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "preflight": "node src/preflight.js",
+    "test": "node --test",
+    "postinstall": "node scripts/patch-openwa-session-recovery.js"
+  },
+  "dependencies": {
+    "@open-wa/wa-automate": "5.10.0",
+    "express": "5.1.0",
+    "qrcode": "1.5.4"
+  },
+  "overrides": {
+    "basic-ftp": "6.2.6",
+    "image-size": "2.0.4"
+  }
 }
