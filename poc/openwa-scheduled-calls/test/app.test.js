@@ -185,3 +185,40 @@ test('does not replay a provider-accepted message when acknowledgement persisten
     assert.equal(calls.length, 1);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
+
+
+test('preserves useful OpenWA provider error details while redacting recipient and verification code', async () => {
+  const records = [], logs = [];
+  const messageStore = {
+    findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null,
+    async upsert(record) { const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey); if (index < 0) records.push(record); else records[index] = record; },
+  };
+  const state = {
+    phase: 'authenticated',
+    provider: { async sendText() { throw Object.assign(new Error('Evaluation failed: sendText rejected for +40712345678 with OTP 123456 due to missing chat model'), { uncertain: true }); } },
+    metrics: {},
+  };
+  const server = createServer(createApp({
+    config: { ...config, messagingEnabled: true },
+    state,
+    store: createStore(),
+    messageStore,
+    logger: { info() {}, warn(line) { logs.push(line); }, error() {} },
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const response = await fetch(base + '/v1/messages', {
+      method: 'POST',
+      headers: { ...{ Authorization: 'Bearer ' + config.serviceToken, 'Content-Type': 'application/json' }, 'Idempotency-Key': 'contact-verification:diagnostic01' },
+      body: JSON.stringify({ to: '+40712345678', text: 'Your verification code is 123456.' }),
+    });
+    assert.equal(response.status, 202);
+    const entry = JSON.parse(logs[0]);
+    assert.match(entry.providerError, /Evaluation failed/);
+    assert.match(entry.providerError, /missing chat model/);
+    assert.doesNotMatch(entry.providerError, /\\+40712345678|123456/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
