@@ -31,3 +31,5 @@ test('configures OpenWA compact-session persistence on the Railway volume', () =
   assert.equal(options.executablePath, '/usr/bin/chromium');
   assert.deepEqual(options.chromiumArgs, ['--no-sandbox', '--disable-setuid-sandbox']);
 });
+
+test('passes an explicitly configured OpenWA licence key to the client', () => { const options = buildOpenWaOptions({ sessionId: 'session', sessionDataPath: '/data/session.json', encryptionKeyFile: '/data/key', licenseKey: 'restricted-license-key' }); assert.equal(options.licenseKey, 'restricted-license-key'); });
