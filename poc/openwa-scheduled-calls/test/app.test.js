@@ -195,7 +195,7 @@ test('preserves useful OpenWA provider error details while redacting recipient a
   };
   const state = {
     phase: 'authenticated',
-    provider: { async sendText() { throw new Error('Evaluation failed: sendText rejected for +40712345678 with OTP 123456 due to missing chat model'); } },
+    provider: { async sendText() { throw Object.assign(new Error('Evaluation failed: sendText rejected for +40712345678 with OTP 123456 due to missing chat model'), { uncertain: true }); } },
     metrics: {},
   };
   const server = createServer(createApp({
