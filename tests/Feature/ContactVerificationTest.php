@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\Notifications\WhatsAppGateway;
+use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Contracts\Payments\StripeGateway;
 use App\Models\AvailabilityRule;
 use App\Models\Booking;
@@ -162,6 +163,20 @@ test('provider delivery failure invalidates a partially delivered challenge', fu
         ->toThrow(RuntimeException::class);
     $challenge = ContactVerificationChallenge::query()->where('customer_email', 'partial@example.com')->firstOrFail();
     expect($challenge->isUsable())->toBeFalse();
+});
+
+
+test('ambiguous WhatsApp delivery preserves the verification challenge for a possibly delivered code', function () {
+    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway->shouldReceive('sendTemplate')->once()->andThrow(new WhatsAppDeliveryAmbiguousException('provider acknowledgement was lost'));
+    app()->instance(WhatsAppGateway::class, $gateway);
+
+    $challenge = app(ContactVerificationService::class)->start('ambiguous@example.com', '+40722123457', 'en');
+
+    expect($challenge->isUsable())->toBeTrue()
+        ->and($challenge->phone_sent_at)->not->toBeNull()
+        ->and($challenge->phone_code_hash)->not->toBeNull()
+        ->and($challenge->expires_at->isFuture())->toBeTrue();
 });
 
 test('verification prune command removes expired challenges after the retention window', function () {
