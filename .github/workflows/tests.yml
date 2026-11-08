@@ -108,9 +108,16 @@ jobs:
           cache: npm
           cache-dependency-path: poc/openwa-scheduled-calls/package-lock.json
 
+      - name: Install OpenWA PoC system dependencies
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends zstd
+
       - name: Install OpenWA PoC dependencies
         working-directory: poc/openwa-scheduled-calls
-        run: npm ci
+        run: npm ci --ignore-scripts
+
+      - name: Apply OpenWA compatibility patches
+        working-directory: poc/openwa-scheduled-calls
+        run: node scripts/patch-openwa-session-recovery.js
 
       - name: Run OpenWA PoC tests
         working-directory: poc/openwa-scheduled-calls
