@@ -20,6 +20,7 @@ export function buildOpenWaOptions(config) {
     logConsoleErrors: false,
     blockCrashLogs: true,
     safeMode: true,
+    ...(config.licenseKey ? { licenseKey: config.licenseKey } : {}),
     ...(config.chromeExecutable ? { executablePath: config.chromeExecutable } : {}),
     ...(config.chromeNoSandbox ? { chromiumArgs: ['--no-sandbox', '--disable-setuid-sandbox'], allowDangerousBrowserArgs: true } : {}),
   };

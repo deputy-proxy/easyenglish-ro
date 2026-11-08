@@ -60,7 +60,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
         record.status = error.uncertain ? 'submission_unconfirmed' : 'failed';
         await messageStore.upsert(record).catch(() => {});
         state.metrics.providerErrors += 1;
-        log(logger, 'warn', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error', providerError: safeProviderError(error, to, text) });
+        log(logger, error.uncertain ? 'warn' : 'error', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error', providerErrorCode: error.code || null, providerOutcome: error.outcome || (error.uncertain ? 'unknown' : 'not_sent'), providerError: safeProviderError(error, to, text), providerCause: safeProviderError(error.cause, to, text) });
         return error.uncertain ? res.status(202).json({ status: record.status, retryable: false }) : res.status(502).json({ error: 'OpenWA could not send the message.' });
       }
       record.status = 'accepted'; record.providerMessageId = result.providerMessageId; record.acceptedAt = new Date().toISOString();
