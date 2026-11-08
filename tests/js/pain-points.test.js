@@ -92,7 +92,7 @@ function createFixture(isMobile = true) {
     };
 }
 
-test('stacks incoming cards far enough apart to keep each compact title visible', () => {
+test('fully overlaps every card at the same sticky position so each new card covers the previous one', () => {
     const fixture = createFixture();
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
@@ -101,22 +101,19 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     assert.equal(fixture.triggers[0].trigger, fixture.cards[1]);
     assert.equal(fixture.triggers[1].trigger, fixture.cards[2]);
     assert.equal(fixture.triggers[0].start, 'top 76%');
-    assert.equal(fixture.triggers[0].end(), 'top 104px');
-    assert.equal(fixture.triggers[1].end(), 'top 212px');
+    assert.equal(fixture.triggers[0].end(), 'top 24px');
+    assert.equal(fixture.triggers[1].end(), 'top 24px');
     assert.equal(fixture.triggers[0].invalidateOnRefresh, true);
-    assert.equal(fixture.cards[1].style.getPropertyValue('--stack-offset'), '80px');
-    assert.equal(fixture.cards[2].style.getPropertyValue('--stack-offset'), '188px');
-    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-offset'), '823px');
-    assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
-    assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
-    assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), false);
-    assert.equal(fixture.cards[1].classList.contains('is-compact'), false);
-    fixture.triggers[0].onEnter();
-    assert.equal(fixture.cards[0].classList.contains('is-compact'), true);
-    assert.equal(fixture.cards[1].classList.contains('is-compact'), false);
-    fixture.triggers[0].onLeaveBack();
-    assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
+    assert.equal(fixture.cards.every((card) => card.style.getPropertyValue('--stack-offset') === '0px'), true);
     assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
+    assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
+    assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), false);
+    fixture.triggers[0].onEnter();
+    assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
+    assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), true);
+    fixture.triggers[0].onLeaveBack();
+    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
+    assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
     assert.equal(fixture.section.classList.contains('is-stacking-enabled'), true);
 
     cleanup();
@@ -128,12 +125,12 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     assert.equal(fixture.listeners.has('resize'), false);
 });
 
-test('uses the desktop sticky header offset while retaining content-aware card spacing', () => {
+test('uses the desktop sticky header offset with the same full-overlap position', () => {
     const fixture = createFixture(false);
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
-    assert.equal(fixture.triggers[0].end(), 'top 160px');
-    assert.equal(fixture.triggers[1].end(), 'top 268px');
+    assert.equal(fixture.triggers[0].end(), 'top 80px');
+    assert.equal(fixture.triggers[1].end(), 'top 80px');
 
     cleanup();
 });
