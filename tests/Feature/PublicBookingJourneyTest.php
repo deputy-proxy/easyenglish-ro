@@ -259,11 +259,25 @@ test('pain-point situations render as full-width stack cards without changing ei
             'Să trimiți aplicația pentru jobul pe care ți-l dorești.',
             'Să-ți susții ideea într-o ședință, fără să pierzi momentul căutând cuvintele.',
             'Să pleci în călătorie și să te descurci singur în engleză.',
+            'Să intri la interviul de angajare pregătit și să lași o impresie bună.',
+            'Să susții o prezentare și să răspunzi cu încredere la întrebări.',
+            'Să vorbești firesc cu clienții și partenerii de afaceri.',
+            'Să porți o conversație la telefon fără să te blochezi.',
+            'Să începi conversații și să creezi conexiuni profesionale.',
+            'Să te descurci în situațiile de zi cu zi când locuiești sau lucrezi în străinătate.',
+            'Să negociezi salariul, responsabilitățile sau condițiile de lucru.',
         ],
         'en' => [
             'Submit the application for the job you want.',
             'Share your idea in a meeting without losing the moment while searching for words.',
             'Travel and handle things for yourself in English.',
+            'Walk into a job interview prepared and make a strong impression.',
+            'Give a presentation and answer questions with confidence.',
+            'Speak naturally with clients and business partners.',
+            'Make phone calls without struggling to find the right words.',
+            'Start conversations and build professional connections.',
+            'Manage everyday situations while living or working abroad.',
+            'Negotiate your salary, responsibilities, or working conditions.',
         ],
     ];
 
@@ -284,10 +298,14 @@ test('pain-point situations render as full-width stack cards without changing ei
         }
 
         expect(preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
-            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(3)
-            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(3)
-            ->and(strpos($matches[1], $copy[0]))->toBeLessThan(strpos($matches[1], $copy[1]))
-            ->and(strpos($matches[1], $copy[1]))->toBeLessThan(strpos($matches[1], $copy[2]));
+            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(10)
+            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(10);
+
+        $positions = array_map(fn (string $situation): int|false => strpos($matches[1], $situation), $copy);
+        $sortedPositions = $positions;
+        sort($sortedPositions);
+
+        expect($positions)->toBe($sortedPositions);
     }
 });
 

@@ -18,7 +18,7 @@ function createFixture(isMobile = true) {
         addEventListener: (name, callback) => listeners.set(name, callback),
         removeEventListener: (name) => listeners.delete(name),
     };
-    const cards = [80, 120, 100].map((height, index) => {
+    const cards = [80, 120, 100, 90, 110, 70, 95, 85, 105, 80].map((height, index) => {
         const title = { id: `title-${index}`, offsetHeight: height, offsetTop: 70 - index * 20 };
         const properties = new Map();
 
@@ -87,8 +87,8 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     const fixture = createFixture();
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
-    assert.equal(fixture.animations.length, 2);
-    assert.equal(fixture.triggers.length, 2);
+    assert.equal(fixture.animations.length, 9);
+    assert.equal(fixture.triggers.length, 9);
     assert.equal(fixture.triggers[0].trigger, fixture.cards[1]);
     assert.equal(fixture.triggers[1].trigger, fixture.cards[2]);
     assert.equal(fixture.triggers[0].start, 'top 76%');
@@ -100,6 +100,8 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     assert.equal(fixture.animations[0].to.y(), -46);
     assert.equal(fixture.cards[1].style.getPropertyValue('--stack-offset'), '101px');
     assert.equal(fixture.cards[2].style.getPropertyValue('--stack-offset'), '233px');
+    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-offset'), '1016px');
+    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
     assert.equal(fixture.section.classList.contains('is-stacking-enabled'), true);
 
     cleanup();
