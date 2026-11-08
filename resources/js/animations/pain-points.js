@@ -6,10 +6,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     }
 
     const cards = Array.from(section.querySelectorAll('[data-pain-point-card]'));
-    const titles = cards.map((card) => card.querySelector('[data-pain-point-title]'));
-    const descriptions = cards.map((card) => card.querySelector('[data-pain-point-description]'));
-
-    if (cards.length < 2 || titles.some((title) => !title) || descriptions.some((description) => !description)) {
+    if (cards.length < 2) {
         return () => {};
     }
 
@@ -18,20 +15,9 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     let disposed = false;
 
     const updateStackLayout = () => {
-        let stackOffset = 0;
-        const minimumStep = view.matchMedia('(max-width: 767px)').matches ? 80 : 64;
-
         cards.forEach((card, index) => {
-            card.style.setProperty('--stack-offset', `${stackOffset}px`);
+            card.style.setProperty('--stack-offset', '0px');
             card.style.setProperty('--stack-order', String(index + 1));
-
-            if (index < titles.length - 1) {
-                const compactTitleHeight = titles[index].offsetHeight * 0.7;
-                const compactCardStep = compactTitleHeight + 24;
-
-                // Compact cards contain only the title and equal vertical padding.
-                stackOffset += Math.max(minimumStep, Math.ceil(compactCardStep));
-            }
         });
     };
 
@@ -47,7 +33,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     const setShadowCard = (activeIndex) => {
         cards.forEach((card, index) => {
             card.classList.toggle('has-stack-shadow', index === activeIndex);
-            card.classList.toggle('is-compact', index < activeIndex);
+            card.classList.remove('is-compact');
         });
     };
 

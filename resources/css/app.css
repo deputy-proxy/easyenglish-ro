@@ -244,21 +244,6 @@ html {
     transition: font-size 260ms ease, opacity 260ms ease, max-height 260ms ease, margin 260ms ease, padding 260ms ease, min-height 260ms ease;
 }
 
-[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
-    min-height: 0;
-    padding: 12px 20px;
-}
-
-[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__title {
-    font-size: clamp(0.875rem, 1.96vw, 1.4rem);
-}
-
-[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__description {
-    max-height: 0;
-    margin-top: 0;
-    overflow: hidden;
-    opacity: 0;
-}
 
 
 @media (min-width: 768px) {
@@ -266,9 +251,6 @@ html {
         --pain-point-stack-top: 112px;
     }
 
-    [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
-        padding: 14px 28px;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
