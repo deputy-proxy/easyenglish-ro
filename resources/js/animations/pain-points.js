@@ -6,9 +6,10 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     }
 
     const cards = Array.from(section.querySelectorAll('[data-pain-point-card]'));
-    const contents = cards.map((card) => card.querySelector('[data-pain-point-content]'));
+    const titles = cards.map((card) => card.querySelector('[data-pain-point-title]'));
+    const descriptions = cards.map((card) => card.querySelector('[data-pain-point-description]'));
 
-    if (cards.length < 2 || contents.some((content) => !content)) {
+    if (cards.length < 2 || titles.some((title) => !title) || descriptions.some((description) => !description)) {
         return () => {};
     }
 
@@ -24,11 +25,11 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
             card.style.setProperty('--stack-offset', `${stackOffset}px`);
             card.style.setProperty('--stack-order', String(index + 1));
 
-            if (index < contents.length - 1) {
-                const compactContentHeight = contents[index].offsetHeight * 0.7;
-                const visibleContentHeight = 24 + compactContentHeight + 16;
+            if (index < titles.length - 1) {
+                const compactTitleHeight = titles[index].offsetHeight * 0.7;
+                const visibleTitleHeight = 24 + compactTitleHeight + 16;
 
-                stackOffset += Math.max(minimumStep, Math.ceil(visibleContentHeight));
+                stackOffset += Math.max(minimumStep, Math.ceil(visibleTitleHeight));
             }
         });
     };
@@ -45,6 +46,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     const setShadowCard = (activeIndex) => {
         cards.forEach((card, index) => {
             card.classList.toggle('has-stack-shadow', index === activeIndex);
+            card.classList.toggle('is-compact', index < activeIndex);
         });
     };
 
@@ -55,18 +57,6 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
         context = gsap.context(() => {
             cards.slice(0, -1).forEach((_, index) => {
                 const nextCard = cards[index + 1];
-                const content = contents[index];
-                const animation = gsap.fromTo(content, {
-                    scale: 1,
-                    y: 0,
-                    transformOrigin: 'top left',
-                }, {
-                    scale: 0.7,
-                    y: () => 24 - content.offsetTop,
-                    ease: 'none',
-                    paused: true,
-                });
-
                 ScrollTrigger.create({
                     trigger: nextCard,
                     start: 'top 76%',
@@ -78,8 +68,6 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
 
                         return `top ${stackTop + stackOffset}px`;
                     },
-                    animation,
-                    scrub: 0.45,
                     invalidateOnRefresh: true,
                     onEnter: () => setShadowCard(index + 1),
                     onEnterBack: () => setShadowCard(index + 1),
@@ -98,7 +86,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
         context?.revert();
         section.classList.remove('is-stacking-enabled');
         cards.forEach((card) => {
-            card.classList.remove('has-stack-shadow');
+            card.classList.remove('has-stack-shadow', 'is-compact');
             card.style.removeProperty('--stack-offset');
             card.style.removeProperty('--stack-order');
         });
@@ -111,7 +99,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
         context.revert();
         section.classList.remove('is-stacking-enabled');
         cards.forEach((card) => {
-            card.classList.remove('has-stack-shadow');
+            card.classList.remove('has-stack-shadow', 'is-compact');
             card.style.removeProperty('--stack-offset');
             card.style.removeProperty('--stack-order');
         });
