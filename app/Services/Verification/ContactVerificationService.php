@@ -3,8 +3,8 @@
 namespace App\Services\Verification;
 
 use App\Contracts\Notifications\WhatsAppGateway;
-use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Data\Notifications\WhatsAppTemplateMessage;
+use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Models\ContactVerificationChallenge;
 use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Support\PhoneNumber;
