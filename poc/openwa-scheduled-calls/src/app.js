@@ -195,13 +195,13 @@ function safeProviderError(error, recipient, message) {
   if (recipient) detail = detail.split(recipient).join('[recipient]');
   if (message) detail = detail.split(message).join('[message]');
   return detail
-    .replace(/\\b\\d{6}\\b/g, '[redacted]')
-    .replace(/[\\r\\n\\t]+/g, ' ')
-    .replace(/[^\\x20-\\x7E]/g, ' ')
+    .replace(/\b\d{6}\b/g, '[redacted-code]')
+    .replace(/\+[1-9]\d{7,14}/g, '[redacted-phone]')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[^\x20-\x7E]/g, ' ')
     .trim()
-    .slice(0, 160) || 'unspecified provider error';
+    .slice(0, 240) || 'unspecified provider error';
 }
-
 function toApiEvent(record, replayed = false) {
   return { providerEventId: record.providerEventId, joinUrl: record.joinUrl, status: record.status, createdAt: record.createdAt, ...(replayed ? { replayed: true } : {}) };
 }
