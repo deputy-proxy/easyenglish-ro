@@ -235,18 +235,25 @@ html {
 
 .pain-point-card__description {
     max-height: 12rem;
+    opacity: 1;
 }
 
 .pain-point-card__title,
-.pain-point-card__description {
-    transition: font-size 260ms ease, opacity 220ms ease, max-height 260ms ease, margin 260ms ease;
+.pain-point-card__description,
+[data-pain-point-stack] [data-pain-point-card] {
+    transition: font-size 260ms ease, opacity 260ms ease, max-height 260ms ease, margin 260ms ease, padding 260ms ease, min-height 260ms ease;
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
+    min-height: 0;
+    padding: 14px 20px;
 }
 
 [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__title {
     font-size: clamp(0.875rem, 1.96vw, 1.4rem);
 }
 
-[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact.pain-point-card__description {
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__description {
     max-height: 0;
     margin-top: 0;
     overflow: hidden;
@@ -256,6 +263,10 @@ html {
 @media (min-width: 768px) {
     [data-pain-point-stack] {
         --pain-point-stack-top: 112px;
+    }
+
+    [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
+        padding: 16px 28px;
     }
 }
 
