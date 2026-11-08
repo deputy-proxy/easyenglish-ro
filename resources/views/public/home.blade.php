@@ -106,9 +106,11 @@
             </div>
             <div class="pain-point-stack-list">
                 @foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone', 'networking', 'abroad', 'negotiation'] as $index => $situation)
-                    <article class="pain-point-card relative flex min-h-[216px] items-center rounded-[24px] border border-line bg-white px-6 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:px-8 md:min-h-[208px] md:px-10" data-pain-point-card>
-                        <span class="absolute right-6 top-6 inline-flex rounded-full bg-primary-soft px-3 py-2 text-xs font-extrabold tracking-[0.08em] text-primary sm:right-8 sm:top-8" aria-hidden="true">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</span>
-                        <h3 class="pain-point-card__title m-0 max-w-[960px] pr-8 text-[clamp(1.25rem,2.8vw,2rem)] font-semibold leading-[1.25] tracking-[-0.035em] text-ink" data-pain-point-title>{{ __('public.motivation_'.$situation) }}</h3>
+                    <article class="pain-point-card relative flex min-h-[232px] flex-col justify-center rounded-[24px] border border-line bg-white px-6 py-8 sm:px-8 md:min-h-[224px] md:px-10" data-pain-point-card>
+                        <div class="pain-point-card__content w-full" data-pain-point-content>
+                            <h3 class="pain-point-card__title m-0 w-full text-[clamp(1.25rem,2.8vw,2rem)] font-semibold leading-[1.25] tracking-[-0.035em] text-ink" data-pain-point-title>{{ __('public.motivation_'.$situation) }}</h3>
+                            <p class="pain-point-card__description mt-3 mb-0 max-w-[58ch] text-sm leading-relaxed text-muted sm:text-base" data-pain-point-description>{{ __('public.motivation_'.$situation.'_description') }}</p>
+                        </div>
                     </article>
                 @endforeach
             </div>
