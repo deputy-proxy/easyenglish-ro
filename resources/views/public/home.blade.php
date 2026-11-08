@@ -13,7 +13,7 @@
 
 <body class="bg-paper font-sans text-ink antialiased">
     <div class="public-hero-shell" data-hero-shell>
-        <header class="public-site-header sticky inset-x-0 top-0 z-50 flex h-[calc(76px+env(safe-area-inset-top,0px))] items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6 md:h-[calc(88px+env(safe-area-inset-top,0px))] md:px-[clamp(22px,5.5vw,96px)]" data-public-site-header>
+        <header class="public-site-header sticky inset-x-0 top-0 z-50 flex h-[calc(64px+env(safe-area-inset-top,0px))] items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top,0px)] sm:px-6 md:h-[calc(72px+env(safe-area-inset-top,0px))] md:px-[clamp(22px,5.5vw,96px)]" data-public-site-header>
         <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
