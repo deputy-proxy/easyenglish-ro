@@ -19,7 +19,7 @@
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
             <a class="inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="{{ url('/admin/login') }}" aria-label="Autentificare">
-                <img class="block h-[27px] w-auto" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
+                <img class="block h-[20.25px] w-auto" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
             </a>
         </nav>
         </header>
