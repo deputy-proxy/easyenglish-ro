@@ -19,7 +19,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
 
     const updateStackLayout = () => {
         let stackOffset = 0;
-        const minimumStep = view.matchMedia('(max-width: 767px)').matches ? 112 : 88;
+        const minimumStep = view.matchMedia('(max-width: 767px)').matches ? 80 : 64;
 
         cards.forEach((card, index) => {
             card.style.setProperty('--stack-offset', `${stackOffset}px`);
@@ -27,10 +27,9 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
 
             if (index < titles.length - 1) {
                 const compactTitleHeight = titles[index].offsetHeight * 0.7;
-                const compactCardStep = compactTitleHeight + 30;
+                const compactCardStep = compactTitleHeight + 24;
 
-                // Descriptions remain visible inside each card, but do not push
-                // the next sticky card down. This preserves the intentional overlap.
+                // Compact cards contain only the title and equal vertical padding.
                 stackOffset += Math.max(minimumStep, Math.ceil(compactCardStep));
             }
         });

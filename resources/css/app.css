@@ -246,11 +246,18 @@ html {
 
 [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
     min-height: 0;
-    padding: 14px 20px;
+    padding: 12px 20px;
 }
 
 [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__title {
     font-size: clamp(0.875rem, 1.96vw, 1.4rem);
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__description {
+    max-height: 0;
+    margin-top: 0;
+    overflow: hidden;
+    opacity: 0;
 }
 
 
@@ -260,7 +267,7 @@ html {
     }
 
     [data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact {
-        padding: 16px 28px;
+        padding: 14px 28px;
     }
 }
 
