@@ -18,3 +18,5 @@ test('messaging remains disabled by default and requires live approval plus a se
 
 test('derives the signed Laravel session-alert callback from the configured inbound webhook URL', () => { const config = readConfig({ ...base, OPENWA_MESSAGING_CALLBACK_URL: 'https://easyenglish.example.com/webhooks/openwa', OPENWA_MESSAGING_CALLBACK_SECRET: 'c'.repeat(48) }); assert.equal(config.statusCallbackUrl, 'https://easyenglish.example.com/webhooks/openwa/status'); });
 test('requires HTTPS for an explicitly configured session-alert callback', () => assert.throws(() => readConfig({ ...base, OPENWA_STATUS_CALLBACK_URL: 'http://easyenglish.example.com/webhooks/openwa/status' }), /HTTPS/));
+
+test('accepts an optional OpenWA restricted or premium licence key without exposing it elsewhere', () => { const config = readConfig({ ...base, OPENWA_LICENSE_KEY: 'restricted-license-key' }); assert.equal(config.licenseKey, 'restricted-license-key'); assert.equal(readConfig(base).licenseKey, null); });
