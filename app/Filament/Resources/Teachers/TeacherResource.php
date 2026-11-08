@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Teachers;
 
+use App\Filament\Resources\Teachers\Pages\EditTeacher;
 use App\Filament\Resources\Teachers\Pages\ManageTeachers;
 use App\Jobs\Calendar\SyncTeacherCalendar;
 use App\Models\User;
@@ -88,7 +89,7 @@ class TeacherResource extends Resource
             TextColumn::make('teacherCalendar.last_synced_at')->label('Last sync')->dateTime('d M Y H:i')->timezone('Europe/Bucharest')->placeholder('Never'),
             TextColumn::make('teacherCalendar.last_sync_error')->label('Calendar error')->limit(50)->placeholder('—'),
         ])->defaultSort('name')->recordActions([
-            EditAction::make(),
+            EditAction::make()->url(fn (User $record): string => static::getUrl('edit', ['record' => $record])),
             Action::make('retryCalendarSync')->label('Sync calendar now')->icon(Heroicon::OutlinedArrowPath)->visible(fn (User $record): bool => $record->teacherCalendar !== null)->action(fn (User $record) => SyncTeacherCalendar::dispatch($record->teacherCalendar->id)),
         ]);
     }
@@ -100,6 +101,9 @@ class TeacherResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => ManageTeachers::route('/')];
+        return [
+            'index' => ManageTeachers::route('/'),
+            'edit' => EditTeacher::route('/{record}/edit'),
+        ];
     }
 }

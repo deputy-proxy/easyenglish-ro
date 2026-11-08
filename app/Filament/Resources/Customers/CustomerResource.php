@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Customers;
 
 use App\Filament\Resources\Customers\Pages\ManageCustomers;
+use App\Filament\Resources\Customers\Pages\ViewCustomer;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\ViewAction;
@@ -71,7 +72,9 @@ class CustomerResource extends Resource
                 'unverified' => $query->whereNull('email_verified_at'),
                 default => $query,
             }),
-        ])->defaultSort('created_at', 'desc')->recordActions([ViewAction::make()]);
+        ])->defaultSort('created_at', 'desc')->recordActions([
+            ViewAction::make()->url(fn (User $record): string => static::getUrl('view', ['record' => $record])),
+        ]);
     }
 
     public static function canCreate(): bool
@@ -91,6 +94,9 @@ class CustomerResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => ManageCustomers::route('/')];
+        return [
+            'index' => ManageCustomers::route('/'),
+            'view' => ViewCustomer::route('/{record}'),
+        ];
     }
 }
