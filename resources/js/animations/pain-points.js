@@ -25,7 +25,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
             card.style.setProperty('--stack-order', String(index + 1));
 
             if (index < contents.length - 1) {
-                const compactContentHeight = contents[index].offsetHeight * 0.76;
+                const compactContentHeight = contents[index].offsetHeight * 0.7;
                 const visibleContentHeight = 24 + compactContentHeight + 16;
 
                 stackOffset += Math.max(minimumStep, Math.ceil(visibleContentHeight));
@@ -61,7 +61,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
                     y: 0,
                     transformOrigin: 'top left',
                 }, {
-                    scale: 0.76,
+                    scale: 0.7,
                     y: () => 24 - content.offsetTop,
                     ease: 'none',
                     paused: true,

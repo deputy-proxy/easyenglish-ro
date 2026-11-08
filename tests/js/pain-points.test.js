@@ -100,14 +100,14 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     assert.equal(fixture.triggers[1].trigger, fixture.cards[2]);
     assert.equal(fixture.triggers[0].start, 'top 76%');
     assert.equal(fixture.triggers[0].end(), 'top 136px');
-    assert.equal(fixture.triggers[1].end(), 'top 268px');
+    assert.equal(fixture.triggers[1].end(), 'top 260px');
     assert.equal(fixture.triggers[0].scrub, 0.45);
     assert.equal(fixture.triggers[0].invalidateOnRefresh, true);
-    assert.equal(fixture.animations[0].to.scale, 0.76);
+    assert.equal(fixture.animations[0].to.scale, 0.7);
     assert.equal(fixture.animations[0].to.y(), -46);
     assert.equal(fixture.cards[1].style.getPropertyValue('--stack-offset'), '112px');
-    assert.equal(fixture.cards[2].style.getPropertyValue('--stack-offset'), '244px');
-    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-offset'), '1053px');
+    assert.equal(fixture.cards[2].style.getPropertyValue('--stack-offset'), '236px');
+    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-offset'), '1027px');
     assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
     assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), false);
     assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
@@ -126,8 +126,8 @@ test('uses the desktop sticky header offset while retaining content-aware card s
     const fixture = createFixture(false);
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
-    assert.equal(fixture.triggers[0].end(), 'top 213px');
-    assert.equal(fixture.triggers[1].end(), 'top 345px');
+    assert.equal(fixture.triggers[0].end(), 'top 208px');
+    assert.equal(fixture.triggers[1].end(), 'top 332px');
     assert.equal(fixture.animations[0].to.y(), -46);
 
     cleanup();
