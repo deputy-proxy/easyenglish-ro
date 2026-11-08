@@ -289,6 +289,7 @@ test('pain-point situations render as full-width stack cards without changing ei
             ->assertSee('data-pain-point-stack', false)
             ->assertSee('data-pain-point-card', false)
             ->assertSee('data-pain-point-title', false)
+            ->assertSee('data-pain-point-description', false)
             ->assertSee(__('public.motivation_eyebrow', [], $locale))
             ->assertSee(__('public.motivation_title', [], $locale))
             ->assertSee(__('public.motivation_text', [], $locale));
@@ -297,9 +298,14 @@ test('pain-point situations render as full-width stack cards without changing ei
             $response->assertSee($situation);
         }
 
+        foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone', 'networking', 'abroad', 'negotiation'] as $situation) {
+            $response->assertSee(__('public.motivation_'.$situation.'_description', [], $locale));
+        }
+
         expect(preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
             ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(10)
-            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(10);
+            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(10)
+            ->and(substr_count($matches[1], 'data-pain-point-description'))->toBe(10);
 
         $positions = array_map(fn (string $situation): int|false => strpos($matches[1], $situation), $copy);
         $sortedPositions = $positions;

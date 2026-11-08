@@ -208,6 +208,15 @@ html {
 [data-pain-point-card] {
     --stack-offset: 0px;
     --stack-order: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07), 0 12px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.08);
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card] {
+    box-shadow: none;
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].has-stack-shadow {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07), 0 12px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.08);
 }
 
 [data-pain-point-card] + [data-pain-point-card] {
@@ -220,11 +229,11 @@ html {
     z-index: var(--stack-order);
 }
 
-.pain-point-card__title {
+.pain-point-card__content {
     transform-origin: top left;
 }
 
-[data-pain-point-stack].is-stacking-enabled .pain-point-card__title {
+[data-pain-point-stack].is-stacking-enabled .pain-point-card__content {
     will-change: transform;
 }
 
@@ -235,7 +244,7 @@ html {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pain-point-card__title {
+    .pain-point-card__content {
         will-change: auto;
     }
 }
