@@ -139,7 +139,7 @@ class ContactVerificationService
             // normal resend cooldown and challenge replacement still prevent stale-code reuse.
             $challenge->forceFill([
                 'email_sent_at' => $verifyEmail ? now() : null,
-                'phone_sent_at' => $verifyPhone ? now() : null,
+                'phone_sent_at' => now(),
             ])->save();
         } catch (\Throwable $exception) {
             $challenge->forceFill([
