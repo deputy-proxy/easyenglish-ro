@@ -253,6 +253,44 @@ test('public landing page exposes progressive enhancement hooks for its animatio
         ->assertSee('data-reveal-background', false);
 });
 
+test('pain-point situations render as full-width stack cards without changing either locale copy', function () {
+    $expectedCopy = [
+        'ro' => [
+            'Să trimiți aplicația pentru jobul pe care ți-l dorești.',
+            'Să-ți susții ideea într-o ședință, fără să pierzi momentul căutând cuvintele.',
+            'Să pleci în călătorie și să te descurci singur în engleză.',
+        ],
+        'en' => [
+            'Submit the application for the job you want.',
+            'Share your idea in a meeting without losing the moment while searching for words.',
+            'Travel and handle things for yourself in English.',
+        ],
+    ];
+
+    foreach ($expectedCopy as $locale => $copy) {
+        $response = $this->withSession(['locale' => $locale])->get('/');
+        $content = $response->getContent();
+
+        $response->assertOk()
+            ->assertSee('data-pain-point-stack', false)
+            ->assertSee('data-pain-point-card', false)
+            ->assertSee('data-pain-point-title', false)
+            ->assertSee(__('public.motivation_eyebrow', [], $locale))
+            ->assertSee(__('public.motivation_title', [], $locale))
+            ->assertSee(__('public.motivation_text', [], $locale));
+
+        foreach ($copy as $situation) {
+            $response->assertSee($situation);
+        }
+
+        expect(preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
+            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(3)
+            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(3)
+            ->and(strpos($matches[1], $copy[0]))->toBeLessThan(strpos($matches[1], $copy[1]))
+            ->and(strpos($matches[1], $copy[1]))->toBeLessThan(strpos($matches[1], $copy[2]));
+    }
+});
+
 test('landing hero and navigation transform into a floating sticky header on scroll', function () {
     $response = $this->get('/')->assertOk();
     $content = $response->getContent();

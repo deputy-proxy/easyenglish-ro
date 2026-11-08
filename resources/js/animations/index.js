@@ -6,6 +6,7 @@ import { initializeCalendarAnimations } from './calendar';
 import { initializeFaqAnimations } from './faq';
 import { initializeHeroAnimations } from './hero';
 import { initializeHeroShellNavigation } from './hero-shell-navigation';
+import { initializePainPointStack } from './pain-points';
 import { initializeProgressAnimation } from './progress';
 import { initializeScrollReveals } from './reveals';
 
@@ -51,6 +52,7 @@ export function initializeAnimations() {
 
     try {
         context = gsap.context(() => {
+            cleanup.push(initializePainPointStack(gsap, ScrollTrigger));
             initializeHeroAnimations(gsap);
             initializeScrollReveals(gsap);
             cleanup.push(initializeProgressAnimation(gsap, ScrollTrigger));
