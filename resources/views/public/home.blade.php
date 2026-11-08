@@ -18,9 +18,8 @@
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
-            <a class="inline-flex min-h-9 items-center justify-center gap-2 rounded-[6px] border border-ink px-3 py-1.5 text-[11px] leading-none font-bold text-ink transition-colors hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:bg-ink active:text-white" href="{{ url('/admin/login') }}" aria-label="Autentificare">
-                <img class="size-4 shrink-0" src="{{ \App\Support\VersionedAsset::url('images/easyenglish-symbol-blue.svg') }}" alt="" aria-hidden="true" width="16" height="16">
-                <span>Autentificare</span>
+            <a class="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-primary transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:bg-primary-hover" href="{{ url('/admin/login') }}" aria-label="Autentificare">
+                <img class="block h-[35px] w-[196px]" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
             </a>
         </nav>
         </header>
