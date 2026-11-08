@@ -18,7 +18,7 @@
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
-            <a class="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[6px] bg-primary transition-colors hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:bg-primary-hover" href="{{ url('/admin/login') }}" aria-label="Autentificare">
+            <a class="inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="{{ url('/admin/login') }}" aria-label="Autentificare">
                 <img class="block h-[35px] w-[196px]" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
             </a>
         </nav>
