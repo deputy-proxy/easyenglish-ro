@@ -4,6 +4,7 @@ namespace App\Services\Verification;
 
 use App\Contracts\Notifications\WhatsAppGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
+use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Models\ContactVerificationChallenge;
 use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Support\PhoneNumber;
@@ -132,6 +133,13 @@ class ContactVerificationService
                     'contact-verification-'.$challenge->id,
                 ));
             }
+        } catch (WhatsAppDeliveryAmbiguousException) {
+            // OpenWA may have accepted the message before its acknowledgement was lost.
+            // Keep the challenge usable so a delivered code is not invalidated; the
+            // normal resend cooldown and challenge replacement still prevent stale-code reuse.
+            $challenge->forceFill([
+                'phone_sent_at' => now(),
+            ])->save();
         } catch (\Throwable $exception) {
             $challenge->forceFill([
                 'email_token_hash' => hash('sha256', Str::random(64)),

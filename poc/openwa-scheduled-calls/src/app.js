@@ -60,7 +60,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
         record.status = error.uncertain ? 'submission_unconfirmed' : 'failed';
         await messageStore.upsert(record).catch(() => {});
         state.metrics.providerErrors += 1;
-        log(logger, 'warn', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error' });
+        log(logger, 'warn', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error', providerError: safeProviderError(error, to, text) });
         return error.uncertain ? res.status(202).json({ status: record.status, retryable: false }) : res.status(502).json({ error: 'OpenWA could not send the message.' });
       }
       record.status = 'accepted'; record.providerMessageId = result.providerMessageId; record.acceptedAt = new Date().toISOString();
@@ -190,6 +190,18 @@ function log(logger, level, event, fields = {}) {
   const entry = JSON.stringify({ timestamp: new Date().toISOString(), level, event, ...fields });
   (logger[level] || logger.log || (() => {})).call(logger, entry);
 }
+function safeProviderError(error, recipient, message) {
+  let detail = error instanceof Error ? error.message : String(error ?? '');
+  if (recipient) detail = detail.split(recipient).join('[recipient]');
+  if (message) detail = detail.split(message).join('[message]');
+  return detail
+    .replace(/\\b\\d{6}\\b/g, '[redacted]')
+    .replace(/[\\r\\n\\t]+/g, ' ')
+    .replace(/[^\\x20-\\x7E]/g, ' ')
+    .trim()
+    .slice(0, 160) || 'unspecified provider error';
+}
+
 function toApiEvent(record, replayed = false) {
   return { providerEventId: record.providerEventId, joinUrl: record.joinUrl, status: record.status, createdAt: record.createdAt, ...(replayed ? { replayed: true } : {}) };
 }
