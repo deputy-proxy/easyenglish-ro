@@ -20,6 +20,7 @@ function createFixture(isMobile = true) {
     };
     const cards = [80, 120, 100, 90, 110, 70, 95, 85, 105, 80].map((height, index) => {
         const title = { id: `title-${index}`, offsetHeight: height, offsetTop: 70 - index * 20 };
+        const description = { id: `description-${index}` };
         const content = { id: `content-${index}`, offsetHeight: height, offsetTop: 70 - index * 20 };
         const properties = new Map();
 
@@ -29,13 +30,14 @@ function createFixture(isMobile = true) {
                 getPropertyValue: (name) => properties.get(name) ?? '',
                 removeProperty: (name) => properties.delete(name),
             },
-            querySelector: (selector) => selector === '[data-pain-point-content]' ? content : (selector === '[data-pain-point-title]' ? title : null),
+            querySelector: (selector) => selector === '[data-pain-point-content]' ? content : (selector === '[data-pain-point-title]' ? title : (selector === '[data-pain-point-description]' ? description : null)),
             classList: {
                 toggle: (name, force) => force ? properties.set(name, true) : properties.delete(name),
                 remove: (name) => properties.delete(name),
                 contains: (name) => properties.has(name),
             },
             title,
+            description,
             content,
         };
     });
@@ -94,22 +96,26 @@ test('stacks incoming cards far enough apart to keep each compact title visible'
     const fixture = createFixture();
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
-    assert.equal(fixture.animations.length, 9);
+    assert.equal(fixture.animations.length, 0);
     assert.equal(fixture.triggers.length, 9);
     assert.equal(fixture.triggers[0].trigger, fixture.cards[1]);
     assert.equal(fixture.triggers[1].trigger, fixture.cards[2]);
     assert.equal(fixture.triggers[0].start, 'top 76%');
     assert.equal(fixture.triggers[0].end(), 'top 136px');
     assert.equal(fixture.triggers[1].end(), 'top 260px');
-    assert.equal(fixture.triggers[0].scrub, 0.45);
     assert.equal(fixture.triggers[0].invalidateOnRefresh, true);
-    assert.equal(fixture.animations[0].to.scale, 0.7);
-    assert.equal(fixture.animations[0].to.y(), -46);
     assert.equal(fixture.cards[1].style.getPropertyValue('--stack-offset'), '112px');
     assert.equal(fixture.cards[2].style.getPropertyValue('--stack-offset'), '236px');
     assert.equal(fixture.cards[9].style.getPropertyValue('--stack-offset'), '1027px');
     assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
+    assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
     assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), false);
+    assert.equal(fixture.cards[1].classList.contains('is-compact'), false);
+    fixture.triggers[0].onEnter();
+    assert.equal(fixture.cards[0].classList.contains('is-compact'), true);
+    assert.equal(fixture.cards[1].classList.contains('is-compact'), false);
+    fixture.triggers[0].onLeaveBack();
+    assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
     assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
     assert.equal(fixture.section.classList.contains('is-stacking-enabled'), true);
 
@@ -128,7 +134,6 @@ test('uses the desktop sticky header offset while retaining content-aware card s
 
     assert.equal(fixture.triggers[0].end(), 'top 208px');
     assert.equal(fixture.triggers[1].end(), 'top 332px');
-    assert.equal(fixture.animations[0].to.y(), -46);
 
     cleanup();
 });
