@@ -138,7 +138,6 @@ class ContactVerificationService
             // Keep the challenge usable so a delivered code is not invalidated; the
             // normal resend cooldown and challenge replacement still prevent stale-code reuse.
             $challenge->forceFill([
-                'email_sent_at' => $verifyEmail ? now() : null,
                 'phone_sent_at' => now(),
             ])->save();
         } catch (\Throwable $exception) {
