@@ -1,8 +1,8 @@
 <?php
 
 use App\Contracts\Notifications\WhatsAppGateway;
-use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Contracts\Payments\StripeGateway;
+use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BookingCallEvent;
