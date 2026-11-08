@@ -98,16 +98,19 @@
         </section>
     </div>
     <main>
-        <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">
-            <div>
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="why" data-pain-point-stack>
+            <div class="mb-8 max-w-[780px] md:mb-10">
                 <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
                 <h2 class="type-section-title mb-4" data-reveal>{{ __('public.motivation_title') }}</h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
-            <div class="border-t border-line" data-reveal-stagger>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="type-body-emphasis m-0">{{ __('public.motivation_job') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="type-body-emphasis m-0">{{ __('public.motivation_meeting') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="type-body-emphasis m-0">{{ __('public.motivation_travel') }}</p></article>
+            <div class="pain-point-stack-list">
+                @foreach (['job', 'meeting', 'travel'] as $index => $situation)
+                    <article class="pain-point-card relative flex min-h-[216px] items-center rounded-[24px] border border-line bg-white px-6 py-8 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:px-8 md:min-h-[208px] md:px-10" data-pain-point-card>
+                        <span class="absolute right-6 top-6 inline-flex rounded-full bg-primary-soft px-3 py-2 text-xs font-extrabold tracking-[0.08em] text-primary sm:right-8 sm:top-8" aria-hidden="true">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</span>
+                        <h3 class="pain-point-card__title m-0 max-w-[960px] pr-8 text-[clamp(1.25rem,2.8vw,2rem)] font-semibold leading-[1.25] tracking-[-0.035em] text-ink" data-pain-point-title>{{ __('public.motivation_'.$situation) }}</h3>
+                    </article>
+                @endforeach
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="how">
