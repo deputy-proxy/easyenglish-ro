@@ -27,9 +27,11 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
 
             if (index < titles.length - 1) {
                 const compactTitleHeight = titles[index].offsetHeight * 0.7;
-                const visibleTitleHeight = 24 + compactTitleHeight + 16;
+                const descriptionHeight = descriptions[index].offsetHeight;
+                const descriptionGap = descriptionHeight > 0 ? 12 : 0;
+                const compactCardHeight = compactTitleHeight + descriptionHeight + descriptionGap + 30;
 
-                stackOffset += Math.max(minimumStep, Math.ceil(visibleTitleHeight));
+                stackOffset += Math.max(minimumStep, Math.ceil(compactCardHeight));
             }
         });
     };

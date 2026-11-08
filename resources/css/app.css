@@ -253,12 +253,6 @@ html {
     font-size: clamp(0.875rem, 1.96vw, 1.4rem);
 }
 
-[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].is-compact .pain-point-card__description {
-    max-height: 0;
-    margin-top: 0;
-    overflow: hidden;
-    opacity: 0;
-}
 
 @media (min-width: 768px) {
     [data-pain-point-stack] {
