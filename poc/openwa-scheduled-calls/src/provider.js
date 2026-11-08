@@ -5,7 +5,7 @@ export class OpenWaProvider {
   getEvent(id) { return retrieveScheduledCall(this.client, id); }
   cancelEvent(id) { return cancelScheduledCall(this.client, id); }
   async sendText(recipient, text) {
-    const chatId = recipient.replace(/^\\+/, '') + '@c.us';
+    const chatId = recipient.replace(/^\+/, '') + '@c.us';
     let result;
     try {
       result = await this.client.sendText(chatId, text);
