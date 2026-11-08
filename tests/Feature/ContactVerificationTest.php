@@ -165,7 +165,6 @@ test('provider delivery failure invalidates a partially delivered challenge', fu
     expect($challenge->isUsable())->toBeFalse();
 });
 
-
 test('ambiguous WhatsApp delivery preserves the verification challenge for a possibly delivered code', function () {
     $gateway = Mockery::mock(WhatsAppGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new WhatsAppDeliveryAmbiguousException('provider acknowledgement was lost'));
