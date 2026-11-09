@@ -200,7 +200,6 @@ class BundleDefinition extends Model
                 }
             }
 
-
             $periods[] = [$start, $end];
         }
     }
