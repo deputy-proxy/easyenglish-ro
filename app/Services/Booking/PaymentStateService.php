@@ -5,6 +5,7 @@ namespace App\Services\Booking;
 use App\Enums\PaymentStatus;
 use App\Models\BookingAudit;
 use App\Models\Payment;
+use App\Services\Payments\DiscountVoucherService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -49,7 +50,10 @@ class PaymentStateService
             ]);
 
             if ($target === PaymentStatus::Succeeded) {
-                app(BundleEntitlementService::class)->activateAfterVerifiedPayment($lockedPayment->bundle_entitlement_id);
+                $entitlement = app(BundleEntitlementService::class)->activateAfterVerifiedPayment($lockedPayment->bundle_entitlement_id);
+                app(DiscountVoucherService::class)->redeemForEntitlement($entitlement);
+            } elseif (in_array($target, [PaymentStatus::Failed, PaymentStatus::Expired, PaymentStatus::Cancelled], true)) {
+                app(DiscountVoucherService::class)->releaseForEntitlement($lockedPayment->entitlement);
             }
 
             return $lockedPayment->refresh();

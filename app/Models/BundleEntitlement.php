@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $paid_amount_ron
  * @property int|null $original_price_ron
  * @property array<string, mixed>|null $discount_snapshot
+ * @property string|null $voucher_code_snapshot
  * @property string $currency
  * @property int $paid_credits
  * @property int $credits_remaining
@@ -43,7 +44,7 @@ class BundleEntitlement extends Model
         $this->attributes['customer_phone'] = PhoneNumber::normalize($value);
     }
 
-    protected $fillable = ['customer_user_id', 'bundle_definition_id', 'bundle_name_snapshot', 'bundle_description_snapshot', 'included_free_credits_snapshot', 'bundle_snapshot_source', 'checkout_request_key', 'customer_name', 'customer_email', 'customer_phone', 'locale', 'customer_email_verified_at', 'customer_phone_verified_at', 'status', 'paid_amount_ron', 'original_price_ron', 'discount_snapshot', 'currency', 'paid_credits', 'free_credits_granted', 'credits_remaining', 'free_credits_remaining', 'activated_at', 'expires_at'];
+    protected $fillable = ['customer_user_id', 'bundle_definition_id', 'bundle_name_snapshot', 'bundle_description_snapshot', 'included_free_credits_snapshot', 'bundle_snapshot_source', 'checkout_request_key', 'customer_name', 'customer_email', 'customer_phone', 'locale', 'customer_email_verified_at', 'customer_phone_verified_at', 'status', 'paid_amount_ron', 'original_price_ron', 'discount_snapshot', 'voucher_code_snapshot', 'currency', 'paid_credits', 'free_credits_granted', 'credits_remaining', 'free_credits_remaining', 'activated_at', 'expires_at'];
 
     protected function casts(): array
     {

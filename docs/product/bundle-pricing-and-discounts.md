@@ -74,3 +74,7 @@ The featured card keeps the same white surface, typography, content, and primary
 The entitlement table now stores nullable `original_price_ron` and `discount_snapshot` columns. They are nullable because existing entitlements cannot reliably reconstruct the regular price/discount that was in effect at the time of an earlier purchase. Existing `paid_amount_ron` values remain unchanged. New purchases populate all three values.
 
 No changes are made to the credit ledger, bundle validity, booking, cancellation, refund, tax, Stripe webhook, or free-introduction rules.
+
+## Campaign vouchers
+
+Campaign vouchers are separate from scheduled bundle discounts. A voucher is restricted to one bundle and overrides that bundle's scheduled discount for the purchase; the two discounts never stack. The voucher percentage is calculated from the regular catalog price using the same round-to-nearest-RON formula as scheduled percentage discounts. See the campaign discount vouchers guide for configuration, customer flow, redemption reservations, and historical snapshots.

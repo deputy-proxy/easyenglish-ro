@@ -10,6 +10,7 @@ use App\Models\BookingCallEvent;
 use App\Models\BundleDefinition;
 use App\Models\BundleEntitlement;
 use App\Models\CreditTransaction;
+use App\Models\DiscountVoucher;
 use App\Models\FreeSessionClaim;
 use App\Models\NotificationDelivery;
 use App\Models\Payment;
@@ -834,4 +835,109 @@ test('Stripe dispute webhooks persist current chargeback status and recover from
     expect($record->status)->toBe('won')
         ->and($record->closed_at_provider)->not->toBeNull()
         ->and(app(CustomerPurchasePresenter::class)->paymentStatus($payment))->toBe('chargeback_won');
+});
+
+test('voucher checkout charges the voucher price and redeems once after verified payment', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $voucher = DiscountVoucher::query()->create([
+        'code' => 'STRIPE25',
+        'name' => 'Stripe campaign',
+        'bundle_definition_id' => $bundle->id,
+        'discount_percentage' => 25,
+        'max_redemptions' => 1,
+        'is_active' => true,
+    ]);
+    $token = str_repeat('W', 48);
+
+    $this->withSession([
+        'bundle_checkout_tokens' => [$bundle->id => $token],
+        'bundle_voucher_codes' => [$bundle->id => 'STRIPE25'],
+    ])->post(route('purchase.checkout', $bundle), [
+        'purchase_token' => $token,
+        'displayed_price_ron' => 117,
+        'name' => 'Stripe Test Customer',
+        'email' => 'stripe-customer@example.com',
+        'phone' => '+40722123456',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
+
+    $entitlement = BundleEntitlement::query()->where('checkout_request_key', $token)->firstOrFail();
+    $payment = $entitlement->payments()->firstOrFail();
+    $priceData = app(FakeStripeGateway::class)->checkoutRequests[0]['parameters']['line_items'][0]['price_data'];
+
+    $this->withSession([
+        'bundle_checkout_tokens' => [$bundle->id => $token],
+        'bundle_voucher_codes' => [$bundle->id => 'STRIPE25'],
+    ])->post(route('purchase.checkout', $bundle), [
+        'purchase_token' => $token,
+        'displayed_price_ron' => 117,
+        'name' => 'Stripe Test Customer',
+        'email' => 'stripe-customer@example.com',
+        'phone' => '+40722123456',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
+
+    expect($priceData['unit_amount'])->toBe(11700)
+        ->and($payment->amount_ron)->toBe(117)
+        ->and($entitlement->original_price_ron)->toBe(156)
+        ->and($entitlement->paid_amount_ron)->toBe(117)
+        ->and($entitlement->voucher_code_snapshot)->toBe('STRIPE25')
+        ->and($entitlement->discount_snapshot['percentage'])->toBe(25)
+        ->and($voucher->fresh()->redemption_count)->toBe(0)
+        ->and($voucher->redemptions()->where('status', 'reserved')->count())->toBe(1);
+
+    $paidSession = array_merge($payment->provider_checkout_id ? app(FakeStripeGateway::class)->retrieveCheckoutSession($payment->provider_checkout_id) : [], [
+        'status' => 'complete',
+        'payment_status' => 'paid',
+    ]);
+    postStripeTestEvent($this, stripeTestEvent('evt_voucher_paid', 'checkout.session.completed', $paidSession))
+        ->assertOk();
+    postStripeTestEvent($this, stripeTestEvent('evt_voucher_paid_retry', 'checkout.session.completed', $paidSession))
+        ->assertOk();
+
+    $voucher->update(['name' => 'Renamed after purchase', 'discount_percentage' => 40, 'is_active' => false]);
+
+    expect($entitlement->fresh()->status)->toBe('active')
+        ->and($entitlement->fresh()->voucher_code_snapshot)->toBe('STRIPE25')
+        ->and($entitlement->fresh()->discount_snapshot['percentage'])->toBe(25)
+        ->and($entitlement->fresh()->paid_amount_ron)->toBe(117)
+        ->and($voucher->fresh()->redemption_count)->toBe(1)
+        ->and($voucher->redemptions()->where('status', 'redeemed')->count())->toBe(1);
+});
+
+test('voucher reservations are released when checkout expires and redemption is not consumed', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $voucher = DiscountVoucher::query()->create([
+        'code' => 'EXPIRE25',
+        'name' => 'Expiry campaign',
+        'bundle_definition_id' => $bundle->id,
+        'discount_percentage' => 25,
+        'max_redemptions' => 1,
+        'is_active' => true,
+    ]);
+    $token = str_repeat('X', 48);
+
+    $this->withSession([
+        'bundle_checkout_tokens' => [$bundle->id => $token],
+        'bundle_voucher_codes' => [$bundle->id => 'EXPIRE25'],
+    ])->post(route('purchase.checkout', $bundle), [
+        'purchase_token' => $token,
+        'displayed_price_ron' => 117,
+        'name' => 'Stripe Test Customer',
+        'email' => 'stripe-customer@example.com',
+        'phone' => '+40722123456',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect();
+
+    $payment = Payment::query()->firstOrFail();
+    $expiredSession = array_merge(app(FakeStripeGateway::class)->retrieveCheckoutSession((string) $payment->provider_checkout_id), [
+        'status' => 'expired',
+        'payment_status' => 'unpaid',
+    ]);
+    postStripeTestEvent($this, stripeTestEvent('evt_voucher_expired', 'checkout.session.expired', $expiredSession))
+        ->assertOk();
+
+    expect($voucher->fresh()->redemption_count)->toBe(0)
+        ->and($voucher->redemptions()->where('status', 'reserved')->count())->toBe(0)
+        ->and($voucher->redemptions()->where('status', 'released')->count())->toBe(1);
 });

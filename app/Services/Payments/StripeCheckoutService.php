@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Services\Booking\PaymentStateService;
 use App\Support\PhoneNumber;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
@@ -22,10 +23,11 @@ class StripeCheckoutService
         private readonly StripeGateway $stripe,
         private readonly PaymentStateService $paymentStates,
         private readonly StripePaymentProcessor $processor,
+        private readonly DiscountVoucherService $vouchers,
     ) {}
 
     /** @param array{name:string,email:string,phone:string} $customer */
-    public function start(BundleDefinition $bundle, array $customer, string $requestKey, int $expectedPriceRon, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false, ?User $customerUser = null): Payment
+    public function start(BundleDefinition $bundle, array $customer, string $requestKey, int $expectedPriceRon, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false, ?User $customerUser = null, ?string $voucherCode = null): Payment
     {
         if (! $bundle->is_active) {
             throw ValidationException::withMessages(['bundle' => 'This bundle is not available for purchase.']);
@@ -47,43 +49,82 @@ class StripeCheckoutService
             throw ValidationException::withMessages(['verification' => __('public.verification_required')]);
         }
 
+        $voucherCode = $voucherCode !== null && trim($voucherCode) !== ''
+            ? DiscountVoucherService::normalizeCode($voucherCode)
+            : null;
         $entitlement = BundleEntitlement::query()->where('checkout_request_key', $requestKey)->first();
+
         if ($entitlement !== null) {
+            if ($entitlement->bundle_definition_id !== $bundle->id
+                || $entitlement->voucher_code_snapshot !== $voucherCode) {
+                throw ValidationException::withMessages(['purchase_token' => __('public.voucher_purchase_locked')]);
+            }
+
+            if ($voucherCode !== null) {
+                $currentVoucherQuote = $entitlement->status === 'active'
+                    ? null
+                    : $this->vouchers->quote($bundle, $voucherCode, null, $entitlement);
+                if ($currentVoucherQuote !== null && $currentVoucherQuote['current_price_ron'] !== (int) $entitlement->paid_amount_ron) {
+                    throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
+                }
+            }
+
             if ($expectedPriceRon !== (int) $entitlement->paid_amount_ron) {
                 throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
             }
         } else {
-            $priceBreakdown = $bundle->priceBreakdown();
+            $priceBreakdown = $voucherCode !== null
+                ? $this->vouchers->quote($bundle, $voucherCode)
+                : $bundle->priceBreakdown();
+
             if ($expectedPriceRon !== $priceBreakdown['current_price_ron']) {
                 throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
             }
 
-            $entitlement = BundleEntitlement::query()->firstOrCreate(
-                ['checkout_request_key' => $requestKey],
-                [
-                    'customer_user_id' => $customerUser?->id,
-                    'bundle_definition_id' => $bundle->id,
-                    'bundle_name_snapshot' => $bundle->localizedName(in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
-                    'bundle_description_snapshot' => $bundle->localizedValue($bundle->short_description, in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
-                    'included_free_credits_snapshot' => $bundle->included_free_credits,
-                    'bundle_snapshot_source' => 'purchase',
-                    'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
-                    'customer_name' => $customer['name'],
-                    'customer_email' => $customer['email'],
-                    'customer_phone' => $customer['phone'],
-                    'customer_email_verified_at' => $verification !== null ? $verification->email_verified_at : ($accountContactsVerified ? now() : null),
-                    'customer_phone_verified_at' => $verification !== null ? $verification->phone_verified_at : ($accountContactsVerified ? now() : null),
-                    'status' => 'pending_payment',
-                    'paid_amount_ron' => $priceBreakdown['current_price_ron'],
-                    'original_price_ron' => $priceBreakdown['original_price_ron'],
-                    'discount_snapshot' => $priceBreakdown['discount'],
-                    'currency' => 'RON',
-                    'paid_credits' => $bundle->paid_credits,
-                    'free_credits_granted' => 0,
-                    'credits_remaining' => 0,
-                    'free_credits_remaining' => 0,
-                ],
-            );
+            $entitlement = DB::transaction(function () use ($requestKey, $customerUser, $bundle, $locale, $customer, $verification, $accountContactsVerified, $priceBreakdown, $voucherCode): BundleEntitlement {
+                $entitlement = BundleEntitlement::query()->firstOrCreate(
+                    ['checkout_request_key' => $requestKey],
+                    [
+                        'customer_user_id' => $customerUser?->id,
+                        'bundle_definition_id' => $bundle->id,
+                        'bundle_name_snapshot' => $bundle->localizedName(in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
+                        'bundle_description_snapshot' => $bundle->localizedValue($bundle->short_description, in_array($locale, ['ro', 'en'], true) ? $locale : 'ro'),
+                        'included_free_credits_snapshot' => $bundle->included_free_credits,
+                        'bundle_snapshot_source' => 'purchase',
+                        'locale' => in_array($locale, ['ro', 'en'], true) ? $locale : 'ro',
+                        'customer_name' => $customer['name'],
+                        'customer_email' => $customer['email'],
+                        'customer_phone' => $customer['phone'],
+                        'customer_email_verified_at' => $verification !== null ? $verification->email_verified_at : ($accountContactsVerified ? now() : null),
+                        'customer_phone_verified_at' => $verification !== null ? $verification->phone_verified_at : ($accountContactsVerified ? now() : null),
+                        'status' => 'pending_payment',
+                        'paid_amount_ron' => $priceBreakdown['current_price_ron'],
+                        'original_price_ron' => $priceBreakdown['original_price_ron'],
+                        'discount_snapshot' => $priceBreakdown['discount'],
+                        'voucher_code_snapshot' => $voucherCode,
+                        'currency' => 'RON',
+                        'paid_credits' => $bundle->paid_credits,
+                        'free_credits_granted' => 0,
+                        'credits_remaining' => 0,
+                        'free_credits_remaining' => 0,
+                    ],
+                );
+
+                if ($entitlement->bundle_definition_id !== $bundle->id
+                    || $entitlement->voucher_code_snapshot !== $voucherCode) {
+                    throw ValidationException::withMessages(['purchase_token' => __('public.voucher_purchase_locked')]);
+                }
+
+                if ($voucherCode !== null) {
+                    $this->vouchers->reserveForEntitlement($voucherCode, $bundle, $entitlement);
+                }
+
+                return $entitlement;
+            }, attempts: 3);
+        }
+
+        if ($voucherCode !== null && $entitlement->status === 'pending_payment') {
+            $this->vouchers->reserveForEntitlement($voucherCode, $bundle, $entitlement);
         }
 
         if ($expectedPriceRon !== (int) $entitlement->paid_amount_ron) {
