@@ -165,9 +165,6 @@ class BundleDefinition extends Model
     {
         $discounts = $this->discounts ?? [];
         $periods = [];
-        $otherBundles = static::query()
-            ->when($this->exists, fn ($query) => $query->whereKeyNot($this->getKey()))
-            ->get(['id', 'discounts']);
 
         foreach ($discounts as $index => $block) {
             $discount = $block['data'] ?? $block;
@@ -199,21 +196,10 @@ class BundleDefinition extends Model
 
             foreach ($periods as [$existingStart, $existingEnd]) {
                 if ($start <= $existingEnd && $end >= $existingStart) {
-                    throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Only one discount can be active at a time across all bundles.']);
+                    throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Discount periods within the same bundle cannot overlap.']);
                 }
             }
 
-            foreach ($otherBundles as $otherBundle) {
-                foreach ($otherBundle->discounts ?? [] as $otherBlock) {
-                    $otherDiscount = $otherBlock['data'] ?? $otherBlock;
-                    $otherStart = $otherDiscount['start_date'] ?? null;
-                    $otherEnd = $otherDiscount['end_date'] ?? null;
-
-                    if (is_string($otherStart) && is_string($otherEnd) && $start <= $otherEnd && $end >= $otherStart) {
-                        throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Only one discount can be active at a time across all bundles.']);
-                    }
-                }
-            }
 
             $periods[] = [$start, $end];
         }
