@@ -82,6 +82,7 @@ it('calculates fixed discounts and exposes accurate savings metadata', function 
             'original_price_ron' => 156,
             'current_price_ron' => 120,
             'savings_ron' => 36,
+            'savings_percentage' => 23,
             'discount_type' => 'fixed',
             'percentage' => null,
         ]);
@@ -118,6 +119,7 @@ it('does not expose a corrupted discount that cannot reduce the bundle price', f
             'original_price_ron' => 156,
             'current_price_ron' => 156,
             'savings_ron' => 0,
+            'savings_percentage' => null,
             'discount_type' => null,
             'discount' => null,
         ]);
@@ -138,10 +140,20 @@ it('renders the featured bundle with a subtle border and localized discount savi
     $this->withSession(['locale' => 'en'])->get(route('home'))
         ->assertOk()
         ->assertSee('featured-bundle-card', false)
-        ->assertSee('Special offer')
+        ->assertDontSee('Special offer')
+        ->assertDontSee('Featured')
         ->assertSee('Save 25%')
         ->assertSee('156 RON')
-        ->assertSee('117');
+        ->assertSee('117 RON');
+
+    $styles = file_get_contents(resource_path('css/app.css'));
+    expect($styles)->toContain('.featured-bundle-card {')
+        ->and($styles)->toContain('var(--color-primary)');
+
+    $content = $this->get(route('home'))->getContent();
+    expect(strpos($content, 'Bundle 1'))->toBeLessThan(strpos($content, '156 RON'))
+        ->and(strpos($content, '156 RON'))->toBeLessThan(strpos($content, 'Save 25%'))
+        ->and(strpos($content, 'Save 25%'))->toBeLessThan(strpos($content, '117 RON'));
 });
 
 it('preserves the established percentage-price rounding and derives the displayed saving from exact prices', function (): void {
@@ -161,11 +173,12 @@ it('preserves the established percentage-price rounding and derives the displaye
             'original_price_ron' => 5,
             'current_price_ron' => 3,
             'savings_ron' => 2,
+            'savings_percentage' => 40,
             'percentage' => 40,
         ]);
 });
 
-it('renders fixed savings as a RON amount on the public bundle card', function (): void {
+it('renders fixed discount savings as an effective percentage on the public bundle card', function (): void {
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
         'title' => ['ro' => 'Reducere fixă', 'en' => 'Fixed saving'],
@@ -178,8 +191,9 @@ it('renders fixed savings as a RON amount on the public bundle card', function (
     $this->withSession(['locale' => 'en'])
         ->get(route('home'))
         ->assertOk()
-        ->assertSee('Fixed saving')
-        ->assertSee('Save 36 RON')
+        ->assertDontSee('Fixed saving')
+        ->assertSee('Save 23%')
+        ->assertDontSee('Save 36 RON')
         ->assertSee('156 RON')
-        ->assertSee('120');
+        ->assertSee('120 RON');
 });

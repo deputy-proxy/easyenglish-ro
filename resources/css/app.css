@@ -47,6 +47,7 @@
     box-shadow: 0 8px 28px rgb(20 35 75 / 12%);
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
+    padding-inline: clamp(16px, 2vw, 32px);
 }
 
 [data-hero] {
@@ -75,6 +76,11 @@
     border-radius: inherit;
     content: '';
     animation: featured-bundle-border-pulse 3.8s ease-in-out infinite;
+}
+
+.featured-bundle-card {
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--color-primary) 16%, transparent),
+        0 2px 8px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 @keyframes featured-bundle-border-pulse {
@@ -252,8 +258,8 @@ html {
 }
 
 .how-step-card {
-    flex: 0 0 calc(100% - 2.25rem);
-    scroll-snap-align: start;
+    flex: 0 0 100%;
+    scroll-snap-align: center;
     scroll-snap-stop: always;
 }
 
@@ -903,6 +909,20 @@ details[open] [data-faq-chevron] {
     color: white;
     backdrop-filter: blur(8px);
     transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+    .teacher-card:hover .teacher-card__more {
+        animation: teacher-more-pulse 1.35s ease-in-out infinite;
+    }
+}
+@keyframes teacher-more-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgb(255 255 255 / 42%); }
+    50% { box-shadow: 0 0 0 7px rgb(255 255 255 / 0%); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .teacher-card:hover .teacher-card__more {
+        animation: none;
+    }
 }
 .teacher-card__more svg { width: 20px; height: 20px; }
 .teacher-card__more:hover, .teacher-card__more:focus-visible {

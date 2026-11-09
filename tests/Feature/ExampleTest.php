@@ -79,13 +79,13 @@ test('public progress section displays an illustrative radar chart instead of me
 test('the four-step learner journey renders the approved process and responsive card track in both locales', function () {
     $expectedCopy = [
         'ro' => [
-            'Alege-ți intervalul',
+            'Alege intervalul',
             'Alegi intervalul și durata sesiunii care ți se potrivesc. Fără program fix sau angajamente pe termen lung.',
-            'Primește linkul pentru apel',
+            'Primeste invitatia',
             'Primești linkul pentru apelul tău pe WhatsApp și îl folosești pentru a intra în sesiune la ora stabilită.',
-            'Începe să vorbești',
+            'Incepe sa vorbesti',
             'Discuți cu profesorul tău și exersezi engleza prin conversații relaxate, individuale, despre situații reale.',
-            'Urmărește-ți progresul',
+            'Urmareste progresul',
             'După sesiuni, profesorul îți poate oferi feedback personalizat, poate evidenția ce ai făcut bine și îți poate recomanda ce să exersezi în continuare.',
         ],
         'en' => [
@@ -145,7 +145,8 @@ test('the four-step learner journey renders the approved process and responsive 
     expect($styles)
         ->toContain('.how-steps-track')
         ->toContain('scroll-snap-type: x mandatory')
-        ->toContain('flex: 0 0 calc(100% - 2.25rem)')
+        ->toContain('flex: 0 0 100%')
+        ->toContain('scroll-snap-align: center;')
         ->toContain('@media (min-width: 1024px)')
         ->toContain('grid-template-columns: repeat(4, minmax(0, 1fr))');
 });

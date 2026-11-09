@@ -96,6 +96,7 @@ class BundleDefinition extends Model
      *     original_price_ron: int,
      *     current_price_ron: int,
      *     savings_ron: int,
+     *     savings_percentage: int|null,
      *     discount_type: string|null,
      *     percentage: int|null,
      *     discount: array<string, mixed>|null
@@ -111,6 +112,7 @@ class BundleDefinition extends Model
                 'original_price_ron' => $originalPrice,
                 'current_price_ron' => $originalPrice,
                 'savings_ron' => 0,
+                'savings_percentage' => null,
                 'discount_type' => null,
                 'percentage' => null,
                 'discount' => null,
@@ -128,20 +130,21 @@ class BundleDefinition extends Model
                 'original_price_ron' => $originalPrice,
                 'current_price_ron' => $originalPrice,
                 'savings_ron' => 0,
+                'savings_percentage' => null,
                 'discount_type' => null,
                 'percentage' => null,
                 'discount' => null,
             ];
         }
 
-        $percentage = $discountType === 'percentage'
-            ? (int) round($savings / $originalPrice * 100)
-            : null;
+        $savingsPercentage = (int) round($savings / $originalPrice * 100);
+        $percentage = $discountType === 'percentage' ? $savingsPercentage : null;
 
         return [
             'original_price_ron' => $originalPrice,
             'current_price_ron' => $currentPrice,
             'savings_ron' => $savings,
+            'savings_percentage' => $savingsPercentage,
             'discount_type' => $discountType,
             'percentage' => $percentage,
             'discount' => $discount,

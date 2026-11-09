@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="{{ __('public.hero_text') }}">
     <title>Easy English · {{ __('public.hero_title') }}</title>
@@ -18,8 +19,8 @@
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
-            <a class="inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="{{ url('/admin/login') }}" aria-label="Autentificare">
-                <img class="block h-[20.25px] w-auto" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
+            <a class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="{{ url('/admin/login') }}" aria-label="Autentificare">
+                <img class="block h-[13.5px] w-auto" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
             </a>
         </nav>
         </header>
@@ -175,7 +176,7 @@
                                     <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary-soft via-primary to-primary-strong" aria-hidden="true"><span class="text-8xl font-semibold tracking-tight text-white/90">{{ mb_substr($teacher->name, 0, 1) }}</span></div>
                                 @endif
                                 <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#173c99]/20 to-[#101b45]/75 opacity-80" aria-hidden="true"></div>
-                                <div class="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-6 text-white sm:p-7">
+                                <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 p-6 text-white sm:p-7">
                                     <div class="min-w-0">
                                         <h3 class="m-0 text-xl font-semibold leading-tight tracking-tight sm:text-2xl">{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}</h3>
                                     </div>
@@ -432,25 +433,15 @@
                         @php($price = $bundle->priceBreakdown())
                         @php($discount = $price['discount'])
                         <article class="relative flex flex-col items-start rounded-[20px] border border-transparent bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] {{ $bundle->featured ? 'featured-bundle-card' : '' }}" data-reveal-item>
-                            @if($bundle->featured)
-                                <span class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ __('public.package_featured') }}</span>
-                            @endif
-                            @if($discount)
-                                <span class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ $bundle->localizedValue($discount['title'] ?? []) }}</span>
-                            @endif
                             <span class="text-[13px] font-bold text-muted">{{ $bundle->localizedName() }}</span>
                             @if($discount)
-                                <div class="mt-2 text-sm font-semibold text-muted line-through">{{ number_format($price['original_price_ron'], 0, ',', '.') }} RON</div>
-                            @endif
-                            <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px] text-ink">{{ number_format($price['current_price_ron'], 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
-                            @if($discount)
-                                <p class="m-0 text-xs font-bold text-success">
-                                    @if($price['discount_type'] === 'percentage')
-                                        {{ __('public.discount_save_percentage', ['value' => $price['percentage']]) }}
-                                    @else
-                                        {{ __('public.discount_save_amount', ['amount' => number_format($price['savings_ron'], 0, ',', '.')]) }}
-                                    @endif
-                                </p>
+                                <div class="mt-2.5 mb-1 flex flex-wrap items-center gap-x-2 gap-y-2">
+                                    <span class="text-2xl leading-tight font-extrabold tracking-tight text-muted line-through">{{ number_format($price['original_price_ron'], 0, ',', '.') }} RON</span>
+                                    <span class="inline-flex rounded-full bg-primary-soft px-2.5 py-1.5 text-[10px] font-extrabold tracking-tight text-primary">{{ __('public.discount_save_percentage', ['value' => $price['savings_percentage']]) }}</span>
+                                    <span class="text-2xl leading-tight font-extrabold tracking-tight text-ink">{{ number_format($price['current_price_ron'], 0, ',', '.') }} RON</span>
+                                </div>
+                            @else
+                                <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px] text-ink">{{ number_format($price['current_price_ron'], 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
                             @endif
                             <p class="mt-2.5 mb-[18px] font-bold text-ink">{{ $bundle->localizedValue($bundle->tagline) }}</p>
                             <p class="m-0 text-sm leading-[1.65] text-muted">{{ $bundle->localizedValue($bundle->short_description) }}</p>
