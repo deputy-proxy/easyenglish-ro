@@ -8,17 +8,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-paper font-sans text-ink antialiased">
-    <header class="relative z-10 border-b border-line bg-white/90 backdrop-blur">
-        <div class="mx-auto flex h-[76px] w-[calc(100%-2.5rem)] max-w-[1160px] items-center justify-between gap-4">
-            <a class="shrink-0" href="{{ route('home') }}" aria-label="EasyEnglish home">
-                <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
-            </a>
-            <a class="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-semibold text-muted transition-colors hover:bg-primary-soft hover:text-primary" href="{{ route('home') }}#bundles">
-                <svg aria-hidden="true" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 12H5m7 7-7-7 7-7"/></svg>
-                {{ __('public.back_home') }}
-            </a>
-        </div>
-    </header>
+    <x-public-site-header />
 
     <main class="relative isolate overflow-hidden">
         <div aria-hidden="true" class="pointer-events-none absolute -top-48 right-[-9rem] -z-10 size-[34rem] rounded-full bg-primary-soft/80 blur-3xl"></div>

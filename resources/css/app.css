@@ -60,6 +60,10 @@
     }
 }
 
+.public-site-header--standalone {
+    margin-bottom: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .public-site-header {
         transition: none;
