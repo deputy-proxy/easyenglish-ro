@@ -130,10 +130,10 @@
                 tabindex="0"
             >
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] border {{ $index === 3 ? 'border-primary/25 bg-primary-soft/20' : 'border-line bg-white' }} p-5 sm:p-6" data-reveal-item>
-                        <div class="flex h-[190px] shrink-0 items-center justify-center sm:h-[210px] lg:h-[180px] xl:h-[200px]">
+                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] border {{ $index === 3 ? 'border-primary/25 bg-primary-soft/20' : 'border-line bg-white' }}" data-reveal-item>
+                        <div class="aspect-[4/3] w-full shrink-0">
                             <img
-                                class="block h-full w-full object-contain"
+                                class="block size-full object-contain"
                                 src="{{ \App\Support\VersionedAsset::url('images/step-'.($index + 1).'.png') }}"
                                 alt="{{ __('public.step_'.$step.'_title') }}"
                                 loading="lazy"
@@ -141,7 +141,7 @@
                                 data-image-reveal
                             >
                         </div>
-                        <div class="mt-4 flex-1">
+                        <div class="mt-4 flex-1 px-5 pb-5 sm:px-6 sm:pb-6">
                             <span class="inline-flex rounded-[9px] bg-primary-soft px-3 py-2 text-xs font-extrabold text-primary">{{ str_pad((string) ($index + 1), 2, '0', STR_PAD_LEFT) }}</span>
                             <h3 class="type-card-title mt-3 mb-2">{{ __('public.step_'.$step.'_title') }}</h3>
                             <p class="type-card-copy m-0">{{ __('public.step_'.$step.'_text') }}</p>

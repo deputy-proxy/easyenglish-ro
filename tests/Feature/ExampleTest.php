@@ -133,6 +133,11 @@ test('the four-step learner journey renders the approved process and responsive 
 
         expect(preg_match('/<section[^>]*id="how"[^>]*>(.*?)<\\/section>/s', $content, $matches))->toBe(1)
             ->and(substr_count($matches[1], '<article'))->toBe(4);
+
+        expect($matches[1])
+            ->toContain('aspect-[4/3] w-full shrink-0')
+            ->toContain('mt-4 flex-1 px-5 pb-5 sm:px-6 sm:pb-6')
+            ->not->toContain('p-5 sm:p-6');
     }
 
     $styles = file_get_contents(resource_path('css/app.css'));
