@@ -121,10 +121,17 @@
                 <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.how_title') }}</h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.how_text') }}</p>
             </div>
-            <div class="grid auto-rows-fr gap-5 md:grid-cols-2" data-reveal-stagger>
+            <div
+                class="how-steps-track"
+                data-how-steps
+                data-reveal-stagger
+                role="region"
+                aria-label="{{ __('public.how_steps_label') }}"
+                tabindex="0"
+            >
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6" data-reveal-item>
-                        <div class="flex h-[230px] shrink-0 items-center justify-center">
+                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] border {{ $index === 3 ? 'border-primary/25 bg-primary-soft/20' : 'border-line bg-white' }} p-5 sm:p-6" data-reveal-item>
+                        <div class="flex h-[190px] shrink-0 items-center justify-center sm:h-[210px] lg:h-[180px] xl:h-[200px]">
                             <img
                                 class="block h-full w-full object-contain"
                                 src="{{ asset('images/step-'.($index + 1).'.png') }}"

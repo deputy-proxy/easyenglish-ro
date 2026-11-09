@@ -200,6 +200,59 @@ html {
     }
 }
 
+/* The How It Works cards stay in one row and scroll horizontally until desktop. */
+.how-steps-track {
+    display: flex;
+    width: 100%;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 16px;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+}
+
+.how-steps-track::-webkit-scrollbar {
+    display: none;
+}
+
+.how-step-card {
+    flex: 0 0 calc(100% - 2.25rem);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+@media (min-width: 640px) {
+    .how-step-card {
+        flex-basis: min(340px, calc((100% - 16px) / 2));
+    }
+}
+
+@media (min-width: 1024px) {
+    .how-steps-track {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        overflow: visible;
+        padding-bottom: 0;
+        scroll-snap-type: none;
+    }
+
+    .how-step-card {
+        flex: initial;
+        scroll-snap-align: unset;
+        scroll-snap-stop: normal;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .how-steps-track {
+        scroll-behavior: auto;
+    }
+}
+
 /* Scroll-driven pain-point cards enhance the static card list only when GSAP is ready. */
 [data-pain-point-stack] {
     --pain-point-stack-top: calc(64px + env(safe-area-inset-top, 0px) + 16px);
