@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Faq;
+use App\Support\VersionedAsset;
 
 test('returns a successful response', function () {
     $response = $this->get(route('home'));
@@ -123,7 +124,12 @@ test('the four-step learner journey renders the approved process and responsive 
             ->assertSee('data-how-steps', false)
             ->assertSee('role="region"', false)
             ->assertSee('tabindex="0"', false)
-            ->assertSeeInOrder(['images/step-1.png', 'images/step-2.png', 'images/step-3.png', 'images/step-4.png']);
+            ->assertSeeInOrder([
+                VersionedAsset::url('images/step-1.png'),
+                VersionedAsset::url('images/step-2.png'),
+                VersionedAsset::url('images/step-3.png'),
+                VersionedAsset::url('images/step-4.png'),
+            ], false);
 
         expect(preg_match('/<section[^>]*id="how"[^>]*>(.*?)<\\/section>/s', $content, $matches))->toBe(1)
             ->and(substr_count($matches[1], '<article'))->toBe(4);

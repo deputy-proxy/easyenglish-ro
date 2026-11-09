@@ -134,7 +134,7 @@
                         <div class="flex h-[190px] shrink-0 items-center justify-center sm:h-[210px] lg:h-[180px] xl:h-[200px]">
                             <img
                                 class="block h-full w-full object-contain"
-                                src="{{ asset('images/step-'.($index + 1).'.png') }}"
+                                src="{{ \App\Support\VersionedAsset::url('images/step-'.($index + 1).'.png') }}"
                                 alt="{{ __('public.step_'.$step.'_title') }}"
                                 loading="lazy"
                                 decoding="async"
