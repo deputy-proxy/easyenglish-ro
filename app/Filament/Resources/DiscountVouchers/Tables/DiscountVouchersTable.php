@@ -26,6 +26,9 @@ class DiscountVouchersTable
                 TextColumn::make('bundle.name_ro')->label('Bundle')->searchable(),
                 TextColumn::make('discount_percentage')->label('Discount')->suffix('%')->sortable(),
                 TextColumn::make('redemption_count')->label('Used')->sortable(),
+                TextColumn::make('remaining_uses')->label('Remaining')->state(fn (DiscountVoucher $record): string => $record->max_redemptions === null
+                    ? 'Unlimited'
+                    : (string) max(0, $record->max_redemptions - $record->redemptions()->whereIn('status', ['reserved', 'redeemed'])->count())),
                 TextColumn::make('redemptions_count')->counts('redemptions')->label('Redemption records'),
                 TextColumn::make('max_redemptions')->label('Limit')->placeholder('Unlimited'),
                 TextColumn::make('starts_at')->dateTime('d M Y H:i')->timezone('Europe/Bucharest')->placeholder('Immediately')->sortable(),

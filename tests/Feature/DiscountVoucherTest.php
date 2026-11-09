@@ -184,7 +184,8 @@ it('exposes voucher administration only to administrators', function (): void {
     $this->actingAs(User::factory()->create(['is_staff' => true, 'is_admin' => true]))
         ->get('/admin/discount-vouchers')
         ->assertOk()
-        ->assertSee('Discount vouchers');
+        ->assertSee('Discount vouchers')
+        ->assertSee('Remaining');
 
     $this->actingAs(User::factory()->create(['is_staff' => true, 'is_admin' => false]))
         ->get('/admin/discount-vouchers')
