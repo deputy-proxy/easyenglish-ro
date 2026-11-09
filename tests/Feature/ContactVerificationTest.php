@@ -357,7 +357,7 @@ test('verified contacts are persisted on bundle checkout without adding a free s
 
     $payment = app(StripeCheckoutService::class)->start($bundle, [
         'name' => 'Stripe Test Customer', 'email' => 'stripe-customer@example.com', 'phone' => '+40722123456',
-    ], 'AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789', 'en', $challenge);
+    ], 'AbCdEf0123456789AbCdEf0123456789AbCdEf0123456789', $bundle->currentPriceRon(), 'en', $challenge);
     $entitlement = $payment->entitlement->fresh();
     expect($entitlement->customer_email_verified_at)->not->toBeNull()
         ->and($entitlement->customer_phone_verified_at)->not->toBeNull()

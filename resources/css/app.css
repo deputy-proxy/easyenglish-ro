@@ -65,6 +65,38 @@
     }
 }
 
+
+.featured-bundle-card::before {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    inset: 0;
+    border: 1.5px solid rgb(20 80 223 / 58%);
+    border-radius: inherit;
+    content: '';
+    animation: featured-bundle-border-pulse 3.8s ease-in-out infinite;
+}
+
+@keyframes featured-bundle-border-pulse {
+    0%, 100% {
+        border-color: rgb(20 80 223 / 48%);
+        box-shadow: 0 0 0 0 rgb(20 80 223 / 0%);
+    }
+
+    50% {
+        border-color: rgb(20 80 223 / 100%);
+        box-shadow: 0 0 0 4px rgb(20 80 223 / 9%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .featured-bundle-card::before {
+        animation: none;
+        border-color: rgb(20 80 223 / 78%);
+        box-shadow: none;
+    }
+}
+
 /* Keep in-page destinations clear of the persistent public navigation. */
 html {
     scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px));
