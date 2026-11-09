@@ -10,10 +10,10 @@ The copy is maintained in `lang/en/public.php` and `lang/ro/public.php`.
 
 | Order | Translation keys | English heading | Romanian heading |
 | --- | --- | --- | --- |
-| 1 | `step_one_title`, `step_one_text` | Choose your time | Alege-ți intervalul |
-| 2 | `step_two_title`, `step_two_text` | Get your call link | Primește linkul pentru apel |
-| 3 | `step_three_title`, `step_three_text` | Start speaking | Începe să vorbești |
-| 4 | `step_four_title`, `step_four_text` | Track your progress | Urmărește-ți progresul |
+| 1 | `step_one_title`, `step_one_text` | Choose your time | Alege intervalul |
+| 2 | `step_two_title`, `step_two_text` | Get your call link | Primeste invitatia |
+| 3 | `step_three_title`, `step_three_text` | Start speaking | Incepe sa vorbesti |
+| 4 | `step_four_title`, `step_four_text` | Track your progress | Urmareste progresul |
 
 The scroll region's localized accessible name uses `how_steps_label`.
 
@@ -27,7 +27,7 @@ The four cards are rendered in order by the `#how` section in `resources/views/p
 - **640px to 1023px:** the same horizontal scroll track remains active. Cards use a capped two-column-sized basis (`min(340px, calc((100% - 16px) / 2))`) so the sequence remains one row and can be swiped.
 - **1024px and above:** the track becomes a four-column CSS grid. All four cards are visible simultaneously on one horizontal line; there is no desktop carousel or horizontal scrolling.
 
-The scroll track uses native horizontal overflow, `scroll-snap-type: x mandatory`, contained overscroll, and hidden scrollbars. It does not autoplay and introduces no carousel dependency. The partial next-card preview is the primary mobile swipe affordance.
+The scroll track uses native horizontal overflow, centered `scroll-snap-align`, `scroll-snap-type: x mandatory`, contained overscroll, and hidden scrollbars. It does not autoplay and introduces no carousel dependency.
 
 ## Images
 

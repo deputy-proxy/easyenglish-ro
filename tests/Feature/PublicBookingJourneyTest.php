@@ -76,10 +76,13 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
-        ->assertSee('inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75', false)
+        ->assertSee('inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75', false)
         ->assertSee('images/auth-button.svg', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
-        ->assertSee('Urmărește-ți progresul')
+        ->assertSee('Alege intervalul')
+        ->assertSee('Primeste invitatia')
+        ->assertSee('Incepe sa vorbesti')
+        ->assertSee('Urmareste progresul')
         ->assertSee('156')
         ->assertSee('390')
         ->assertSee('780')
@@ -333,7 +336,33 @@ test('landing hero and navigation transform into a floating sticky header on scr
         ->and($script)->toContain("header.classList.toggle('is-floating', progress >= 1)")
         ->and($script)->toContain("window.matchMedia('(prefers-reduced-motion: reduce)')")
         ->and($script)->toContain("window.matchMedia('(min-width: 768px)')")
-        ->and($script)->toContain('desktopViewport.matches ? viewportWidth * 0.05 * progress : 0');
+        ->and($script)->toContain('desktopViewport.matches ? viewportWidth * 0.025 * progress : 0')
+        ->and($styles)->toContain('padding-inline: clamp(16px, 2vw, 32px)');
+});
+
+test('landing page uses a white browser theme and centered mobile process and teacher interactions', function () {
+    User::factory()->create([
+        'name' => 'Alexandra Popescu',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+
+    $response = $this->get('/')->assertOk();
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    $response->assertSee('<meta name="theme-color" content="#ffffff">', false)
+        ->assertSee('min-h-11 min-w-11', false)
+        ->assertSee('h-[13.5px]', false)
+        ->assertSee('flex items-center justify-between gap-3 p-6 text-white', false);
+
+    expect($styles)->toContain('.how-step-card {')
+        ->and($styles)->toContain('flex: 0 0 100%;')
+        ->and($styles)->toContain('scroll-snap-align: center;')
+        ->and($styles)->toContain('.teacher-card:hover .teacher-card__more')
+        ->and($styles)->toContain('align-items: center;')
+        ->and($styles)->toContain('@media (prefers-reduced-motion: reduce)')
+        ->and($styles)->toContain('teacher-more-pulse 1.35s ease-in-out infinite')
+        ->and($styles)->toContain('animation: none;');
 });
 
 test('landing page shows only active teachers by first name and never exposes their private details', function () {

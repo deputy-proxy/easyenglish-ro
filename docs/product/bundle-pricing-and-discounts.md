@@ -28,12 +28,13 @@ Discount dates are calendar dates evaluated in the application's configured time
 - `original_price_ron`: regular catalog price;
 - `current_price_ron`: effective price after the active discount, or the regular price when no discount applies;
 - `savings_ron`: exact integer RON difference;
-- `discount_type` and `percentage`: metadata for the correct saving label;
+- `savings_percentage`: whole-number percentage derived from the exact integer saving and regular price, for consistent public homepage savings pills across percentage and fixed discounts;
+- `discount_type` and `percentage`: metadata for the configured discount type and its percentage-specific calculation;
 - `discount`: the active localized discount payload, or `null`.
 
 `currentPriceRon()` delegates to this breakdown for existing callers. Percentage effective prices retain the existing round-to-nearest-RON formula: regular price multiplied by (100 minus the configured percentage), divided by 100. The displayed whole-number saving percentage is derived from the exact integer difference between regular and effective prices, not from formatted price strings. Fixed discounts subtract the configured integer RON amount. Invalid or non-price-reducing values are rejected when saved; the runtime calculation also prevents an effective price below 1 RON.
 
-The public homepage bundle cards, the inline bundle selection shown after a learner has already used the free introduction, and the purchase summary use this shared breakdown. They show the crossed-out regular price and a localized, truthful saving indicator only when a discount is active. A percentage discount is labelled as a percentage; a fixed discount is labelled with its RON saving amount.
+The public homepage bundle cards, the inline bundle selection shown after a learner has already used the free introduction, and the purchase summary use this shared breakdown. They show the crossed-out regular price and a localized, truthful saving indicator only when a discount is active. The homepage card uses the savings percentage, rounded from the exact integer RON difference divided by the regular price, for both percentage and fixed discounts so the saving pill consistently reads as a percentage. The inline bundle selection and purchase summary retain the configured discount-type presentation: percentage discounts are labelled as a percentage and fixed discounts as their RON saving amount.
 
 ## Checkout consistency and tamper resistance
 
