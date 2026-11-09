@@ -145,6 +145,7 @@ it('lets customers apply and remove a voucher before checkout', function (): voi
         ->assertOk()
         ->assertSee('SPRING25')
         ->assertSee('117')
+        ->assertSee('25%')
         ->assertSee('39');
 
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token], 'bundle_voucher_codes' => [$bundle->id => 'SPRING25'], 'locale' => 'en'])

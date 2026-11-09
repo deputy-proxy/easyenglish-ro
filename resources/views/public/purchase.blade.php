@@ -70,8 +70,11 @@
                             <div class="mt-5 flex flex-wrap items-center gap-2">
                                 <span class="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{{ ($priceBreakdown['discount_type'] ?? null) === 'voucher' ? __('public.voucher_discount_label', ['code' => $priceBreakdown['discount']['voucher_code'] ?? '']) : $bundle->localizedValue($priceBreakdown['discount']['title'] ?? []) }}</span>
                                 <span class="text-xs font-bold text-success">
-                                    @if($priceBreakdown['discount_type'] === 'percentage')
+                                    @if(in_array($priceBreakdown['discount_type'], ['percentage', 'voucher'], true))
                                         {{ __('public.discount_save_percentage', ['value' => $priceBreakdown['percentage']]) }}
+                                        @if($priceBreakdown['discount_type'] === 'voucher')
+                                            · {{ __('public.discount_save_amount', ['amount' => number_format($priceBreakdown['savings_ron'], 0, ',', '.')]) }}
+                                        @endif
                                     @else
                                         {{ __('public.discount_save_amount', ['amount' => number_format($priceBreakdown['savings_ron'], 0, ',', '.')]) }}
                                     @endif

@@ -41,7 +41,7 @@ class DiscountVouchersTable
                     'expired' => 'Expired',
                 ])->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
                     'upcoming' => $query->whereNotNull('starts_at')->where('starts_at', '>', now()),
-                    'valid' => $query->where(fn (Builder $valid): Builder => $valid->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+                    'valid' => $query->where('is_active', true)->where(fn (Builder $valid): Builder => $valid->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
                         ->where(fn (Builder $valid): Builder => $valid->whereNull('expires_at')->orWhere('expires_at', '>', now())),
                     'expired' => $query->whereNotNull('expires_at')->where('expires_at', '<=', now()),
                     default => $query,
