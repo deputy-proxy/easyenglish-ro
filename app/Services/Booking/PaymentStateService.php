@@ -53,7 +53,14 @@ class PaymentStateService
                 $entitlement = app(BundleEntitlementService::class)->activateAfterVerifiedPayment($lockedPayment->bundle_entitlement_id);
                 app(DiscountVoucherService::class)->redeemForEntitlement($entitlement);
             } elseif (in_array($target, [PaymentStatus::Failed, PaymentStatus::Expired, PaymentStatus::Cancelled], true)) {
-                app(DiscountVoucherService::class)->releaseForEntitlement($lockedPayment->entitlement);
+                $hasAnotherLiveAttempt = $lockedPayment->entitlement->payments()
+                    ->whereKeyNot($lockedPayment->id)
+                    ->whereIn('status', [PaymentStatus::Pending->value, PaymentStatus::Succeeded->value])
+                    ->exists();
+
+                if (! $hasAnotherLiveAttempt) {
+                    app(DiscountVoucherService::class)->releaseForEntitlement($lockedPayment->entitlement);
+                }
             }
 
             return $lockedPayment->refresh();

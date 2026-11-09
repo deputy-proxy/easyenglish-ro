@@ -941,3 +941,50 @@ test('voucher reservations are released when checkout expires and redemption is 
         ->and($voucher->redemptions()->where('status', 'reserved')->count())->toBe(0)
         ->and($voucher->redemptions()->where('status', 'released')->count())->toBe(1);
 });
+
+test('an older failed checkout attempt cannot release a voucher reserved by a newer pending attempt', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $voucher = DiscountVoucher::query()->create([
+        'code' => 'RETRY25',
+        'name' => 'Retry campaign',
+        'bundle_definition_id' => $bundle->id,
+        'discount_percentage' => 25,
+        'max_redemptions' => 1,
+        'is_active' => true,
+    ]);
+    $token = str_repeat('Y', 48);
+
+    $this->withSession([
+        'bundle_checkout_tokens' => [$bundle->id => $token],
+        'bundle_voucher_codes' => [$bundle->id => 'RETRY25'],
+    ])->post(route('purchase.checkout', $bundle), [
+        'purchase_token' => $token,
+        'displayed_price_ron' => 117,
+        'name' => 'Stripe Test Customer',
+        'email' => 'stripe-customer@example.com',
+        'phone' => '+40722123456',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect();
+
+    $firstPayment = Payment::query()->firstOrFail();
+    $secondPayment = $firstPayment->entitlement->payments()->create([
+        'provider' => 'stripe',
+        'checkout_request_key' => $token.':attempt:2',
+        'amount_ron' => 117,
+        'currency' => 'RON',
+        'status' => 'pending',
+    ]);
+    $expiredSession = array_merge(app(FakeStripeGateway::class)->retrieveCheckoutSession((string) $firstPayment->provider_checkout_id), [
+        'status' => 'expired',
+        'payment_status' => 'unpaid',
+    ]);
+
+    postStripeTestEvent($this, stripeTestEvent('evt_old_voucher_attempt_expired', 'checkout.session.expired', $expiredSession))
+        ->assertOk();
+
+    expect($firstPayment->fresh()->status)->toBe('expired')
+        ->and($secondPayment->fresh()->status)->toBe('pending')
+        ->and($voucher->fresh()->redemption_count)->toBe(0)
+        ->and($voucher->redemptions()->where('status', 'reserved')->count())->toBe(1)
+        ->and($voucher->redemptions()->where('status', 'released')->count())->toBe(0);
+});
