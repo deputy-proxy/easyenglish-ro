@@ -36,6 +36,8 @@ Route::post('/webhooks/openwa', [WhatsAppWebhookController::class, 'receiveOpenW
 Route::post('/webhooks/openwa/status', [OpenWaSessionStatusController::class, 'disconnected'])->withoutMiddleware([PreventRequestForgery::class])->middleware('throttle:30,1')->name('openwa.webhook.status');
 Route::get('/purchase/success', [PublicSiteController::class, 'purchaseSuccess'])->middleware('throttle:30,1')->name('purchase.success');
 Route::get('/purchase/cancel/{bundle}', [PublicSiteController::class, 'purchaseCancel'])->middleware('throttle:30,1')->name('purchase.cancel');
+Route::post('/purchase/{bundle}/voucher', [PublicSiteController::class, 'applyPurchaseVoucher'])->middleware(['auth', 'throttle:10,1'])->name('purchase.voucher.apply');
+Route::delete('/purchase/{bundle}/voucher', [PublicSiteController::class, 'removePurchaseVoucher'])->middleware(['auth', 'throttle:10,1'])->name('purchase.voucher.remove');
 Route::post('/purchase/{bundle}/checkout', [PublicSiteController::class, 'startCheckout'])->middleware(['auth', 'throttle:10,1'])->name('purchase.checkout');
 Route::get('/purchase/{bundle}', [PublicSiteController::class, 'purchase'])->name('purchase');
 Route::get('/policy/{page}', [PublicSiteController::class, 'policy'])->name('policy');

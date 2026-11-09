@@ -52,18 +52,38 @@
                         </div>
                         <h2 id="order-summary-title" class="mt-5 mb-1 text-2xl font-semibold tracking-[-0.8px]">{{ $bundle->localizedName() }}</h2>
                         <p class="m-0 text-sm leading-6 text-muted">{{ __('public.purchase_summary_description', ['count' => $bundle->paid_credits]) }}</p>
+                        @if(! $voucherLocked)
+                            <form class="mt-5 rounded-2xl border border-line bg-surface-subtle p-4" method="post" action="{{ route('purchase.voucher.apply', $bundle) }}">
+                                @csrf
+                                <label class="mb-2 block text-sm font-semibold" for="voucher_code">{{ __('public.voucher_code_label') }}</label>
+                                <div class="flex flex-col gap-2 sm:flex-row">
+                                    <input class="min-h-[48px] min-w-0 flex-1 rounded-xl border border-line bg-white px-4 text-sm uppercase outline-none focus:border-primary focus:ring-4 focus:ring-primary/10" id="voucher_code" name="voucher_code" type="text" value="{{ old('voucher_code', $voucherCode) }}" autocomplete="off" maxlength="64" placeholder="{{ __('public.voucher_code_placeholder') }}">
+                                    <button class="min-h-[48px] rounded-full bg-primary px-5 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit">{{ __('public.voucher_apply') }}</button>
+                                </div>
+                            </form>
+                        @elseif($voucherCode)
+                            <div class="mt-5 rounded-2xl border border-primary-border bg-primary-soft p-4 text-sm">
+                                <span class="font-semibold">{{ __('public.voucher_code_label') }}:</span> {{ $voucherCode }}
+                            </div>
+                        @endif
                         @if($priceBreakdown['discount'])
                             <div class="mt-5 flex flex-wrap items-center gap-2">
-                                <span class="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{{ $bundle->localizedValue($priceBreakdown['discount']['title'] ?? []) }}</span>
+                                <span class="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{{ ($priceBreakdown['discount_type'] ?? null) === 'voucher' ? __('public.voucher_discount_label', ['code' => $priceBreakdown['discount']['voucher_code'] ?? '']) : $bundle->localizedValue($priceBreakdown['discount']['title'] ?? []) }}</span>
                                 <span class="text-xs font-bold text-success">
-                                    @if($priceBreakdown['discount_type'] === 'percentage')
+                                    @if(in_array($priceBreakdown['discount_type'], ['percentage', 'voucher'], true))
                                         {{ __('public.discount_save_percentage', ['value' => $priceBreakdown['percentage']]) }}
+                                        @if($priceBreakdown['discount_type'] === 'voucher')
+                                            · {{ __('public.discount_save_amount', ['amount' => number_format($priceBreakdown['savings_ron'], 0, ',', '.')]) }}
+                                        @endif
                                     @else
                                         {{ __('public.discount_save_amount', ['amount' => number_format($priceBreakdown['savings_ron'], 0, ',', '.')]) }}
                                     @endif
                                 </span>
                             </div>
                             <p class="mt-5 mb-0 text-sm font-semibold text-muted line-through">{{ number_format($priceBreakdown['original_price_ron'], 0, ',', '.') }} RON</p>
+                        @endif
+                        @if($voucherCode && ! $voucherLocked)
+                            <form class="mt-3" method="post" action="{{ route('purchase.voucher.remove', $bundle) }}">@csrf @method('DELETE')<button class="text-xs font-semibold text-muted underline underline-offset-4 hover:text-primary" type="submit">{{ __('public.voucher_remove') }}</button></form>
                         @endif
                         <div class="mt-7 flex flex-wrap items-end gap-x-2 gap-y-1">
                             <span class="text-[clamp(42px,6vw,58px)] leading-none font-bold tracking-[-2.8px] tabular-nums">{{ number_format($priceBreakdown['current_price_ron'], 0, ',', '.') }}</span>

@@ -233,4 +233,10 @@ class BundleDefinition extends Model
     {
         return $this->hasMany(BundleEntitlement::class);
     }
+
+    /** @return HasMany<DiscountVoucher, $this> */
+    public function discountVouchers(): HasMany
+    {
+        return $this->hasMany(DiscountVoucher::class);
+    }
 }

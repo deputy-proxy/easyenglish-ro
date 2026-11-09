@@ -20,6 +20,7 @@ use App\Services\Booking\BookingService;
 use App\Services\Booking\CancellationPolicyService;
 use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Services\Payments\CustomerPurchasePresenter;
+use App\Services\Payments\DiscountVoucherService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Progress\ProgressChartData;
 use App\Services\Verification\ContactVerificationService;
@@ -872,7 +873,7 @@ class PublicSiteController extends Controller
             ->with('status', __('public.booking_rescheduled'));
     }
 
-    public function purchase(Request $request, BundleDefinition $bundle): View|RedirectResponse
+    public function purchase(Request $request, BundleDefinition $bundle, DiscountVoucherService $vouchers): View|RedirectResponse
     {
         $this->applyLocale($request);
         if (! $request->user()) {
@@ -919,18 +920,69 @@ class PublicSiteController extends Controller
         $existingEntitlement = is_string($token)
             ? BundleEntitlement::query()->where('checkout_request_key', $token)->where('bundle_definition_id', $bundle->id)->first()
             : null;
-        $priceBreakdown = $existingEntitlement
-            ? [
-                'original_price_ron' => (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron),
-                'current_price_ron' => (int) $existingEntitlement->paid_amount_ron,
-                'savings_ron' => max(0, (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron) - (int) $existingEntitlement->paid_amount_ron),
-                'discount_type' => $existingEntitlement->discount_snapshot['discount_type'] ?? null,
-                'percentage' => isset($existingEntitlement->discount_snapshot['percentage']) ? (int) $existingEntitlement->discount_snapshot['percentage'] : null,
-                'discount' => $existingEntitlement->discount_snapshot,
-            ]
-            : $bundle->priceBreakdown();
+        $voucherSessionKey = 'bundle_voucher_codes.'.$bundle->id;
+        $voucherCode = $existingEntitlement !== null
+            ? $existingEntitlement->voucher_code_snapshot
+            : $request->session()->get($voucherSessionKey);
 
-        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified, 'priceBreakdown' => $priceBreakdown]);
+        try {
+            $priceBreakdown = $existingEntitlement
+                ? [
+                    'original_price_ron' => (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron),
+                    'current_price_ron' => (int) $existingEntitlement->paid_amount_ron,
+                    'savings_ron' => max(0, (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron) - (int) $existingEntitlement->paid_amount_ron),
+                    'discount_type' => $existingEntitlement->discount_snapshot['discount_type'] ?? null,
+                    'percentage' => isset($existingEntitlement->discount_snapshot['percentage']) ? (int) $existingEntitlement->discount_snapshot['percentage'] : null,
+                    'discount' => $existingEntitlement->discount_snapshot,
+                ]
+                : ($voucherCode ? $vouchers->quote($bundle, (string) $voucherCode) : $bundle->priceBreakdown());
+        } catch (ValidationException $exception) {
+            $request->session()->forget($voucherSessionKey);
+
+            return redirect()->route('purchase', $bundle)->withErrors($exception->errors());
+        }
+
+        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified, 'priceBreakdown' => $priceBreakdown, 'voucherCode' => $voucherCode, 'voucherLocked' => $existingEntitlement?->voucher_code_snapshot !== null]);
+    }
+
+    public function applyPurchaseVoucher(Request $request, BundleDefinition $bundle, DiscountVoucherService $vouchers): RedirectResponse
+    {
+        $this->applyLocale($request);
+        abort_unless($request->user() !== null, 403);
+        $validated = $request->validate(['voucher_code' => ['required', 'string', 'min:2', 'max:64']]);
+        $token = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
+
+        if (is_string($token) && BundleEntitlement::query()->where('checkout_request_key', $token)->exists()) {
+            return back()->withErrors(['voucher' => __('public.voucher_purchase_locked')]);
+        }
+
+        try {
+            $quote = $vouchers->quote($bundle, $validated['voucher_code']);
+        } catch (ValidationException $exception) {
+            return back()->withInput()->withErrors($exception->errors());
+        }
+
+        $request->session()->put('bundle_voucher_codes.'.$bundle->id, $quote['discount']['voucher_code']);
+
+        return redirect()->route('purchase', $bundle)->with('status', __('public.voucher_applied'));
+    }
+
+    public function removePurchaseVoucher(Request $request, BundleDefinition $bundle): RedirectResponse
+    {
+        $this->applyLocale($request);
+        abort_unless($request->user() !== null, 403);
+        $token = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
+        $entitlement = is_string($token)
+            ? BundleEntitlement::query()->where('checkout_request_key', $token)->first()
+            : null;
+
+        if ($entitlement?->voucher_code_snapshot !== null) {
+            return back()->withErrors(['voucher' => __('public.voucher_purchase_locked')]);
+        }
+
+        $request->session()->forget('bundle_voucher_codes.'.$bundle->id);
+
+        return redirect()->route('purchase', $bundle)->with('status', __('public.voucher_removed'));
     }
 
     public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
@@ -983,7 +1035,7 @@ class PublicSiteController extends Controller
                 && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], (int) $validated['displayed_price_ron'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user());
+            ], $validated['purchase_token'], (int) $validated['displayed_price_ron'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user(), $request->session()->get('bundle_voucher_codes.'.$bundle->id));
         } catch (ValidationException $exception) {
             return back()->withInput()->withErrors($exception->errors());
         } catch (\Throwable $exception) {
