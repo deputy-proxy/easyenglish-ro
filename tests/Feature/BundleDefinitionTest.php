@@ -28,7 +28,7 @@ it('rejects overlapping discount periods within the same bundle', function (): v
     expect(fn () => $bundle->save())->toThrow(ValidationException::class);
 });
 
-it('rejects overlapping discounts across different bundles', function (): void {
+it('allows overlapping discount periods across different bundles', function (): void {
     $bundles = BundleDefinition::query()->orderBy('id')->take(2)->get();
     $bundles[0]->update(['discounts' => [['type' => 'discount', 'data' => [
         'title' => ['ro' => 'Prima', 'en' => 'First'],
@@ -44,7 +44,8 @@ it('rejects overlapping discounts across different bundles', function (): void {
         'percentage' => 15,
     ]]];
 
-    expect(fn () => $bundles[1]->save())->toThrow(ValidationException::class);
+    expect($bundles[1]->save())->toBeTrue()
+        ->and($bundles[1]->fresh()->discounts[0]['data']['percentage'])->toBe(15);
 });
 
 it('keeps only one featured bundle globally', function (): void {
