@@ -11,6 +11,7 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
     }
 
     const view = section.ownerDocument.defaultView;
+    const header = root.querySelector('[data-public-site-header]');
     let context;
     let disposed = false;
 
@@ -48,12 +49,11 @@ export function initializePainPointStack(gsap, ScrollTrigger, root = document) {
                     trigger: nextCard,
                     start: 'top 76%',
                     end: () => {
-                        const sectionStyles = view.getComputedStyle(section);
-                        const cardStyles = view.getComputedStyle(nextCard);
-                        const stackTop = Number.parseFloat(sectionStyles.getPropertyValue('--pain-point-stack-top')) || 24;
-                        const stackOffset = Number.parseFloat(cardStyles.getPropertyValue('--stack-offset')) || 0;
+                        const isMobile = view.matchMedia('(max-width: 767px)').matches;
+                        const mobileHeaderHeight = header?.getBoundingClientRect().height ?? 64;
+                        const stackTop = isMobile ? mobileHeaderHeight + 16 : 112;
 
-                        return `top ${stackTop + stackOffset}px`;
+                        return `top ${stackTop}px`;
                     },
                     invalidateOnRefresh: true,
                     onEnter: () => setShadowCard(index + 1),

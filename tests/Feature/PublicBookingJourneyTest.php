@@ -263,9 +263,6 @@ test('pain-point situations render as full-width stack cards without changing ei
             'Să susții o prezentare și să răspunzi cu încredere la întrebări.',
             'Să vorbești firesc cu clienții și partenerii de afaceri.',
             'Să porți o conversație la telefon fără să te blochezi.',
-            'Să începi conversații și să creezi conexiuni profesionale.',
-            'Să te descurci în situațiile de zi cu zi când locuiești sau lucrezi în străinătate.',
-            'Să negociezi salariul, responsabilitățile sau condițiile de lucru.',
         ],
         'en' => [
             'Submit the application for the job you want.',
@@ -275,9 +272,6 @@ test('pain-point situations render as full-width stack cards without changing ei
             'Give a presentation and answer questions with confidence.',
             'Speak naturally with clients and business partners.',
             'Make phone calls without struggling to find the right words.',
-            'Start conversations and build professional connections.',
-            'Manage everyday situations while living or working abroad.',
-            'Negotiate your salary, responsibilities, or working conditions.',
         ],
     ];
 
@@ -298,14 +292,14 @@ test('pain-point situations render as full-width stack cards without changing ei
             $response->assertSee($situation);
         }
 
-        foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone', 'networking', 'abroad', 'negotiation'] as $situation) {
+        foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone'] as $situation) {
             $response->assertSee(__('public.motivation_'.$situation.'_description', [], $locale));
         }
 
         expect(preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
-            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(10)
-            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(10)
-            ->and(substr_count($matches[1], 'data-pain-point-description'))->toBe(10);
+            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(7)
+            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(7)
+            ->and(substr_count($matches[1], 'data-pain-point-description'))->toBe(7);
 
         $positions = array_map(fn (string $situation): int|false => strpos($matches[1], $situation), $copy);
         $sortedPositions = $positions;

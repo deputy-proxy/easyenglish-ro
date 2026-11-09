@@ -11,14 +11,14 @@ function createFixture(isMobile = true) {
         matchMedia: (query) => ({ matches: isMobile && query.includes('max-width') }),
         getComputedStyle: (element) => ({
             getPropertyValue: (property) => {
-                if (property === '--pain-point-stack-top') return isMobile ? '24px' : '80px';
+                if (property === '--pain-point-stack-top') return isMobile ? 'calc(64px + env(safe-area-inset-top, 0px) + 16px)' : '112px';
                 return element.style.getPropertyValue(property);
             },
         }),
         addEventListener: (name, callback) => listeners.set(name, callback),
         removeEventListener: (name) => listeners.delete(name),
     };
-    const cards = [80, 120, 100, 90, 110, 70, 95, 85, 105, 80].map((height, index) => {
+    const cards = [80, 120, 100, 90, 110, 70, 95].map((height, index) => {
         const title = { id: `title-${index}`, offsetHeight: height, offsetTop: 70 - index * 20 };
         const description = { id: `description-${index}`, offsetHeight: 40 };
         const content = { id: `content-${index}`, offsetHeight: height, offsetTop: 70 - index * 20 };
@@ -51,10 +51,10 @@ function createFixture(isMobile = true) {
         },
         querySelectorAll: () => cards,
         style: {
-            getPropertyValue: (property) => property === '--pain-point-stack-top' ? (isMobile ? '24px' : '80px') : '',
+            getPropertyValue: (property) => property === '--pain-point-stack-top' ? (isMobile ? 'calc(64px + env(safe-area-inset-top, 0px) + 16px)' : '112px') : '',
         },
     };
-    const root = { querySelector: () => section };
+    const root = { querySelector: (selector) => selector === '[data-public-site-header]' ? { getBoundingClientRect: () => ({ height: isMobile ? 64 : 72 }) } : section };
     const contexts = [];
     const gsap = {
         context: (callback) => {
@@ -97,22 +97,22 @@ test('fully overlaps every card at the same sticky position so each new card cov
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
     assert.equal(fixture.animations.length, 0);
-    assert.equal(fixture.triggers.length, 9);
+    assert.equal(fixture.triggers.length, 6);
     assert.equal(fixture.triggers[0].trigger, fixture.cards[1]);
     assert.equal(fixture.triggers[1].trigger, fixture.cards[2]);
     assert.equal(fixture.triggers[0].start, 'top 76%');
-    assert.equal(fixture.triggers[0].end(), 'top 24px');
-    assert.equal(fixture.triggers[1].end(), 'top 24px');
+    assert.equal(fixture.triggers[0].end(), 'top 80px');
+    assert.equal(fixture.triggers[1].end(), 'top 80px');
     assert.equal(fixture.triggers[0].invalidateOnRefresh, true);
     assert.equal(fixture.cards.every((card) => card.style.getPropertyValue('--stack-offset') === '0px'), true);
-    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
+    assert.equal(fixture.cards[6].style.getPropertyValue('--stack-order'), '7');
     assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
     assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), false);
     fixture.triggers[0].onEnter();
     assert.equal(fixture.cards[0].classList.contains('is-compact'), false);
     assert.equal(fixture.cards[1].classList.contains('has-stack-shadow'), true);
     fixture.triggers[0].onLeaveBack();
-    assert.equal(fixture.cards[9].style.getPropertyValue('--stack-order'), '10');
+    assert.equal(fixture.cards[6].style.getPropertyValue('--stack-order'), '7');
     assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
     assert.equal(fixture.section.classList.contains('is-stacking-enabled'), true);
 
@@ -129,8 +129,8 @@ test('uses the desktop sticky header offset with the same full-overlap position'
     const fixture = createFixture(false);
     const cleanup = initializePainPointStack(fixture.gsap, fixture.ScrollTrigger, fixture.root);
 
-    assert.equal(fixture.triggers[0].end(), 'top 80px');
-    assert.equal(fixture.triggers[1].end(), 'top 80px');
+    assert.equal(fixture.triggers[0].end(), 'top 112px');
+    assert.equal(fixture.triggers[1].end(), 'top 112px');
 
     cleanup();
 });
