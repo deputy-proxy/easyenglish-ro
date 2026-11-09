@@ -105,7 +105,7 @@
                 <p class="type-section-copy" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
             <div class="pain-point-stack-list">
-                @foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone', 'networking', 'abroad', 'negotiation'] as $index => $situation)
+                @foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone'] as $index => $situation)
                     <article class="pain-point-card relative flex min-h-[232px] flex-col justify-center rounded-[24px] border border-line bg-white px-6 py-8 sm:px-8 md:min-h-[224px] md:px-10" data-pain-point-card>
                         <div class="pain-point-card__content w-full" data-pain-point-content>
                             <h3 class="pain-point-card__title m-0 w-full text-[clamp(1.25rem,2.8vw,2rem)] font-semibold leading-[1.25] tracking-[-0.035em] text-ink" data-pain-point-title>{{ __('public.motivation_'.$situation) }}</h3>

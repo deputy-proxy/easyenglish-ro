@@ -202,7 +202,7 @@ html {
 
 /* Scroll-driven pain-point cards enhance the static card list only when GSAP is ready. */
 [data-pain-point-stack] {
-    --pain-point-stack-top: 24px;
+    --pain-point-stack-top: calc(64px + env(safe-area-inset-top, 0px) + 16px);
 }
 
 [data-pain-point-card] {
