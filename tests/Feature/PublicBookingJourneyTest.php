@@ -79,7 +79,7 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75', false)
         ->assertSee('images/auth-button.svg', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
-        ->assertSee('Continuă în ritmul tău')
+        ->assertSee('Urmărește-ți progresul')
         ->assertSee('156')
         ->assertSee('390')
         ->assertSee('780')
@@ -430,7 +430,7 @@ test('visitor can switch the public experience to English without an account', f
 
     $this->get('/')->assertOk()->assertSee('This time, you have something to say.')
         ->assertSee('FOR THE MOMENTS THAT MATTER')
-        ->assertSee('Continue at your own pace')
+        ->assertSee('Track your progress')
         ->assertSee('Simple bundles. English at your pace.')
         ->assertSee('Choose the bundle that suits you and schedule your conversations whenever you have time.')
         ->assertDontSee('One free introductory session per person.')

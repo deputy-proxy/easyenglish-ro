@@ -75,33 +75,33 @@ test('public progress section displays an illustrative radar chart instead of me
     $response->assertDontSee(__('public.progress_metric_confidence_text'));
 });
 
-test('the four-step booking journey explains the free introduction and optional continuation in both locales', function () {
+test('the four-step learner journey renders the approved process and responsive card track in both locales', function () {
     $expectedCopy = [
         'ro' => [
-            'Alege o oră',
-            'Vezi intervalele disponibile pentru întreaga săptămână și alege o sesiune de 15 minute.',
-            'Spune-ne ce vrei să îmbunătățești',
-            'Împărtășește nivelul tău de engleză, obiectivele și situațiile în care o folosești.',
-            'Începe cu o conversație gratuită',
-            'Discută pe WhatsApp cu un profesor EasyEnglish într-o sesiune introductivă gratuită de 15 minute.',
-            'Continuă în ritmul tău',
-            'Dacă vrei să continui, alegi un pachet și programezi următoarele conversații. Profesorul le pregătește pentru nivelul, interesele și obiectivele tale.',
+            'Alege-ți intervalul',
+            'Alegi intervalul și durata sesiunii care ți se potrivesc. Fără program fix sau angajamente pe termen lung.',
+            'Primește linkul pentru apel',
+            'Primești linkul pentru apelul tău pe WhatsApp și îl folosești pentru a intra în sesiune la ora stabilită.',
+            'Începe să vorbești',
+            'Discuți cu profesorul tău și exersezi engleza prin conversații relaxate, individuale, despre situații reale.',
+            'Urmărește-ți progresul',
+            'După sesiuni, profesorul îți poate oferi feedback personalizat, poate evidenția ce ai făcut bine și îți poate recomanda ce să exersezi în continuare.',
         ],
         'en' => [
-            'Choose a time',
-            'Browse the week’s available times and choose a 15-minute slot that works for you.',
-            'Tell us what you want to improve',
-            'Share your English level, goals and the situations where you use English.',
-            'Start with a free conversation',
-            'Meet an EasyEnglish teacher on WhatsApp for your free 15-minute introductory conversation.',
-            'Continue at your own pace',
-            'If you’d like to continue, choose a bundle and schedule your next conversations. Your teacher prepares each one around your level, interests and goals.',
+            'Choose your time',
+            'Pick the time and session duration that work for you. No fixed schedules or long-term commitments.',
+            'Get your call link',
+            'Receive your personal WhatsApp call link and use it to join when your session starts.',
+            'Start speaking',
+            'Meet your teacher and practise real-life English through a relaxed, one-to-one conversation.',
+            'Track your progress',
+            'After your sessions, your teacher can share personalised feedback, highlight what you did well, and suggest what to practise next.',
         ],
     ];
 
     $obsoleteCopy = [
-        'ro' => ['Începe conversația', 'Profesorul pregătește. Tu exersezi.'],
-        'en' => ['Start talking', 'Your teacher prepares. You practise.'],
+        'ro' => ['Spune-ne ce vrei să îmbunătățești', 'Începe cu o conversație gratuită', 'Continuă în ritmul tău'],
+        'en' => ['Tell us what you want to improve', 'Start with a free conversation', 'Continue at your own pace'],
     ];
 
     foreach ($expectedCopy as $locale => $copy) {
@@ -118,9 +118,25 @@ test('the four-step booking journey explains the free introduction and optional 
             $response->assertDontSee($line);
         }
 
-        expect(preg_match('/<section[^>]*id="how"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
+        $response
+            ->assertSee('how-steps-track', false)
+            ->assertSee('data-how-steps', false)
+            ->assertSee('role="region"', false)
+            ->assertSee('tabindex="0"', false)
+            ->assertSeeInOrder(['images/step-1.png', 'images/step-2.png', 'images/step-3.png', 'images/step-4.png']);
+
+        expect(preg_match('/<section[^>]*id="how"[^>]*>(.*?)<\\/section>/s', $content, $matches))->toBe(1)
             ->and(substr_count($matches[1], '<article'))->toBe(4);
     }
+
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('.how-steps-track')
+        ->toContain('scroll-snap-type: x mandatory')
+        ->toContain('flex: 0 0 calc(100% - 2.25rem)')
+        ->toContain('@media (min-width: 1024px)')
+        ->toContain('grid-template-columns: repeat(4, minmax(0, 1fr))');
 });
 
 test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
