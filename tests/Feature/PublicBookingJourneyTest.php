@@ -76,9 +76,10 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
         ->assertSee('href="'.url('/admin/login').'"', false)
-        ->assertSee('min-h-9 items-center justify-center gap-2 rounded-[6px] border border-ink', false)
+        ->assertSee('inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75', false)
+        ->assertSee('images/auth-button.svg', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
-        ->assertSee('Continuă în ritmul tău')
+        ->assertSee('Urmărește-ți progresul')
         ->assertSee('156')
         ->assertSee('390')
         ->assertSee('780')
@@ -252,6 +253,62 @@ test('public landing page exposes progressive enhancement hooks for its animatio
         ->assertSee('data-reveal-background', false);
 });
 
+test('pain-point situations render as full-width stack cards without changing either locale copy', function () {
+    $expectedCopy = [
+        'ro' => [
+            'Să trimiți aplicația pentru jobul pe care ți-l dorești.',
+            'Să-ți susții ideea într-o ședință, fără să pierzi momentul căutând cuvintele.',
+            'Să pleci în călătorie și să te descurci singur în engleză.',
+            'Să intri la interviul de angajare pregătit și să lași o impresie bună.',
+            'Să susții o prezentare și să răspunzi cu încredere la întrebări.',
+            'Să vorbești firesc cu clienții și partenerii de afaceri.',
+            'Să porți o conversație la telefon fără să te blochezi.',
+        ],
+        'en' => [
+            'Submit the application for the job you want.',
+            'Share your idea in a meeting without losing the moment while searching for words.',
+            'Travel and handle things for yourself in English.',
+            'Walk into a job interview prepared and make a strong impression.',
+            'Give a presentation and answer questions with confidence.',
+            'Speak naturally with clients and business partners.',
+            'Make phone calls without struggling to find the right words.',
+        ],
+    ];
+
+    foreach ($expectedCopy as $locale => $copy) {
+        $response = $this->withSession(['locale' => $locale])->get('/');
+        $content = $response->getContent();
+
+        $response->assertOk()
+            ->assertSee('data-pain-point-stack', false)
+            ->assertSee('data-pain-point-card', false)
+            ->assertSee('data-pain-point-title', false)
+            ->assertSee('data-pain-point-description', false)
+            ->assertSee(__('public.motivation_eyebrow', [], $locale))
+            ->assertSee(__('public.motivation_title', [], $locale))
+            ->assertSee(__('public.motivation_text', [], $locale));
+
+        foreach ($copy as $situation) {
+            $response->assertSee($situation);
+        }
+
+        foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone'] as $situation) {
+            $response->assertSee(__('public.motivation_'.$situation.'_description', [], $locale));
+        }
+
+        expect(preg_match('/<section[^>]*id="why"[^>]*>(.*?)<\/section>/s', $content, $matches))->toBe(1)
+            ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(7)
+            ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(7)
+            ->and(substr_count($matches[1], 'data-pain-point-description'))->toBe(7);
+
+        $positions = array_map(fn (string $situation): int|false => strpos($matches[1], $situation), $copy);
+        $sortedPositions = $positions;
+        sort($sortedPositions);
+
+        expect($positions)->toBe($sortedPositions);
+    }
+});
+
 test('landing hero and navigation transform into a floating sticky header on scroll', function () {
     $response = $this->get('/')->assertOk();
     $content = $response->getContent();
@@ -373,7 +430,7 @@ test('visitor can switch the public experience to English without an account', f
 
     $this->get('/')->assertOk()->assertSee('This time, you have something to say.')
         ->assertSee('FOR THE MOMENTS THAT MATTER')
-        ->assertSee('Continue at your own pace')
+        ->assertSee('Track your progress')
         ->assertSee('Simple bundles. English at your pace.')
         ->assertSee('Choose the bundle that suits you and schedule your conversations whenever you have time.')
         ->assertDontSee('One free introductory session per person.')

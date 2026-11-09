@@ -28,7 +28,7 @@ it('rejects overlapping discount periods within the same bundle', function (): v
     expect(fn () => $bundle->save())->toThrow(ValidationException::class);
 });
 
-it('rejects overlapping discounts across different bundles', function (): void {
+it('allows overlapping discount periods across different bundles', function (): void {
     $bundles = BundleDefinition::query()->orderBy('id')->take(2)->get();
     $bundles[0]->update(['discounts' => [['type' => 'discount', 'data' => [
         'title' => ['ro' => 'Prima', 'en' => 'First'],
@@ -44,7 +44,8 @@ it('rejects overlapping discounts across different bundles', function (): void {
         'percentage' => 15,
     ]]];
 
-    expect(fn () => $bundles[1]->save())->toThrow(ValidationException::class);
+    expect($bundles[1]->save())->toBeTrue()
+        ->and($bundles[1]->fresh()->discounts[0]['data']['percentage'])->toBe(15);
 });
 
 it('keeps only one featured bundle globally', function (): void {
@@ -64,4 +65,121 @@ it('returns the bundle name and marketing content in the selected locale', funct
         ->and($bundle->localizedName('en'))->toBe('Bundle 1')
         ->and($bundle->localizedValue($bundle->short_description, 'en'))->toContain('free session')
         ->and($bundle->localizedValue($bundle->features[0]['data'], 'en'))->toBe('15 minutes per session');
+});
+
+it('calculates fixed discounts and exposes accurate savings metadata', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Reducere fixă', 'en' => 'Fixed saving'],
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-11-30',
+        'discount_type' => 'fixed',
+        'amount_ron' => 36,
+    ]]]]);
+
+    expect($bundle->fresh()->priceBreakdown(CarbonImmutable::parse('2026-11-15')))
+        ->toMatchArray([
+            'original_price_ron' => 156,
+            'current_price_ron' => 120,
+            'savings_ron' => 36,
+            'discount_type' => 'fixed',
+            'percentage' => null,
+        ]);
+});
+
+it('rejects fixed discounts equal to or greater than the regular bundle price', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->discounts = [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Reducere invalidă', 'en' => 'Invalid saving'],
+        'start_date' => '2026-11-01',
+        'end_date' => '2026-11-30',
+        'discount_type' => 'fixed',
+        'amount_ron' => 156,
+    ]]];
+
+    expect(fn () => $bundle->save())->toThrow(ValidationException::class);
+});
+
+it('does not expose a corrupted discount that cannot reduce the bundle price', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->setRawAttributes(array_merge($bundle->getAttributes(), [
+        'discounts' => json_encode([['type' => 'discount', 'data' => [
+            'title' => ['ro' => 'Reducere invalidă', 'en' => 'Invalid saving'],
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-30',
+            'discount_type' => 'fixed',
+            'amount_ron' => 200,
+        ]]]),
+    ]), true);
+    $bundle->exists = true;
+
+    expect($bundle->priceBreakdown(CarbonImmutable::parse('2026-11-15')))
+        ->toMatchArray([
+            'original_price_ron' => 156,
+            'current_price_ron' => 156,
+            'savings_ron' => 0,
+            'discount_type' => null,
+            'discount' => null,
+        ]);
+});
+
+it('renders the featured bundle with a subtle border and localized discount savings', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update([
+        'featured' => true,
+        'discounts' => [['type' => 'discount', 'data' => [
+            'title' => ['ro' => 'Ofertă specială', 'en' => 'Special offer'],
+            'start_date' => now()->subDay()->toDateString(),
+            'end_date' => now()->addDay()->toDateString(),
+            'percentage' => 25,
+        ]]],
+    ]);
+
+    $this->withSession(['locale' => 'en'])->get(route('home'))
+        ->assertOk()
+        ->assertSee('featured-bundle-card', false)
+        ->assertSee('Special offer')
+        ->assertSee('Save 25%')
+        ->assertSee('156 RON')
+        ->assertSee('117');
+});
+
+it('preserves the established percentage-price rounding and derives the displayed saving from exact prices', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update([
+        'price_ron' => 5,
+        'discounts' => [['type' => 'discount', 'data' => [
+            'title' => ['ro' => 'Reducere', 'en' => 'Saving'],
+            'start_date' => '2026-11-01',
+            'end_date' => '2026-11-30',
+            'percentage' => 50,
+        ]]],
+    ]);
+
+    expect($bundle->fresh()->priceBreakdown(CarbonImmutable::parse('2026-11-15')))
+        ->toMatchArray([
+            'original_price_ron' => 5,
+            'current_price_ron' => 3,
+            'savings_ron' => 2,
+            'percentage' => 40,
+        ]);
+});
+
+it('renders fixed savings as a RON amount on the public bundle card', function (): void {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Reducere fixă', 'en' => 'Fixed saving'],
+        'start_date' => now()->subDay()->toDateString(),
+        'end_date' => now()->addDay()->toDateString(),
+        'discount_type' => 'fixed',
+        'amount_ron' => 36,
+    ]]]]);
+
+    $this->withSession(['locale' => 'en'])
+        ->get(route('home'))
+        ->assertOk()
+        ->assertSee('Fixed saving')
+        ->assertSee('Save 36 RON')
+        ->assertSee('156 RON')
+        ->assertSee('120');
 });

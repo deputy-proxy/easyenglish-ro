@@ -18,9 +18,8 @@
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
         <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
-            <a class="inline-flex min-h-9 items-center justify-center gap-2 rounded-[6px] border border-ink px-3 py-1.5 text-[11px] leading-none font-bold text-ink transition-colors hover:bg-ink hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:bg-ink active:text-white" href="{{ url('/admin/login') }}" aria-label="Autentificare">
-                <img class="size-4 shrink-0" src="{{ \App\Support\VersionedAsset::url('images/easyenglish-symbol-blue.svg') }}" alt="" aria-hidden="true" width="16" height="16">
-                <span>Autentificare</span>
+            <a class="inline-flex shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary" href="{{ url('/admin/login') }}" aria-label="Autentificare">
+                <img class="block h-[20.25px] w-auto" src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}" alt="" aria-hidden="true" width="196" height="35">
             </a>
         </nav>
         </header>
@@ -99,16 +98,21 @@
         </section>
     </div>
     <main>
-        <section class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-7 py-14 md:grid-cols-[0.9fr_1.1fr] md:items-center md:gap-[70px] md:py-[82px]" id="why">
-            <div>
+        <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="why" data-pain-point-stack>
+            <div class="mb-8 max-w-[780px] md:mb-10">
                 <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
                 <h2 class="type-section-title mb-4" data-reveal>{{ __('public.motivation_title') }}</h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
-            <div class="border-t border-line" data-reveal-stagger>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">01</span><p class="type-body-emphasis m-0">{{ __('public.motivation_job') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">02</span><p class="type-body-emphasis m-0">{{ __('public.motivation_meeting') }}</p></article>
-                <article class="grid grid-cols-[44px_1fr] items-start gap-[18px] border-b border-line py-5" data-reveal-item><span class="pt-1 text-xs font-extrabold text-primary">03</span><p class="type-body-emphasis m-0">{{ __('public.motivation_travel') }}</p></article>
+            <div class="pain-point-stack-list">
+                @foreach (['job', 'meeting', 'travel', 'interview', 'presentation', 'clients', 'phone'] as $index => $situation)
+                    <article class="pain-point-card relative flex min-h-[232px] flex-col justify-center rounded-[24px] border border-line bg-white px-6 py-8 sm:px-8 md:min-h-[224px] md:px-10" data-pain-point-card>
+                        <div class="pain-point-card__content w-full" data-pain-point-content>
+                            <h3 class="pain-point-card__title m-0 w-full text-[clamp(1.25rem,2.8vw,2rem)] font-semibold leading-[1.25] tracking-[-0.035em] text-ink" data-pain-point-title>{{ __('public.motivation_'.$situation) }}</h3>
+                            <p class="pain-point-card__description mt-3 mb-0 max-w-[58ch] text-sm leading-relaxed text-muted sm:text-base" data-pain-point-description>{{ __('public.motivation_'.$situation.'_description') }}</p>
+                        </div>
+                    </article>
+                @endforeach
             </div>
         </section>
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="how">
@@ -117,10 +121,17 @@
                 <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.how_title') }}</h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.how_text') }}</p>
             </div>
-            <div class="grid auto-rows-fr gap-5 md:grid-cols-2" data-reveal-stagger>
+            <div
+                class="how-steps-track"
+                data-how-steps
+                data-reveal-stagger
+                role="region"
+                aria-label="{{ __('public.how_steps_label') }}"
+                tabindex="0"
+            >
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="flex h-full flex-col overflow-hidden rounded-[20px] border border-line bg-white p-5 sm:p-6" data-reveal-item>
-                        <div class="flex h-[230px] shrink-0 items-center justify-center">
+                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] border {{ $index === 3 ? 'border-primary/25 bg-primary-soft/20' : 'border-line bg-white' }} p-5 sm:p-6" data-reveal-item>
+                        <div class="flex h-[190px] shrink-0 items-center justify-center sm:h-[210px] lg:h-[180px] xl:h-[200px]">
                             <img
                                 class="block h-full w-full object-contain"
                                 src="{{ asset('images/step-'.($index + 1).'.png') }}"
@@ -418,27 +429,37 @@
                 </div>
                 <div class="grid gap-[18px] md:grid-cols-3" data-reveal-stagger>
                     @foreach($bundles as $bundle)
-                        @php($discount = $bundle->activeDiscount())
-                        <article class="relative flex flex-col items-start rounded-[20px] p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] {{ $bundle->featured ? 'bg-primary text-white ring-2 ring-primary' : 'bg-white' }}" data-reveal-item>
+                        @php($price = $bundle->priceBreakdown())
+                        @php($discount = $price['discount'])
+                        <article class="relative flex flex-col items-start rounded-[20px] border border-transparent bg-white p-[25px] shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] {{ $bundle->featured ? 'featured-bundle-card' : '' }}" data-reveal-item>
                             @if($bundle->featured)
-                                <span class="mb-3 rounded-full bg-white/15 px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-white">{{ __('public.package_featured') }}</span>
+                                <span class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ __('public.package_featured') }}</span>
                             @endif
                             @if($discount)
-                                <span class="mb-3 rounded-full {{ $bundle->featured ? 'bg-white/15 text-white' : 'bg-primary-soft text-primary' }} px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px]">{{ $bundle->localizedValue($discount['title'] ?? []) }}</span>
+                                <span class="mb-3 rounded-full bg-primary-soft px-2.5 py-[7px] text-[10px] font-extrabold tracking-[1px] text-primary">{{ $bundle->localizedValue($discount['title'] ?? []) }}</span>
                             @endif
-                            <span class="text-[13px] font-bold {{ $bundle->featured ? 'text-white/75' : 'text-muted' }}">{{ $bundle->localizedName() }}</span>
+                            <span class="text-[13px] font-bold text-muted">{{ $bundle->localizedName() }}</span>
                             @if($discount)
-                                <div class="mt-2 text-sm font-semibold line-through {{ $bundle->featured ? 'text-white/60' : 'text-muted' }}">{{ number_format($bundle->price_ron, 0, ',', '.') }} RON</div>
+                                <div class="mt-2 text-sm font-semibold text-muted line-through">{{ number_format($price['original_price_ron'], 0, ',', '.') }} RON</div>
                             @endif
-                            <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px]">{{ number_format($bundle->currentPriceRon(), 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
-                            <p class="m-0 text-sm leading-[1.65] {{ $bundle->featured ? 'text-white/80' : 'text-muted' }}">{{ $bundle->localizedValue($bundle->short_description) }}</p>
-                            <p class="mt-2.5 mb-[18px] font-bold {{ $bundle->featured ? 'text-white' : 'text-ink' }}">{{ $bundle->localizedValue($bundle->tagline) }}</p>
-                            <div class="mb-6 mt-[19px] grid gap-[9px] text-[13px] {{ $bundle->featured ? 'text-white/80' : 'text-muted' }}">
+                            <div class="my-2.5 mb-1 text-[42px] leading-tight font-extrabold tracking-[-1.8px] text-ink">{{ number_format($price['current_price_ron'], 0, ',', '.') }} <small class="text-sm font-semibold tracking-normal">RON</small></div>
+                            @if($discount)
+                                <p class="m-0 text-xs font-bold text-success">
+                                    @if($price['discount_type'] === 'percentage')
+                                        {{ __('public.discount_save_percentage', ['value' => $price['percentage']]) }}
+                                    @else
+                                        {{ __('public.discount_save_amount', ['amount' => number_format($price['savings_ron'], 0, ',', '.')]) }}
+                                    @endif
+                                </p>
+                            @endif
+                            <p class="mt-2.5 mb-[18px] font-bold text-ink">{{ $bundle->localizedValue($bundle->tagline) }}</p>
+                            <p class="m-0 text-sm leading-[1.65] text-muted">{{ $bundle->localizedValue($bundle->short_description) }}</p>
+                            <div class="mb-6 mt-[19px] grid gap-[9px] text-[13px] text-muted">
                                 @foreach($bundle->features ?? [] as $feature)
-                                    <span><span class="mr-2 font-extrabold {{ $bundle->featured ? 'text-white' : 'text-success' }}">✓</span>{{ $bundle->localizedValue($feature['data'] ?? $feature) }}</span>
+                                    <span><span class="mr-2 font-extrabold text-success">✓</span>{{ $bundle->localizedValue($feature['data'] ?? $feature) }}</span>
                                 @endforeach
                             </div>
-                            <a class="mt-auto inline-flex w-full items-center justify-center rounded-full px-[21px] py-3.5 font-bold transition hover:-translate-y-px {{ $bundle->featured ? 'bg-white text-primary hover:bg-white/90' : 'bg-primary text-white hover:bg-primary-hover' }}" href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
+                            <a class="mt-auto inline-flex w-full items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:-translate-y-px hover:bg-primary-hover" href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
                         </article>
                     @endforeach
                 </div>

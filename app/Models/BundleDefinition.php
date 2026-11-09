@@ -80,8 +80,10 @@ class BundleDefinition extends Model
 
         foreach ($this->discounts ?? [] as $block) {
             $discount = $block['data'] ?? $block;
+            $start = $discount['start_date'] ?? null;
+            $end = $discount['end_date'] ?? null;
 
-            if (($discount['start_date'] ?? null) <= $date && ($discount['end_date'] ?? null) >= $date) {
+            if (is_string($start) && is_string($end) && $start <= $date && $end >= $date) {
                 return $discount;
             }
         }
@@ -89,11 +91,66 @@ class BundleDefinition extends Model
         return null;
     }
 
-    public function currentPriceRon(?CarbonImmutable $at = null): int
+    /**
+     * @return array{
+     *     original_price_ron: int,
+     *     current_price_ron: int,
+     *     savings_ron: int,
+     *     discount_type: string|null,
+     *     percentage: int|null,
+     *     discount: array<string, mixed>|null
+     * }
+     */
+    public function priceBreakdown(?CarbonImmutable $at = null): array
     {
+        $originalPrice = (int) $this->price_ron;
         $discount = $this->activeDiscount($at);
 
-        return $discount === null ? $this->price_ron : (int) $discount['new_price'];
+        if ($discount === null) {
+            return [
+                'original_price_ron' => $originalPrice,
+                'current_price_ron' => $originalPrice,
+                'savings_ron' => 0,
+                'discount_type' => null,
+                'percentage' => null,
+                'discount' => null,
+            ];
+        }
+
+        $discountType = ($discount['discount_type'] ?? 'percentage') === 'fixed' ? 'fixed' : 'percentage';
+        $configuredPercentage = $discountType === 'percentage' ? (int) ($discount['percentage'] ?? 0) : null;
+        $currentPrice = $discountType === 'fixed'
+            ? $originalPrice - (int) ($discount['amount_ron'] ?? 0)
+            : (int) round($originalPrice * (100 - (int) $configuredPercentage) / 100);
+        $savings = $originalPrice - $currentPrice;
+        if ($savings < 1 || $savings >= $originalPrice) {
+            return [
+                'original_price_ron' => $originalPrice,
+                'current_price_ron' => $originalPrice,
+                'savings_ron' => 0,
+                'discount_type' => null,
+                'percentage' => null,
+                'discount' => null,
+            ];
+        }
+
+        $percentage = $discountType === 'percentage'
+            ? (int) round($savings / $originalPrice * 100)
+            : null;
+
+        return [
+            'original_price_ron' => $originalPrice,
+            'current_price_ron' => $currentPrice,
+            'savings_ron' => $savings,
+            'discount_type' => $discountType,
+            'percentage' => $percentage,
+            'discount' => $discount,
+        ];
+    }
+
+    public function currentPriceRon(?CarbonImmutable $at = null): int
+    {
+        return $this->priceBreakdown($at)['current_price_ron'];
     }
 
     /** @param array<string, string>|null $value */
@@ -108,37 +165,38 @@ class BundleDefinition extends Model
     {
         $discounts = $this->discounts ?? [];
         $periods = [];
-        $otherBundles = static::query()
-            ->when($this->exists, fn ($query) => $query->whereKeyNot($this->getKey()))
-            ->get(['id', 'discounts']);
 
         foreach ($discounts as $index => $block) {
             $discount = $block['data'] ?? $block;
             $start = $discount['start_date'] ?? null;
             $end = $discount['end_date'] ?? null;
-            $percentage = (int) ($discount['percentage'] ?? 0);
+            $discountType = $discount['discount_type'] ?? 'percentage';
+            if (! in_array($discountType, ['percentage', 'fixed'], true)) {
+                throw ValidationException::withMessages(["discounts.{$index}.discount_type" => 'Choose a supported discount type.']);
+            }
 
             if (! is_string($start) || ! is_string($end) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $start)
-                || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $end) || $end < $start) {
+                || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $end) || $end < $start
+                || CarbonImmutable::createFromFormat('!Y-m-d', $start)?->format('Y-m-d') !== $start
+                || CarbonImmutable::createFromFormat('!Y-m-d', $end)?->format('Y-m-d') !== $end) {
                 throw ValidationException::withMessages(["discounts.{$index}.end_date" => 'Each discount must have a valid date range.']);
             }
-            if ($percentage < 1 || $percentage > 99) {
-                throw ValidationException::withMessages(["discounts.{$index}.percentage" => 'Discount percentages must be between 1 and 99.']);
-            }
-            foreach ($periods as [$existingStart, $existingEnd]) {
-                if ($start <= $existingEnd && $end >= $existingStart) {
-                    throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Only one discount can be active at a time across all bundles.']);
+
+            if ($discountType === 'percentage') {
+                $percentage = filter_var($discount['percentage'] ?? null, FILTER_VALIDATE_INT);
+                if ($percentage === false || $percentage < 1 || $percentage > 99) {
+                    throw ValidationException::withMessages(["discounts.{$index}.percentage" => 'Discount percentages must be between 1 and 99.']);
+                }
+            } else {
+                $amount = filter_var($discount['amount_ron'] ?? null, FILTER_VALIDATE_INT);
+                if ($amount === false || $amount < 1 || $amount >= (int) $this->price_ron) {
+                    throw ValidationException::withMessages(["discounts.{$index}.amount_ron" => 'A fixed discount must be at least 1 RON and lower than the regular bundle price.']);
                 }
             }
-            foreach ($otherBundles as $otherBundle) {
-                foreach ($otherBundle->discounts ?? [] as $otherBlock) {
-                    $otherDiscount = $otherBlock['data'] ?? $otherBlock;
-                    $otherStart = $otherDiscount['start_date'] ?? null;
-                    $otherEnd = $otherDiscount['end_date'] ?? null;
 
-                    if (is_string($otherStart) && is_string($otherEnd) && $start <= $otherEnd && $end >= $otherStart) {
-                        throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Only one discount can be active at a time across all bundles.']);
-                    }
+            foreach ($periods as [$existingStart, $existingEnd]) {
+                if ($start <= $existingEnd && $end >= $existingStart) {
+                    throw ValidationException::withMessages(["discounts.{$index}.start_date" => 'Discount periods within the same bundle cannot overlap.']);
                 }
             }
 
@@ -152,12 +210,17 @@ class BundleDefinition extends Model
 
         foreach ($discounts as $index => $block) {
             $discount = $block['data'] ?? $block;
-            $percentage = (int) ($discount['percentage'] ?? 0);
-            $newPrice = (int) round($this->price_ron * (100 - $percentage) / 100);
+            $discountType = ($discount['discount_type'] ?? 'percentage') === 'fixed' ? 'fixed' : 'percentage';
+            $newPrice = $discountType === 'fixed'
+                ? (int) $this->price_ron - (int) ($discount['amount_ron'] ?? 0)
+                : (int) round((int) $this->price_ron * (100 - (int) ($discount['percentage'] ?? 0)) / 100);
+            $newPrice = max(1, $newPrice);
 
             if (isset($block['data'])) {
+                $discounts[$index]['data']['discount_type'] = $discountType;
                 $discounts[$index]['data']['new_price'] = $newPrice;
             } else {
+                $discounts[$index]['discount_type'] = $discountType;
                 $discounts[$index]['new_price'] = $newPrice;
             }
         }

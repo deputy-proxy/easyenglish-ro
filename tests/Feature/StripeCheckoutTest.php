@@ -47,6 +47,7 @@ function startStripePurchase(LaravelTestCase $test, string $token = 'AbCdEf01234
     $test->withSession(['bundle_checkout_tokens' => [$bundle->id => $token], 'locale' => $locale])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $token,
+            'displayed_price_ron' => $bundle->currentPriceRon(),
             'name' => 'Stripe Test Customer',
             'email' => 'stripe-customer@example.com',
             'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
@@ -145,6 +146,80 @@ test('active bundle discounts are charged at the calculated price and stored as 
     expect($purchase['entitlement']->fresh()->status)->toBe('active');
 });
 
+test('fixed bundle discounts are displayed as an amount and charged at the effective price', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Reducere fixă', 'en' => 'Fixed saving'],
+        'start_date' => now()->subDay()->toDateString(),
+        'end_date' => now()->addDay()->toDateString(),
+        'discount_type' => 'fixed',
+        'amount_ron' => 36,
+    ]]]]);
+
+    $purchase = startStripePurchase($this, str_repeat('F', 48));
+    $priceData = app(FakeStripeGateway::class)->checkoutRequests[0]['parameters']['line_items'][0]['price_data'];
+
+    expect($purchase['entitlement']->paid_amount_ron)->toBe(120)
+        ->and($purchase['entitlement']->original_price_ron)->toBe(156)
+        ->and($purchase['entitlement']->discount_snapshot['discount_type'])->toBe('fixed')
+        ->and($purchase['payment']->amount_ron)->toBe(120)
+        ->and($priceData['unit_amount'])->toBe(12000);
+});
+
+test('pending purchase pages keep displaying the immutable price and discount snapshot', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Ofertă salvată', 'en' => 'Saved offer'],
+        'start_date' => now()->subDay()->toDateString(),
+        'end_date' => now()->addDay()->toDateString(),
+        'percentage' => 25,
+    ]]]]);
+
+    $purchase = startStripePurchase($this, str_repeat('P', 48));
+    $bundle->update(['discounts' => []]);
+
+    $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $purchase['token']], 'locale' => 'en'])
+        ->get(route('purchase', $bundle))
+        ->assertOk()
+        ->assertSee('name="displayed_price_ron" value="117"', false)
+        ->assertSee('Saved offer')
+        ->assertSee('156 RON')
+        ->assertSee('117');
+});
+
+test('checkout rejects a stale displayed price without creating a purchase', function () {
+    $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
+    $token = str_repeat('S', 48);
+
+    $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
+        ->get(route('purchase', $bundle))
+        ->assertOk()
+        ->assertSee('name="displayed_price_ron" value="156"', false);
+
+    $bundle->update(['discounts' => [['type' => 'discount', 'data' => [
+        'title' => ['ro' => 'Ofertă', 'en' => 'Offer'],
+        'start_date' => now()->subDay()->toDateString(),
+        'end_date' => now()->addDay()->toDateString(),
+        'percentage' => 25,
+    ]]]]);
+
+    $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
+        ->post(route('purchase.checkout', $bundle), [
+            'purchase_token' => $token,
+            'displayed_price_ron' => 156,
+            'name' => 'Stripe Test Customer',
+            'email' => 'stripe-customer@example.com',
+            'phone' => '+40722123456',
+            'whatsapp_service_consent' => '1',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['checkout' => __('public.bundle_price_changed')]);
+
+    expect(BundleEntitlement::query()->count())->toBe(0)
+        ->and(Payment::query()->count())->toBe(0)
+        ->and(app(FakeStripeGateway::class)->checkoutRequests)->toBe([]);
+});
+
 test('all three server-configured bundle prices are sent to Stripe in RON minor units', function () {
     $expected = [156 => 15600, 390 => 39000, 780 => 78000];
     foreach ($expected as $priceRon => $minorUnits) {
@@ -155,6 +230,7 @@ test('all three server-configured bundle prices are sent to Stripe in RON minor 
         $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
             ->post(route('purchase.checkout', $bundle), [
                 'purchase_token' => $token,
+                'displayed_price_ron' => $bundle->currentPriceRon(),
                 'name' => 'Stripe Test Customer '.$priceRon,
                 'email' => 'stripe-customer-'.$priceRon.'@example.com',
                 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
@@ -174,6 +250,7 @@ test('checkout retries reuse stable parameters and recover legacy idempotency co
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $token,
+            'displayed_price_ron' => $bundle->currentPriceRon(),
             'name' => 'Stripe Test Customer',
             'email' => 'stripe-customer@example.com',
             'phone' => '+40722123456',
@@ -190,7 +267,7 @@ test('duplicate checkout submissions reuse the same provider session and do not 
     $bundle = $purchase['bundle'];
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $purchase['token']]])
         ->post(route('purchase.checkout', $bundle), [
-            'purchase_token' => $purchase['token'], 'name' => 'Stripe Test Customer',
+            'purchase_token' => $purchase['token'], 'displayed_price_ron' => $bundle->currentPriceRon(), 'name' => 'Stripe Test Customer',
             'email' => 'stripe-customer@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_1');
 
@@ -205,7 +282,7 @@ test('checkout remains disabled without both Stripe API and webhook credentials 
     $this->get(route('purchase', $bundle))->assertOk()->assertSee('Plata online nu este încă activată');
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => str_repeat('A', 48)]])
         ->post(route('purchase.checkout', $bundle), [
-            'purchase_token' => str_repeat('A', 48), 'name' => 'Stripe Test Customer',
+            'purchase_token' => str_repeat('A', 48), 'displayed_price_ron' => $bundle->currentPriceRon(), 'name' => 'Stripe Test Customer',
             'email' => 'stripe-customer@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect()->assertSessionHasErrors('checkout');
 
@@ -219,7 +296,7 @@ test('explicit checkout feature flag prevents session creation even when credent
     $this->get(route('purchase', $bundle))->assertOk()->assertSee('Plata online nu este încă activată');
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
         ->post(route('purchase.checkout', $bundle), [
-            'purchase_token' => $token, 'name' => 'Stripe Test Customer',
+            'purchase_token' => $token, 'displayed_price_ron' => $bundle->currentPriceRon(), 'name' => 'Stripe Test Customer',
             'email' => 'stripe-disabled@example.com', 'phone' => '+40722123456', 'whatsapp_service_consent' => '1',
         ])->assertRedirect()->assertSessionHasErrors('checkout');
 
@@ -269,6 +346,7 @@ test('cancelled bundle checkout returns to the purchase page without creating a 
         $purchase['bundle'],
         ['name' => $purchase['entitlement']->customer_name, 'email' => $purchase['entitlement']->customer_email, 'phone' => $purchase['entitlement']->customer_phone],
         $purchase['token'],
+        $purchase['entitlement']->paid_amount_ron,
         'en',
         null,
         true,
@@ -635,6 +713,7 @@ test('already verified customer accounts can purchase a bundle without repeating
     $this->withSession(['bundle_checkout_tokens' => [$bundle->id => $token]])
         ->post(route('purchase.checkout', $bundle), [
             'purchase_token' => $token,
+            'displayed_price_ron' => $bundle->currentPriceRon(),
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,

@@ -28,7 +28,7 @@
             <div class="mb-8 max-w-[720px]" data-reveal>
                 <p class="mb-3 text-[11px] font-extrabold tracking-[1.7px] text-primary uppercase">{{ __('public.bundle_label') }}</p>
                 <h1 class="m-0 text-[clamp(32px,5vw,52px)] leading-[1.06] font-semibold tracking-[-2px]">{{ __('public.purchase_title', ['name' => $bundle->localizedName()]) }}</h1>
-                <p class="mt-4 max-w-[620px] text-base leading-[1.7] text-muted sm:text-lg">{{ __('public.purchase_text', ['price' => number_format($bundle->currentPriceRon(), 0, ',', '.'), 'total' => $bundle->paid_credits]) }}</p>
+                <p class="mt-4 max-w-[620px] text-base leading-[1.7] text-muted sm:text-lg">{{ __('public.purchase_text', ['price' => number_format($priceBreakdown['current_price_ron'], 0, ',', '.'), 'total' => $bundle->paid_credits]) }}</p>
             </div>
 
             @if(session('checkout_cancelled'))
@@ -52,8 +52,21 @@
                         </div>
                         <h2 id="order-summary-title" class="mt-5 mb-1 text-2xl font-semibold tracking-[-0.8px]">{{ $bundle->localizedName() }}</h2>
                         <p class="m-0 text-sm leading-6 text-muted">{{ __('public.purchase_summary_description', ['count' => $bundle->paid_credits]) }}</p>
+                        @if($priceBreakdown['discount'])
+                            <div class="mt-5 flex flex-wrap items-center gap-2">
+                                <span class="rounded-full bg-primary-soft px-3 py-1 text-xs font-bold text-primary">{{ $bundle->localizedValue($priceBreakdown['discount']['title'] ?? []) }}</span>
+                                <span class="text-xs font-bold text-success">
+                                    @if($priceBreakdown['discount_type'] === 'percentage')
+                                        {{ __('public.discount_save_percentage', ['value' => $priceBreakdown['percentage']]) }}
+                                    @else
+                                        {{ __('public.discount_save_amount', ['amount' => number_format($priceBreakdown['savings_ron'], 0, ',', '.')]) }}
+                                    @endif
+                                </span>
+                            </div>
+                            <p class="mt-5 mb-0 text-sm font-semibold text-muted line-through">{{ number_format($priceBreakdown['original_price_ron'], 0, ',', '.') }} RON</p>
+                        @endif
                         <div class="mt-7 flex flex-wrap items-end gap-x-2 gap-y-1">
-                            <span class="text-[clamp(42px,6vw,58px)] leading-none font-bold tracking-[-2.8px] tabular-nums">{{ number_format($bundle->currentPriceRon(), 0, ',', '.') }}</span>
+                            <span class="text-[clamp(42px,6vw,58px)] leading-none font-bold tracking-[-2.8px] tabular-nums">{{ number_format($priceBreakdown['current_price_ron'], 0, ',', '.') }}</span>
                             <span class="pb-1 text-lg font-semibold text-muted">RON</span>
                         </div>
                         <p class="mt-2 mb-0 text-sm text-muted">{{ __('public.package_tax') }}</p>
@@ -98,6 +111,7 @@
                         <form class="space-y-5" method="post" action="{{ route('purchase.checkout', $bundle) }}">
                             @csrf
                             <input type="hidden" name="purchase_token" value="{{ $purchaseToken }}">
+                            <input type="hidden" name="displayed_price_ron" value="{{ $priceBreakdown['current_price_ron'] }}">
                             <input type="hidden" name="name" value="{{ auth()->user()->name }}">
 
                             <div>

@@ -11,10 +11,12 @@ use Filament\Forms\Components\Builder;
 use Filament\Forms\Components\Builder\Block;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -69,8 +71,10 @@ class BundleDefinitionResource extends Resource
                         TextInput::make('title.en')->label('Title (English)')->required()->maxLength(120),
                         DatePicker::make('start_date')->label('Start date')->native(false)->required(),
                         DatePicker::make('end_date')->label('End date')->native(false)->required()->afterOrEqual('start_date'),
-                        TextInput::make('percentage')->label('Discount (%)')->numeric()->integer()->minValue(1)->maxValue(99)->required()->live(),
-                        TextInput::make('new_price')->label('Calculated price (RON)')->numeric()->integer()->disabled()->dehydrated(false)->helperText('Calculated automatically from the regular price and discount percentage when saved.'),
+                        Select::make('discount_type')->label('Discount type')->options(['percentage' => 'Percentage', 'fixed' => 'Fixed amount (RON)'])->default('percentage')->required()->live()->native(false),
+                        TextInput::make('percentage')->label('Discount (%)')->numeric()->integer()->minValue(1)->maxValue(99)->required(fn (Get $get): bool => $get('discount_type') !== 'fixed')->visible(fn (Get $get): bool => $get('discount_type') !== 'fixed')->live(),
+                        TextInput::make('amount_ron')->label('Discount amount (RON)')->numeric()->integer()->minValue(1)->required(fn (Get $get): bool => $get('discount_type') === 'fixed')->visible(fn (Get $get): bool => $get('discount_type') === 'fixed')->live(),
+                        TextInput::make('new_price')->label('Calculated price (RON)')->numeric()->integer()->disabled()->dehydrated(false)->helperText('Calculated automatically from the regular price and discount when saved.'),
                     ])->columns(2),
                 ])->default([])->reorderable()->addActionLabel('Add discount period')->columnSpanFull(),
             ]),

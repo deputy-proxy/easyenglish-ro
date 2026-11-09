@@ -45,7 +45,20 @@
                                 @if($bundle->featured)<span class="mb-3 text-[10px] font-extrabold tracking-wider text-primary uppercase">{{ __('public.package_featured') }}</span>@endif
                                 <h3 class="m-0 text-lg font-bold text-ink">{{ $bundle->localizedName() }}</h3>
                                 <p class="mt-2 mb-0 text-sm leading-5 text-muted">{{ $bundle->localizedValue($bundle->short_description) }}</p>
-                                <p class="mt-4 mb-1 text-3xl font-extrabold tracking-tight text-ink">{{ number_format($bundle->currentPriceRon(), 0, ',', '.') }} <span class="text-sm font-semibold">RON</span></p>
+                                @php($price = $bundle->priceBreakdown())
+                                @if($price['discount'])
+                                    <p class="mt-3 mb-0 text-xs font-semibold text-muted line-through">{{ number_format($price['original_price_ron'], 0, ',', '.') }} RON</p>
+                                @endif
+                                <p class="mt-4 mb-1 text-3xl font-extrabold tracking-tight text-ink">{{ number_format($price['current_price_ron'], 0, ',', '.') }} <span class="text-sm font-semibold">RON</span></p>
+                                @if($price['discount'])
+                                    <p class="m-0 text-xs font-bold text-success">
+                                        @if($price['discount_type'] === 'percentage')
+                                            {{ __('public.discount_save_percentage', ['value' => $price['percentage']]) }}
+                                        @else
+                                            {{ __('public.discount_save_amount', ['amount' => number_format($price['savings_ron'], 0, ',', '.')]) }}
+                                        @endif
+                                    </p>
+                                @endif
                                 <p class="m-0 text-xs text-muted">{{ __('public.package_tax') }}</p>
                                 <div class="mt-4 grid gap-2 text-sm text-muted">
                                     <p class="m-0">{{ __('public.used_free_bundle_sessions', ['count' => $bundle->paid_credits + $bundle->included_free_credits]) }}</p>

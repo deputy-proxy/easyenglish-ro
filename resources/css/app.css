@@ -65,6 +65,38 @@
     }
 }
 
+
+.featured-bundle-card::before {
+    position: absolute;
+    z-index: 1;
+    pointer-events: none;
+    inset: 0;
+    border: 1.5px solid rgb(20 80 223 / 58%);
+    border-radius: inherit;
+    content: '';
+    animation: featured-bundle-border-pulse 3.8s ease-in-out infinite;
+}
+
+@keyframes featured-bundle-border-pulse {
+    0%, 100% {
+        border-color: rgb(20 80 223 / 48%);
+        box-shadow: 0 0 0 0 rgb(20 80 223 / 0%);
+    }
+
+    50% {
+        border-color: rgb(20 80 223 / 100%);
+        box-shadow: 0 0 0 4px rgb(20 80 223 / 9%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .featured-bundle-card::before {
+        animation: none;
+        border-color: rgb(20 80 223 / 78%);
+        box-shadow: none;
+    }
+}
+
 /* Keep in-page destinations clear of the persistent public navigation. */
 html {
     scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px));
@@ -197,6 +229,119 @@ html {
         font-size: 0.9375rem;
         font-weight: 700;
         line-height: 1.25;
+    }
+}
+
+/* The How It Works cards stay in one row and scroll horizontally until desktop. */
+.how-steps-track {
+    display: flex;
+    width: 100%;
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 16px;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+}
+
+.how-steps-track::-webkit-scrollbar {
+    display: none;
+}
+
+.how-step-card {
+    flex: 0 0 calc(100% - 2.25rem);
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+}
+
+@media (min-width: 640px) {
+    .how-step-card {
+        flex-basis: min(340px, calc((100% - 16px) / 2));
+    }
+}
+
+@media (min-width: 1024px) {
+    .how-steps-track {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        overflow: visible;
+        padding-bottom: 0;
+        scroll-snap-type: none;
+    }
+
+    .how-step-card {
+        flex: initial;
+        scroll-snap-align: unset;
+        scroll-snap-stop: normal;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .how-steps-track {
+        scroll-behavior: auto;
+    }
+}
+
+/* Scroll-driven pain-point cards enhance the static card list only when GSAP is ready. */
+[data-pain-point-stack] {
+    --pain-point-stack-top: calc(64px + env(safe-area-inset-top, 0px) + 16px);
+}
+
+[data-pain-point-card] {
+    --stack-offset: 0px;
+    --stack-order: 1;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07), 0 12px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.08);
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card] {
+    box-shadow: none;
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card].has-stack-shadow {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.07), 0 12px 24px rgba(0, 0, 0, 0.08), 0 24px 48px rgba(0, 0, 0, 0.08);
+}
+
+[data-pain-point-card] + [data-pain-point-card] {
+    margin-top: 20px;
+}
+
+[data-pain-point-stack].is-stacking-enabled [data-pain-point-card] {
+    position: sticky;
+    top: calc(var(--pain-point-stack-top) + var(--stack-offset));
+    z-index: var(--stack-order);
+}
+
+.pain-point-card__content {
+    width: 100%;
+}
+
+.pain-point-card__description {
+    max-height: 12rem;
+    opacity: 1;
+}
+
+.pain-point-card__title,
+.pain-point-card__description,
+[data-pain-point-stack] [data-pain-point-card] {
+    transition: font-size 260ms ease, opacity 260ms ease, max-height 260ms ease, margin 260ms ease, padding 260ms ease, min-height 260ms ease;
+}
+
+
+
+@media (min-width: 768px) {
+    [data-pain-point-stack] {
+        --pain-point-stack-top: 112px;
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pain-point-card__title,
+   .pain-point-card__description {
+        transition: none;
     }
 }
 
