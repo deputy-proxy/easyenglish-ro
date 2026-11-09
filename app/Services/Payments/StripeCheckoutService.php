@@ -25,7 +25,7 @@ class StripeCheckoutService
     ) {}
 
     /** @param array{name:string,email:string,phone:string} $customer */
-    public function start(BundleDefinition $bundle, array $customer, string $requestKey, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false, ?User $customerUser = null): Payment
+    public function start(BundleDefinition $bundle, array $customer, string $requestKey, int $expectedPriceRon, string $locale, ?ContactVerificationChallenge $verification = null, bool $accountContactsVerified = false, ?User $customerUser = null): Payment
     {
         if (! $bundle->is_active) {
             throw ValidationException::withMessages(['bundle' => 'This bundle is not available for purchase.']);
@@ -48,7 +48,16 @@ class StripeCheckoutService
         }
 
         $entitlement = BundleEntitlement::query()->where('checkout_request_key', $requestKey)->first();
-        if (! $entitlement) {
+        if ($entitlement !== null) {
+            if ($expectedPriceRon !== (int) $entitlement->paid_amount_ron) {
+                throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
+            }
+        } else {
+            $priceBreakdown = $bundle->priceBreakdown();
+            if ($expectedPriceRon !== $priceBreakdown['current_price_ron']) {
+                throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
+            }
+
             $entitlement = BundleEntitlement::query()->firstOrCreate(
                 ['checkout_request_key' => $requestKey],
                 [
@@ -65,7 +74,9 @@ class StripeCheckoutService
                     'customer_email_verified_at' => $verification !== null ? $verification->email_verified_at : ($accountContactsVerified ? now() : null),
                     'customer_phone_verified_at' => $verification !== null ? $verification->phone_verified_at : ($accountContactsVerified ? now() : null),
                     'status' => 'pending_payment',
-                    'paid_amount_ron' => $bundle->currentPriceRon(),
+                    'paid_amount_ron' => $priceBreakdown['current_price_ron'],
+                    'original_price_ron' => $priceBreakdown['original_price_ron'],
+                    'discount_snapshot' => $priceBreakdown['discount'],
                     'currency' => 'RON',
                     'paid_credits' => $bundle->paid_credits,
                     'free_credits_granted' => 0,
@@ -73,6 +84,10 @@ class StripeCheckoutService
                     'free_credits_remaining' => 0,
                 ],
             );
+        }
+
+        if ($expectedPriceRon !== (int) $entitlement->paid_amount_ron) {
+            throw ValidationException::withMessages(['checkout' => __('public.bundle_price_changed')]);
         }
 
         if ($entitlement->bundle_definition_id !== $bundle->id

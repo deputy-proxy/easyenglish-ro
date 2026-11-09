@@ -916,7 +916,21 @@ class PublicSiteController extends Controller
             && $user->phone_verified_at !== null
             && PhoneNumber::normalize((string) $user->phone) === PhoneNumber::normalize(is_string($request->old('phone')) ? $request->old('phone') : (string) $user->phone);
 
-        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified]);
+        $existingEntitlement = is_string($token)
+            ? BundleEntitlement::query()->where('checkout_request_key', $token)->where('bundle_definition_id', $bundle->id)->first()
+            : null;
+        $priceBreakdown = $existingEntitlement
+            ? [
+                'original_price_ron' => (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron),
+                'current_price_ron' => (int) $existingEntitlement->paid_amount_ron,
+                'savings_ron' => max(0, (int) ($existingEntitlement->original_price_ron ?? $existingEntitlement->paid_amount_ron) - (int) $existingEntitlement->paid_amount_ron),
+                'discount_type' => $existingEntitlement->discount_snapshot['discount_type'] ?? null,
+                'percentage' => isset($existingEntitlement->discount_snapshot['percentage']) ? (int) $existingEntitlement->discount_snapshot['percentage'] : null,
+                'discount' => $existingEntitlement->discount_snapshot,
+            ]
+            : $bundle->priceBreakdown();
+
+        return view('public.purchase', ['bundle' => $bundle, 'checkoutReady' => $checkoutReady, 'purchaseToken' => $token, 'verification' => $verification, 'contactsVerified' => $contactsVerified, 'priceBreakdown' => $priceBreakdown]);
     }
 
     public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
@@ -925,6 +939,7 @@ class PublicSiteController extends Controller
         abort_unless($bundle->is_active, 404);
         $validated = $request->validate([
             'purchase_token' => ['required', 'string', 'min:40', 'max:80', 'regex:/^[A-Za-z0-9]+$/'],
+            'displayed_price_ron' => ['required', 'integer', 'min:1'],
             'name' => ['required', 'string', 'max:160'],
             'email' => ['required', 'email', 'max:254'],
             'phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9\s().-]{7,32}$/', function (string $attribute, mixed $value, Closure $fail): void {
@@ -968,7 +983,9 @@ class PublicSiteController extends Controller
                 && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user());
+            ], $validated['purchase_token'], (int) $validated['displayed_price_ron'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user());
+        } catch (ValidationException $exception) {
+            return back()->withInput()->withErrors($exception->errors());
         } catch (\Throwable $exception) {
             Log::warning('Stripe Checkout could not be started.', ['bundle_id' => $bundle->id, 'exception' => $exception::class]);
 
