@@ -68,7 +68,7 @@ return [
     'nav_faq' => 'Întrebări',
     'nav_book' => 'Încearcă gratuit',
     'hero_eyebrow' => 'CONVERSAȚII DE 15 MINUTE PE WHATSAPP',
-    'hero_text' => 'Exersezi câte 15 minute pe WhatsApp, cu un profesor care pregătește fiecare conversație pentru tine.',
+    'hero_text' => 'Exersezi 15 minute pe WhatsApp, cu un profesor care pregătește fiecare conversație pentru tine.',
     'hero_cta' => 'Programează o sesiune gratuită',
     'mobile_booking_cta' => 'Programează gratuit',
     'hero_secondary' => 'Vezi pachetele',
