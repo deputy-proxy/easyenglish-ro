@@ -26,6 +26,6 @@ class OpenWaSessionDisconnected extends Mailable
 
     public function content(): Content
     {
-        return new Content(view: 'emails.openwa-disconnected');
+        return new Content(view: 'emails.openwa-disconnected', text: 'emails.openwa-disconnected-text');
     }
 }

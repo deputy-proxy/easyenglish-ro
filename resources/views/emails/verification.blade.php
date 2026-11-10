@@ -1,0 +1,11 @@
+@include('emails.partials.shell-start', ['locale' => $locale, 'subject' => $locale === 'en' ? 'Verify your Easy English email' : 'Verifică adresa de e-mail Easy English'])
+<tr><td style="padding:34px 30px 30px;">
+<h1 style="margin:0 0 18px;color:#14234B;font-size:27px;line-height:1.2;text-align:center;">{{ $locale === 'en' ? 'Verify your email address' : 'Verifică adresa de e-mail' }}</h1>
+<p style="margin:0 0 20px;color:#53617B;font-size:15px;line-height:1.65;">{{ $locale === 'en' ? 'Use this six-digit code to verify your EasyEnglish account.' : 'Folosește acest cod din șase cifre pentru a verifica adresa de e-mail asociată contului EasyEnglish.' }}</p>
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:20px 0;background:#EDF2FF;border:1px solid #DCE5FF;border-radius:12px;"><tr><td align="center" style="padding:22px 16px;color:#14234B;font-size:34px;font-weight:700;letter-spacing:8px;">{{ $code }}</td></tr></table>
+<p style="margin:0 0 14px;color:#53617B;font-size:14px;line-height:1.6;">{{ $locale === 'en' ? 'This code expires in 30 minutes.' : 'Codul expiră în 30 de minute.' }}</p>
+<p style="margin:0 0 14px;color:#53617B;font-size:14px;line-height:1.6;">{{ $locale === 'en' ? 'If you prefer, use the backup verification link below.' : 'Dacă preferi, poți folosi linkul de rezervă de mai jos.' }}</p>
+<table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:22px auto;"><tr><td bgcolor="#1450DF" style="border-radius:28px;"><a href="{{ $backupUrl }}" style="display:inline-block;padding:14px 24px;border:1px solid #1450DF;border-radius:28px;background:#1450DF;color:#FFFFFF;font-size:15px;font-weight:700;text-decoration:none;">{{ $locale === 'en' ? 'Verify email address' : 'Verifică adresa de e-mail' }}</a></td></tr></table>
+<p style="margin:22px 0 0;padding:14px 16px;background:#F7F8FC;border-radius:8px;color:#53617B;font-size:13px;line-height:1.6;">{{ $locale === 'en' ? 'Never share this code with anyone. If you did not request this verification, you can ignore this email.' : 'Nu comunica acest cod nimănui. Dacă nu ai solicitat această verificare, poți ignora acest e-mail.' }}</p>
+</td></tr>
+@include('emails.partials.shell-end')
