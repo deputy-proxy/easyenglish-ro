@@ -93,7 +93,7 @@
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="why" data-pain-point-stack>
             <div class="mb-8 max-w-[780px] md:mb-10">
                 <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.motivation_eyebrow') }}</p>
-                <h2 class="type-section-title mb-4" data-reveal>{{ __('public.motivation_title') }}</h2>
+                <h2 class="type-section-title mb-4" data-reveal><span class="md:hidden">{{ __('public.motivation_title') }}</span><span class="hidden whitespace-pre-line md:block">{{ __('public.motivation_title_desktop') }}</span></h2>
                 <p class="type-section-copy" data-reveal>{{ __('public.motivation_text') }}</p>
             </div>
             <div class="pain-point-stack-list">
@@ -146,7 +146,7 @@
             <div class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]">
                 <div class="mb-8 max-w-[650px]">
                     <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.teachers_eyebrow') }}</p>
-                    <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.teachers_title') }}</h2>
+                    <h2 class="type-section-title mb-3.5" data-reveal><span class="md:hidden">{{ __('public.teachers_title') }}</span><span class="hidden whitespace-pre-line md:block">{{ __('public.teachers_title_desktop') }}</span></h2>
                     <p class="type-section-copy" data-reveal>{{ __('public.teachers_text') }}</p>
                 </div>
                 @if ($teachers->isNotEmpty())
@@ -497,7 +497,7 @@
                 <div class="mx-auto grid w-[calc(100%-2.5rem)] max-w-[1160px] gap-8 md:grid-cols-[1.15fr_0.85fr] md:items-center md:gap-14">
                     <div class="order-1 md:order-2">
                         <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.faq_eyebrow') }}</p>
-                        <h2 class="type-section-title mb-3.5" data-reveal>{{ __('public.faq_title') }}</h2>
+                        <h2 class="type-section-title mb-3.5" data-reveal><span class="md:hidden">{{ __('public.faq_title') }}</span><span class="hidden whitespace-pre-line md:block">{{ __('public.faq_title_desktop') }}</span></h2>
                         <p class="type-section-copy" data-reveal>{{ __('public.faq_text') }}</p>
                     </div>
                     <article class="order-2 flex h-[560px] flex-col overflow-hidden rounded-[22px] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)] sm:p-6 md:order-1" aria-label="{{ __('public.faq_title') }}" data-reveal-stagger>
