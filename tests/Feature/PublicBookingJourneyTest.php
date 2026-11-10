@@ -561,7 +561,7 @@ test('shared footer is centered in two rows and is reused on dashboard and authe
         ->and($privacy)->toBeGreaterThan($attribution)
         ->and($terms)->toBeGreaterThan($privacy)
         ->and($contact)->toBeGreaterThan($terms)
-        ->and($footer)->toContain('mailto:contact@easyenglish.ro');
+        ->and($footer)->toContain('href="'.route('contact').'"');
 
     $customer = User::factory()->create();
     $this->actingAs($customer)->withSession(['locale' => 'en'])->get(route('dashboard'))

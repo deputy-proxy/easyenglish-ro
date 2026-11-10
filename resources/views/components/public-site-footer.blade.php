@@ -3,11 +3,6 @@
     <nav class="flex flex-wrap items-center justify-center gap-x-[18px] gap-y-2" aria-label="Linkuri utile">
         <a class="transition-colors hover:text-primary" href="{{ route('policy', 'privacy') }}">{{ __('public.footer_privacy') }}</a>
         <a class="transition-colors hover:text-primary" href="{{ route('policy', 'terms') }}">{{ __('public.footer_terms') }}</a>
-        @php($contactEmail = config('easyenglish.contact_email'))
-        @if (is_string($contactEmail) && filter_var($contactEmail, FILTER_VALIDATE_EMAIL))
-            <a class="transition-colors hover:text-primary" href="mailto:{{ $contactEmail }}">{{ __('public.footer_contact') }}</a>
-        @else
-            <span>{{ __('public.footer_contact') }} · {{ __('public.footer_contact_pending') }}</span>
-        @endif
+        <a class="transition-colors hover:text-primary" href="{{ route('contact') }}">{{ __('public.footer_contact') }}</a>
     </nav>
 </footer>
