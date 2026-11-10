@@ -109,6 +109,8 @@ class ContactVerificationService
 
         try {
             if ($verifyEmail) {
+                URL::forceRootUrl((string) config('app.url'));
+                URL::forceScheme(parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https');
                 $emailUrl = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(30), [
                     'challenge' => $challenge->id,
                     'token' => $token,

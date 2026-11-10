@@ -20,6 +20,8 @@ test('email header and footer embed the logo as an inline image', function () {
     $footer = view('emails.partials.footer', ['message' => $message])->render();
 
     expect(file_exists(public_path('images/email/logo-white.png')))->toBeTrue()
+        ->and($header)->toContain('align="left"')
+        ->and($header)->toContain('text-align:left')
         ->and($header)->toContain('src="cid:easyenglish-logo"')
         ->and($footer)->toContain('src="cid:easyenglish-logo"');
 });

@@ -17,6 +17,9 @@ class NotificationMessageFactory
     /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool} */
     public function make(NotificationDelivery $delivery): array
     {
+        URL::forceRootUrl((string) config('app.url'));
+        URL::forceScheme(parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https');
+
         $delivery->loadMissing([
             'booking.entitlement.definition',
             'booking.teacher',
