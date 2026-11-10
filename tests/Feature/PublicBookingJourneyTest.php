@@ -75,9 +75,9 @@ test('public landing page renders in Romanian by default with approved prices an
         ->assertSee('my-5 max-w-[38ch]', false)
         ->assertSee('block aspect-[1/2] w-full object-contain object-bottom', false)
         ->assertSee('Autentificare')
-        ->assertSee('href="'.url('/admin/login').'"', false)
+        ->assertSee(route('login'), false)
         ->assertSee('inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75', false)
-        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('images/auth-icon.svg', false)
         ->assertSee('PENTRU MOMENTELE CARE CONTEAZĂ')
         ->assertSee('Alege intervalul')
         ->assertSee('Primeste invitatia')
@@ -357,7 +357,7 @@ test('landing page uses a white browser theme and centered mobile process and te
 
     $response->assertSee('<meta name="theme-color" content="#ffffff">', false)
         ->assertSee('min-h-11 min-w-11', false)
-        ->assertSee('h-[13.5px]', false)
+        ->assertSee('h-[27px] w-[27px]', false)
         ->assertSee('flex items-center justify-between gap-3 p-6 text-white', false);
 
     expect($styles)->toContain('.how-step-card {')
@@ -519,7 +519,7 @@ test('public privacy and terms pages reuse the shared Romanian navigation and fo
         ->assertSee('Confidențialitate')
         ->assertSee('data-public-site-header', false)
         ->assertSee('data-public-site-footer', false)
-        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('images/auth-icon.svg', false)
         ->assertDontSee('name="locale"', false);
 
     $this->withSession(['locale' => 'en'])->get('/terms')
@@ -527,7 +527,7 @@ test('public privacy and terms pages reuse the shared Romanian navigation and fo
         ->assertSee(__('public.footer_terms'))
         ->assertSee('data-public-site-header', false)
         ->assertSee('data-public-site-footer', false)
-        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('images/auth-icon.svg', false)
         ->assertDontSee('Terms and cancellation policy');
 });
 
@@ -536,7 +536,7 @@ test('public booking page reuses the shared public navigation', function () {
         ->assertOk()
         ->assertSee('data-public-site-header', false)
         ->assertSee('images/logo-white.svg', false)
-        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('images/auth-icon.svg', false)
         ->assertSee('data-public-site-footer', false);
 });
 
@@ -806,7 +806,7 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
     $this->get(route('purchase', $bundle))
         ->assertOk()
         ->assertSee('data-public-site-header', false)
-        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('images/auth-icon.svg', false)
         ->assertSee('156 RON')
         ->assertSee('trei luni calendaristice')
         ->assertSee('Sesiunea introductivă gratuită nu face parte din acest pachet')

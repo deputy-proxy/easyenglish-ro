@@ -20,16 +20,16 @@
     <nav aria-label="{{ __('public.nav_label') }}" class="flex shrink-0 items-center">
         <a
             class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center overflow-hidden transition-opacity hover:opacity-75 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            href="{{ url('/admin/login') }}"
+            href="{{ auth()->check() ? route('dashboard') : route('login') }}"
             aria-label="{{ app()->getLocale() === 'ro' ? 'Autentificare' : 'Log in' }}"
         >
             <img
-                class="block h-[13.5px] w-auto"
-                src="{{ \App\Support\VersionedAsset::url('images/auth-button.svg') }}"
+                class="block h-[27px] w-[27px]"
+                src="{{ \App\Support\VersionedAsset::url('images/auth-icon.svg') }}"
                 alt=""
                 aria-hidden="true"
-                width="196"
-                height="35"
+                width="27"
+                height="27"
             >
         </a>
     </nav>
