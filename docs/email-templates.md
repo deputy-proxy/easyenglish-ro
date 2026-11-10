@@ -107,7 +107,7 @@ Verification and OpenWA messages are separate direct-mail flows and are not memb
 
 ## Local preview and tests
 
-The six representative HTML and plain-text samples are committed in `docs/email-previews/`. Regenerate them after changing the email layout or sample data with `php scripts/render-email-previews.php`. The samples cover a customer confirmation, reminder without a CTA, cancellation, teacher assignment, email verification, and the OpenWA operational alert.
+The seven representative HTML and plain-text samples are committed in `docs/email-previews/`. Regenerate them after changing the email layout or sample data with `php scripts/render-email-previews.php`. The samples cover a customer confirmation, reminder without a CTA, cancellation, teacher assignment, email verification, and the OpenWA operational alert in both Romanian and English.
 
 The mailables can also be rendered from Laravel Tinker without sending email. For example:
 

@@ -1152,3 +1152,20 @@ test('narrowing the rollout allowlist does not cancel call links already issued 
         ->and($provider->events)->toHaveCount(1)
         ->and($booking->fresh()->status)->toBe('confirmed');
 });
+
+test('teacher call-link email uses the persisted booking locale', function () {
+    $provider = new FakeCallEventProvider;
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking(['locale' => 'ro']);
+    $event = $service->createForBooking($booking->id, 1);
+    $delivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('event', 'teacher_call_link_ready')
+        ->firstOrFail();
+
+    $message = app(NotificationMessageFactory::class)->make($delivery);
+
+    expect($message['locale'])->toBe('ro')
+        ->and($message['subject'])->toBe('Sesiune Easy English alocată: linkul apelului și detalii')
+        ->and($message['heading'])->toBe('Linkul apelului pentru sesiune este pregătit');
+});

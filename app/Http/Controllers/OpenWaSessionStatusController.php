@@ -58,6 +58,7 @@ class OpenWaSessionStatusController extends Controller
                 sessionId: $validated['sessionId'],
                 reason: $validated['reason'],
                 disconnectedAt: $disconnectedAt,
+                messageLocale: app()->getLocale(),
             ));
         } catch (\Throwable $exception) {
             DB::table('whatsapp_webhook_events')->where('event_key', $eventKey)->delete();

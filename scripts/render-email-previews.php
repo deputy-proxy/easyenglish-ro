@@ -109,9 +109,24 @@ $openWa = new OpenWaSessionDisconnected(
 );
 file_put_contents($directory.'/06-openwa-alert.html', $openWa->render());
 file_put_contents($directory.'/06-openwa-alert.txt', View::make('emails.openwa-disconnected-text', [
+    'locale' => 'en',
     'sessionId' => $openWa->sessionId,
     'reason' => $openWa->reason,
     'disconnectedAt' => $openWa->disconnectedAt,
 ])->render());
 
-fwrite(STDOUT, 'Rendered six HTML and plain-text email previews to docs/email-previews.'.PHP_EOL);
+$openWaRomanian = new OpenWaSessionDisconnected(
+    'easyenglish-openwa-poc',
+    'connection_lost',
+    CarbonImmutable::parse('2026-11-10T12:00:00Z'),
+    'ro',
+);
+file_put_contents($directory.'/07-openwa-alert-ro.html', $openWaRomanian->render());
+file_put_contents($directory.'/07-openwa-alert-ro.txt', View::make('emails.openwa-disconnected-text', [
+    'locale' => 'ro',
+    'sessionId' => $openWaRomanian->sessionId,
+    'reason' => $openWaRomanian->reason,
+    'disconnectedAt' => $openWaRomanian->disconnectedAt,
+])->render());
+
+fwrite(STDOUT, 'Rendered seven HTML and plain-text email preview pairs to docs/email-previews.'.PHP_EOL);

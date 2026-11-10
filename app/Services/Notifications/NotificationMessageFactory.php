@@ -198,9 +198,7 @@ class NotificationMessageFactory
         $callEvent = $delivery->bookingCallEvent;
         $metadata = $delivery->metadata ?? [];
         $snapshot = is_array($metadata['snapshot'] ?? null) ? $metadata['snapshot'] : [];
-        $locale = $event === NotificationEvent::CustomerCallLinkReady
-            ? (in_array($booking?->locale, ['ro', 'en'], true) ? (string) $booking->locale : 'ro')
-            : 'en';
+        $locale = in_array($booking?->locale, ['ro', 'en'], true) ? (string) $booking->locale : 'ro';
         $replace = [];
         $details = [];
         $ctaUrl = null;

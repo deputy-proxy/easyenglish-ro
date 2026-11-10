@@ -66,3 +66,20 @@ test('releases the idempotency key when email delivery fails so the callback can
     $this->withToken(str_repeat('s', 48))->postJson('/webhooks/openwa/status', openWaDisconnectionPayload())->assertStatus(503);
     expect(DB::table('whatsapp_webhook_events')->where('event_type', 'openwa_session_disconnected')->count())->toBe(0);
 });
+
+test('localizes the OpenWA alert using the application locale', function () {
+    Mail::fake();
+    config(['app.locale' => 'ro']);
+    $staff = User::factory()->create(['is_staff' => true, 'email' => 'staff@example.com']);
+
+    $this->withToken(str_repeat('s', 48))
+        ->postJson('/webhooks/openwa/status', openWaDisconnectionPayload())
+        ->assertAccepted();
+
+    Mail::assertSent(OpenWaSessionDisconnected::class, function (OpenWaSessionDisconnected $mail) use ($staff): bool {
+        return $mail->hasTo($staff->email)
+            && $mail->messageLocale === 'ro'
+            && $mail->envelope()->subject === 'Acțiune necesară: sesiunea WhatsApp EasyEnglish este deconectată'
+            && str_contains($mail->render(), 'Sesiunea WhatsApp EasyEnglish s-a deconectat');
+    });
+});
