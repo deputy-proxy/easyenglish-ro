@@ -1189,4 +1189,3 @@ test('final free booking still requires WhatsApp consent when no prior consent e
 
     expect(Booking::query()->count())->toBe(0);
 });
-
