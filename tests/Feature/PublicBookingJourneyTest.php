@@ -522,10 +522,28 @@ test('availability endpoint returns all seven days and only server-bookable time
         ->assertJsonPath('days.1.slots.1.time', '09:30');
 });
 
-test('public privacy and terms pages are available in both locales', function () {
-    $this->get('/privacy')->assertOk()->assertSee('Confidențialitate');
+test('public privacy and terms pages reuse the shared public navigation in both locales', function () {
+    $this->get('/privacy')
+        ->assertOk()
+        ->assertSee('Confidențialitate')
+        ->assertSee('data-public-site-header', false)
+        ->assertSee('images/auth-button.svg', false);
+
     $this->from('/privacy')->post('/language', ['locale' => 'en'])->assertRedirect('/privacy');
-    $this->get('/terms')->assertOk()->assertSee('Terms and cancellation policy');
+
+    $this->get('/terms')
+        ->assertOk()
+        ->assertSee('Terms and cancellation policy')
+        ->assertSee('data-public-site-header', false)
+        ->assertSee('images/auth-button.svg', false);
+});
+
+test('public booking page reuses the shared public navigation', function () {
+    $this->get('/book?type=intro')
+        ->assertOk()
+        ->assertSee('data-public-site-header', false)
+        ->assertSee('images/logo-white.svg', false)
+        ->assertSee('images/auth-button.svg', false);
 });
 
 test('free introduction never creates a booking before contact verification is available', function () {
@@ -754,6 +772,8 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
 
     $this->get(route('purchase', $bundle))
         ->assertOk()
+        ->assertSee('data-public-site-header', false)
+        ->assertSee('images/auth-button.svg', false)
         ->assertSee('156 RON')
         ->assertSee('trei luni calendaristice')
         ->assertSee('Sesiunea introductivă gratuită nu face parte din acest pachet')
