@@ -164,5 +164,6 @@
             });
         })();
     </script>
+    <x-public-site-footer />
 </body>
 </html>

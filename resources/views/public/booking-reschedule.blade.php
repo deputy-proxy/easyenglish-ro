@@ -25,4 +25,4 @@ body{margin:0;background:#f7f8f3;color:#14251f;font-family:system-ui,sans-serif}
 </div>
 <button class="button" type="submit" style="margin-top:22px">{{ __('public.booking_reschedule_button') }}</button>
 <a href="{{ URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $booking->starts_at->addDay()) }}" style="margin-left:12px;color:#176b4d">{{ __('public.back_to_booking') }}</a>
-</form></main></div></body></html>
+</form></main></div><x-public-site-footer /></body></html>

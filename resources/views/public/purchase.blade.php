@@ -168,5 +168,5 @@
             <p class="mt-8 text-center text-xs leading-5 text-muted" data-reveal>{{ __('public.purchase_footer_note') }}</p>
         </div>
     </main>
-</body>
+<x-public-site-footer /></body>
 </html>

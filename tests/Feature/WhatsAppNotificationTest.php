@@ -111,7 +111,7 @@ test('WhatsApp service consent is visible and required before a booking can be s
     $this->actingAs(User::factory()->create(['email' => 'no-consent@example.com', 'phone' => '+40722123456']));
     $this->withSession(['locale' => 'en'])->get('/book?type=intro')->assertOk()
         ->assertSee('name="whatsapp_service_consent"', false)
-        ->assertSee('No marketing messages will be sent.');
+        ->assertSee(__('public.whatsapp_service_consent'));
 
     $this->from('/book?type=intro')->post('/book', [
         'type' => 'intro',

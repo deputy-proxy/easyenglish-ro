@@ -157,7 +157,7 @@ test('overview totals only active unexpired usable bundle credits and shows the 
         ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('9')
-        ->assertSee('+ 1 more bundle')
+        ->assertSee(trans_choice('public.dashboard_more_bundles', 1, ['count' => 1]))
         ->assertSee('Soon expiring bundle')
         ->assertSee('No expiry bundle')
         ->assertSee(__('public.dashboard_nearest_expiry'))

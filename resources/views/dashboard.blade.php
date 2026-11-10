@@ -334,5 +334,6 @@
             @include('public.dashboard-support')
         @endif
     </main>
+    <x-public-site-footer />
 </body>
 </html>

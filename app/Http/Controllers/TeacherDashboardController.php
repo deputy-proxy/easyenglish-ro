@@ -16,9 +16,11 @@ class TeacherDashboardController
 
     public function index(Request $request): View
     {
-        $locale = $request->session()->get('locale', 'en');
-        $locale = in_array($locale, ['en', 'ro'], true) ? $locale : 'en';
-        app()->setLocale($locale);
+        if (! session()->has('locale')) {
+            session()->put('locale', 'ro');
+        }
+        app()->setLocale('ro');
+        CarbonImmutable::setLocale('ro');
 
         /** @var User $teacher */
         $teacher = $request->user();

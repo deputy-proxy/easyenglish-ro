@@ -14,10 +14,10 @@ it('returns published FAQs in display order', function () {
         ->toBe(['First question', 'Later question']);
 });
 
-it('renders only published FAQs for the active locale in display order', function () {
-    Faq::factory()->published()->create(['question' => 'Second question', 'answer' => 'Second answer', 'locale' => 'en', 'sort_order' => 20]);
-    Faq::factory()->published()->create(['question' => 'First question', 'answer' => 'First answer', 'locale' => 'en', 'sort_order' => 10]);
-    Faq::factory()->published()->create(['question' => 'Romanian question', 'locale' => 'ro']);
+it('renders only published Romanian FAQs in display order', function () {
+    Faq::factory()->published()->create(['question' => 'A doua întrebare', 'answer' => 'Al doilea răspuns', 'locale' => 'ro', 'sort_order' => 20]);
+    Faq::factory()->published()->create(['question' => 'Prima întrebare', 'answer' => 'Primul răspuns', 'locale' => 'ro', 'sort_order' => 10]);
+    Faq::factory()->published()->create(['question' => 'English question', 'locale' => 'en']);
     Faq::factory()->create(['question' => 'Unpublished question', 'locale' => 'en']);
 
     $response = $this->withSession(['locale' => 'en'])->get('/');
@@ -25,13 +25,13 @@ it('renders only published FAQs for the active locale in display order', functio
     $response->assertOk()
         ->assertSee('id="faq"', false)
         ->assertDontSee('id="faqs"', false)
-        ->assertSee('First question')
-        ->assertSee('Second question')
-        ->assertDontSee('Romanian question')
+        ->assertSee('Prima întrebare')
+        ->assertSee('A doua întrebare')
+        ->assertDontSee('English question')
         ->assertDontSee('Unpublished question');
 
-    expect(strpos($response->getContent(), 'First question'))
-        ->toBeLessThan(strpos($response->getContent(), 'Second question'));
+    expect(strpos($response->getContent(), 'Prima întrebare'))
+        ->toBeLessThan(strpos($response->getContent(), 'A doua întrebare'));
 });
 
 it('does not render an empty FAQ section', function () {

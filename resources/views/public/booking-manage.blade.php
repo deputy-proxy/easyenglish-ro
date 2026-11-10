@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="{{ app()->getLocale() }}">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ __('public.booking_manage_title') }} · Easy English</title>@vite(['resources/css/app.css'])</head>
+<body>
 <x-public-site-header />
 <div style="max-width:760px;margin:0 auto;padding:24px 16px 60px">
     <a href="{{ route('home') }}" style="font-size:22px;font-weight:800;color:#14251f;text-decoration:none">easy<span style="color:#176b4d">english</span></a>
@@ -44,5 +45,5 @@
         <p style="color:#64736c;font-size:13px;margin-top:28px">{{ __('public.booking_manage_footer') }}</p>
     </main>
 </div>
-</body>
+<x-public-site-footer /></body>
 </html>

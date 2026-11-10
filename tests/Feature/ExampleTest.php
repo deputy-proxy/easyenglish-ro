@@ -28,9 +28,9 @@ test('returns a successful response', function () {
     $response->assertSee('rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full', false);
 });
 
-test('mobile booking CTA reuses the free booking anchor and localized copy', function () {
-    foreach (['ro' => 'Programează gratuit', 'en' => 'Book for free'] as $locale => $label) {
-        $response = $this->withSession(['locale' => $locale])->get(route('home'));
+test('mobile booking CTA always uses Romanian copy even with a legacy English session', function () {
+    foreach (['ro' => 'Programează gratuit'] as $locale => $label) {
+        $response = $this->withSession(['locale' => 'en'])->get(route('home'));
 
         $response->assertOk();
         $response->assertSee('data-mobile-booking-cta', false);
@@ -76,7 +76,7 @@ test('public progress section displays an illustrative radar chart instead of me
     $response->assertDontSee(__('public.progress_metric_confidence_text'));
 });
 
-test('the four-step learner journey renders the approved process and responsive card track in both locales', function () {
+test('the four-step learner journey renders the approved Romanian process and responsive card track', function () {
     $expectedCopy = [
         'ro' => [
             'Alege intervalul',
@@ -105,8 +105,10 @@ test('the four-step learner journey renders the approved process and responsive 
         'en' => ['Tell us what you want to improve', 'Start with a free conversation', 'Continue at your own pace'],
     ];
 
-    foreach ($expectedCopy as $locale => $copy) {
-        $response = $this->withSession(['locale' => $locale])->get(route('home'));
+    $locale = 'ro';
+    $copy = $expectedCopy[$locale];
+    foreach ([$locale] as $activeLocale) {
+        $response = $this->withSession(['locale' => 'en'])->get(route('home'));
         $content = $response->getContent();
 
         $response->assertOk();
@@ -153,16 +155,16 @@ test('the four-step learner journey renders the approved process and responsive 
 
 test('the single public FAQ section keeps the bottom layout and renders backend-managed questions', function () {
     Faq::factory()->published()->create([
-        'question' => 'Another backend-managed question?',
-        'answer' => 'Another backend-managed answer.',
-        'locale' => app()->getLocale(),
+        'question' => 'Altă întrebare gestionată din panou?',
+        'answer' => 'Alt răspuns gestionat din panou.',
+        'locale' => 'ro',
         'sort_order' => 5,
     ]);
 
     Faq::factory()->published()->create([
-        'question' => 'Backend-managed question?',
-        'answer' => 'Backend-managed answer.',
-        'locale' => app()->getLocale(),
+        'question' => 'Întrebare gestionată din panou?',
+        'answer' => 'Răspuns gestionat din panou.',
+        'locale' => 'ro',
         'sort_order' => 10,
     ]);
 
@@ -172,8 +174,10 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
     $response->assertOk();
     $response->assertSee('id="faq"', false);
     $response->assertDontSee('id="faqs"', false);
-    $response->assertSee('Backend-managed question?');
-    $response->assertSee('Backend-managed answer.');
+    $response->assertSee('Altă întrebare gestionată din panou?');
+    $response->assertSee('Întrebare gestionată din panou?');
+    $response->assertSee('Alt răspuns gestionat din panou.');
+    $response->assertSee('Răspuns gestionat din panou.');
     $response->assertSee('name="faq"', false);
     expect(substr_count($content, 'name="faq"'))->toBe(2);
     $response->assertSee(__('public.faq_text'));
@@ -182,9 +186,9 @@ test('the single public FAQ section keeps the bottom layout and renders backend-
 
     expect(substr_count($content, 'id="faq"'))->toBe(1)
         ->and(strpos($content, __('public.faq_eyebrow')))
-        ->toBeLessThan(strpos($content, 'Backend-managed question?'))
+        ->toBeLessThan(strpos($content, 'Întrebare gestionată din panou?'))
         ->and(strpos($content, __('public.faq_text')))
-        ->toBeLessThan(strpos($content, 'Backend-managed question?'));
+        ->toBeLessThan(strpos($content, 'Întrebare gestionată din panou?'));
 });
 
 test('FAQ rows center closed question headers and reserve a separate answer row when expanded', function () {

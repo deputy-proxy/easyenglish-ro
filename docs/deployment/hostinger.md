@@ -37,7 +37,9 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://your-production-domain.example
 APP_KEY=base64:GENERATE_A_UNIQUE_KEY
-APP_LOCALE=ro
+# The public web middleware fixes the website locale to Romanian.
+# These defaults remain English for CLI and internal operations.
+APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 
 DB_CONNECTION=mysql

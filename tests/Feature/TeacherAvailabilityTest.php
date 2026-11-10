@@ -653,7 +653,7 @@ test('malformed Google Calendar snapshots fail closed without clearing the last 
         ->and($teacher->teacherCalendar->fresh()->status)->toBe('error');
 });
 
-test('teacher availability page is localized and supports dark appearance', function () {
+test('teacher availability page is always Romanian and supports dark appearance', function () {
     $teacher = createCalendarTeacher('Localized Availability', 'localized.availability@example.com');
 
     $this->actingAs($teacher)->withSession(['locale' => 'ro'])
@@ -663,12 +663,13 @@ test('teacher availability page is localized and supports dark appearance', func
         ->assertSee('Disponibilitatea profesorului')
         ->assertSee('Program săptămânal')
         ->assertSee('Duminică')
-        ->assertSee('name="locale" value="en"', false)
+        ->assertDontSee('name=\"locale\"', false)
         ->assertSee('dark:bg-zinc-950', false)
+        ->assertSee('data-public-site-footer', false)
         ->assertDontSee('Your availability');
 });
 
-test('teacher availability save confirmation follows the selected locale', function () {
+test('teacher availability save confirmation is Romanian', function () {
     $teacher = createCalendarTeacher('Localized Schedule', 'localized.schedule@example.com');
 
     $this->actingAs($teacher)->withSession(['locale' => 'ro'])

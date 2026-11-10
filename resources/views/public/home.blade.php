@@ -333,7 +333,6 @@
                         <form method="post" action="{{ route('booking.register') }}" data-booking-endpoint="{{ route('booking.register') }}" class="space-y-5" data-booking-register-branch data-booking-async-form data-booking-auth-form>
                             @csrf
                             <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
-                            <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <div class="grid gap-2">
                                     <label class="text-sm font-semibold text-ink" for="free-session-name">{{ __('public.field_name') }}</label>
@@ -394,7 +393,6 @@
                         <form method="post" action="{{ route('booking.login') }}" data-booking-endpoint="{{ route('booking.login') }}" class="hidden space-y-5" data-booking-login-branch data-booking-async-form data-booking-auth-form>
                             @csrf
                             <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" data-booking-form-errors role="alert" aria-live="assertive" hidden></div>
-                            <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
                             <p class="type-card-copy mt-0">{{ __('public.booking_sign_in_text') }}</p>
                             <div class="grid gap-2">
                                 <label class="text-sm font-semibold text-ink" for="free-session-login-email">{{ __('public.field_email') }}</label>
@@ -528,19 +526,7 @@
             aria-hidden="true"
         >{{ __('public.mobile_booking_cta') }}</a>
     </main>
-    <footer class="type-meta mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col items-start justify-between gap-5 py-9 pb-6 text-muted md:flex-row md:items-center" data-mobile-booking-cta-blocker><span>{{ __('public.footer_line') }}</span>
-        <div class="flex flex-wrap items-center gap-x-[18px] gap-y-3"><a class="hover:text-primary" href="{{ route('policy','privacy') }}">{{ __('public.footer_privacy') }}</a><a
-                class="hover:text-primary" href="{{ route('policy','terms') }}">{{ __('public.footer_terms')
-                }}</a>@if(config('easyenglish.contact_email'))<a
-                class="hover:text-primary" href="mailto:{{ config('easyenglish.contact_email') }}">{{ __('public.footer_contact')
-                }}</a>@else<span>{{ __('public.footer_contact') }} · {{ __('public.footer_contact_pending')
-                }}</span>@endif
-            <form class="flex items-center gap-1" method="post" action="{{ route('locale.set') }}">@csrf<button name="locale" value="ro"
-                    class="p-[7px] text-muted hover:text-primary {{ app()->getLocale() === 'ro' ? 'font-bold text-primary' : '' }}" aria-label="Română">RO</button><span>/</span><button
-                    name="locale" value="en" class="p-[7px] text-muted hover:text-primary {{ app()->getLocale() === 'en' ? 'font-bold text-primary' : '' }}"
-                    aria-label="English">EN</button></form>
-        </div>
-    </footer>
+    <x-public-site-footer />
     <script>
         (() => {
             const root = document.querySelector('[data-availability]');
@@ -562,7 +548,7 @@
             const moreTimesMessage = @json(__('public.availability_more_times'));
             const fewerTimesMessage = @json(__('public.availability_fewer_times'));
             const loadError = @json(__('public.availability_error'));
-            const formatSlotDate = date => new Intl.DateTimeFormat(root.dataset.locale === 'ro' ? 'ro-RO' : 'en-GB', {
+            const formatSlotDate = date => new Intl.DateTimeFormat('ro-RO', {
                 weekday: 'long',
                 day: 'numeric',
                 month: 'long',

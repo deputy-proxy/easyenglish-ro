@@ -711,7 +711,7 @@ test('teacher booking page is restricted to the currently assigned teacher and a
         ->assertDontSee($booking->customer_email)
         ->assertDontSee($booking->customer_phone)
         ->assertDontSee('Private booking note must remain hidden.')
-        ->assertSee('Session feedback');
+        ->assertSee(__('public.teacher_session_feedback'));
     $this->actingAs($teacher)->post(route('teacher.bookings.feedback', $booking->public_reference), [
         'scores' => ['fluency' => 75], 'feedback' => 'Good progress and clear pronunciation practice.',
     ])->assertUnprocessable();

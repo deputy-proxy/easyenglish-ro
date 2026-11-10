@@ -142,7 +142,7 @@ it('renders the featured bundle with a subtle border and localized discount savi
         ->assertSee('featured-bundle-card', false)
         ->assertDontSee('Special offer')
         ->assertDontSee('Featured')
-        ->assertSee('Save 25%')
+        ->assertSee(__('public.discount_save_percentage', ['value' => 25]))
         ->assertSee('156 RON')
         ->assertSee('117 RON');
 
@@ -152,8 +152,8 @@ it('renders the featured bundle with a subtle border and localized discount savi
 
     $content = $this->get(route('home'))->getContent();
     expect(strpos($content, 'Bundle 1'))->toBeLessThan(strpos($content, '156 RON'))
-        ->and(strpos($content, '156 RON'))->toBeLessThan(strpos($content, 'Save 25%'))
-        ->and(strpos($content, 'Save 25%'))->toBeLessThan(strpos($content, '117 RON'));
+        ->and(strpos($content, '156 RON'))->toBeLessThan(strpos($content, __('public.discount_save_percentage', ['value' => 25])))
+        ->and(strpos($content, __('public.discount_save_percentage', ['value' => 25])))->toBeLessThan(strpos($content, '117 RON'));
 });
 
 it('preserves the established percentage-price rounding and derives the displayed saving from exact prices', function (): void {
@@ -192,7 +192,7 @@ it('renders fixed discount savings as an effective percentage on the public bund
         ->get(route('home'))
         ->assertOk()
         ->assertDontSee('Fixed saving')
-        ->assertSee('Save 23%')
+        ->assertSee(__('public.discount_save_percentage', ['value' => 23]))
         ->assertDontSee('Save 36 RON')
         ->assertSee('156 RON')
         ->assertSee('120 RON');

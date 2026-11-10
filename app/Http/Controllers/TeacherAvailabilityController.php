@@ -17,15 +17,18 @@ use Illuminate\View\View;
 
 class TeacherAvailabilityController extends Controller
 {
-    private function applyLocale(Request $request): void
+    private function applyLocale(): void
     {
-        $locale = $request->session()->get('locale', 'en');
-        app()->setLocale(in_array($locale, ['en', 'ro'], true) ? $locale : 'en');
+        if (! session()->has('locale')) {
+            session()->put('locale', 'ro');
+        }
+        app()->setLocale('ro');
+        CarbonImmutable::setLocale('ro');
     }
 
     public function index(Request $request): View
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         /** @var User $teacher */
         $teacher = $request->user();
@@ -40,7 +43,7 @@ class TeacherAvailabilityController extends Controller
 
     public function updateAvailability(Request $request): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         /** @var User $teacher */
         $teacher = $request->user();
@@ -86,7 +89,7 @@ class TeacherAvailabilityController extends Controller
 
     public function storeException(Request $request): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         /** @var User $teacher */
         $teacher = $request->user();
@@ -111,7 +114,7 @@ class TeacherAvailabilityController extends Controller
 
     public function destroyException(Request $request, AvailabilityException $exception): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         abort_unless($exception->user_id === $request->user()->id, 404);
         $exception->delete();
@@ -121,7 +124,7 @@ class TeacherAvailabilityController extends Controller
 
     public function connectGoogleCalendar(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         abort_unless(config('services.google_calendar.client_id') && config('services.google_calendar.client_secret'), 503, __('public.teacher_calendar_not_configured'));
         $state = Str::random(48);
@@ -132,7 +135,7 @@ class TeacherAvailabilityController extends Controller
 
     public function googleCalendarCallback(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         $expectedState = $request->session()->pull('google_calendar_oauth_state');
         abort_unless(is_string($expectedState) && is_string($request->query('state')) && hash_equals($expectedState, $request->query('state')), 403);
@@ -154,7 +157,7 @@ class TeacherAvailabilityController extends Controller
 
     public function disconnectGoogleCalendar(Request $request, GoogleCalendarService $calendar): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         $calendar->disconnect($request->user());
 

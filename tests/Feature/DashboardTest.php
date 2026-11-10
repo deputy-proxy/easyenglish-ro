@@ -89,12 +89,12 @@ test('calendar and progress dashboard views show the learner’s own sessions an
     $this->actingAs($user)->withSession(['locale' => 'en'])
         ->get(route('dashboard', ['view' => 'calendar']))
         ->assertOk()
-        ->assertSee('Choose a session time');
+        ->assertSee(__('public.dashboard_calendar_title'));
 
     $this->get(route('dashboard', ['view' => 'progress']))
         ->assertOk()
-        ->assertSee('Vocabulary')
-        ->assertSee('Potential development')
+        ->assertSee(__('public.progress_metric_vocabulary'))
+        ->assertSee(__('public.dashboard_potential'))
         ->assertSee('85')
         ->assertSee('Practise everyday vocabulary')
         ->assertDontSee(__('public.dashboard_current'));
@@ -170,17 +170,17 @@ test('progress dashboard plots complete session assessments as separate radar ch
     $this->actingAs($user)->withSession(['locale' => 'en'])
         ->get(route('dashboard', ['view' => 'progress']))
         ->assertOk()
-        ->assertSee('Your development across five dimensions')
-        ->assertSee('2 complete session assessments')
-        ->assertSee('Session #'.$firstBooking->id)
-        ->assertSee('Session #'.$secondBooking->id)
-        ->assertSee('Strongest measured improvement')
-        ->assertSee('+20 points')
-        ->assertSee('Your latest progress report')
+        ->assertSee(__('public.dashboard_progress_chart_title'))
+        ->assertSee(trans_choice('public.dashboard_progress_assessment_count', 2, ['count' => 2]))
+        ->assertSee(__('public.dashboard_session_number', ['number' => $firstBooking->id]))
+        ->assertSee(__('public.dashboard_session_number', ['number' => $secondBooking->id]))
+        ->assertSee(__('public.dashboard_progress_strongest'))
+        ->assertSee('+20 '.__('public.dashboard_progress_points'))
+        ->assertSee(__('public.dashboard_progress_reports_title'))
         ->assertSee('Practise explaining decisions in English.')
         ->assertSee('20', false)
         ->assertSee('40', false)
-        ->assertSee('1 session assessment(s) are incomplete', false);
+        ->assertSee(__('public.dashboard_progress_partial_note', ['count' => 1]));
 });
 
 test('dashboard shows pending and failed call-link states without implying the booking failed', function () {

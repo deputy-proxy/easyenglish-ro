@@ -7,11 +7,6 @@
             @if (($context ?? 'customer') === 'teacher' && auth()->user()->is_staff)
                 <a href="{{ url('/admin') }}" class="hidden text-sm font-semibold text-muted underline-offset-4 hover:text-ink hover:underline sm:inline">{{ __('public.teacher_open_staff_admin') }}</a>
             @endif
-            <form method="POST" action="{{ route('locale.set') }}" class="flex items-center rounded-full border border-line bg-paper p-1" aria-label="{{ __('public.dashboard_account_language_heading') }}">
-                @csrf
-                <button name="locale" value="ro" aria-pressed="{{ app()->getLocale() === 'ro' ? 'true' : 'false' }}" class="rounded-full px-2.5 py-1.5 text-xs font-bold transition {{ app()->getLocale() === 'ro' ? 'bg-ink text-white' : 'text-muted hover:text-ink' }}">RO</button>
-                <button name="locale" value="en" aria-pressed="{{ app()->getLocale() === 'en' ? 'true' : 'false' }}" class="rounded-full px-2.5 py-1.5 text-xs font-bold transition {{ app()->getLocale() === 'en' ? 'bg-ink text-white' : 'text-muted hover:text-ink' }}">EN</button>
-            </form>
             <div class="hidden text-right sm:block">
                 <p class="max-w-40 truncate text-sm font-semibold text-ink">{{ auth()->user()->name }}</p>
                 <p class="max-w-40 truncate text-xs text-muted">{{ auth()->user()->email }}</p>

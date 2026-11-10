@@ -12,7 +12,6 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [PublicSiteController::class, 'home'])->name('home');
-Route::post('/language', [PublicSiteController::class, 'setLocale'])->middleware('throttle:20,1')->name('locale.set');
 Route::get('/availability', [PublicSiteController::class, 'availability'])->middleware('throttle:60,1')->name('availability');
 Route::get('/book', [PublicSiteController::class, 'bookingForm'])->name('booking.create');
 Route::post('/book/register', [PublicSiteController::class, 'registerForFreeBooking'])->middleware(['guest', 'throttle:10,1'])->name('booking.register');

@@ -19,7 +19,7 @@
                 </a>
 
                 <div class="mb-10 border-b border-line pb-8 md:mb-12 md:pb-10">
-                    <p class="mb-[18px] type-eyebrow">{{ $page === 'privacy' ? (app()->getLocale() === 'ro' ? 'CONFIDENȚIALITATE' : 'PRIVACY') : (app()->getLocale() === 'ro' ? 'TERMENI ȘI CONDIȚII' : 'TERMS & CONDITIONS') }}</p>
+                    <p class="mb-[18px] type-eyebrow">{{ $page === 'privacy' ? 'CONFIDENȚIALITATE' : 'TERMENI ȘI ANULĂRI' }}</p>
                     <h1 class="type-section-title mb-5">{{ $page === 'privacy' ? __('public.privacy_title') : __('public.terms_title') }}</h1>
                     <p class="type-section-copy max-w-[68ch]">{{ $page === 'privacy' ? __('public.privacy_intro') : __('public.terms_intro') }}</p>
                 </div>
@@ -61,23 +61,7 @@
             </div>
         </main>
 
-        <footer class="border-t border-line bg-surface-subtle">
-            <div class="mx-auto flex w-[calc(100%-2.5rem)] max-w-[1160px] flex-col gap-5 py-7 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
-                <a href="{{ route('home') }}" class="font-bold tracking-tight text-ink">EasyEnglish</a>
-                <nav class="flex flex-wrap items-center gap-x-6 gap-y-2" aria-label="{{ app()->getLocale() === 'ro' ? 'Linkuri juridice' : 'Legal links' }}">
-                    <a class="transition-colors hover:text-primary" href="{{ route('terms') }}">{{ __('public.terms_title') }}</a>
-                    <a class="transition-colors hover:text-primary" href="{{ route('privacy') }}">{{ __('public.privacy_title') }}</a>
-                </nav>
-                <form action="{{ route('locale.set') }}" method="POST" class="flex items-center gap-2">
-                    @csrf
-                    <label for="policy-locale" class="sr-only">{{ app()->getLocale() === 'ro' ? 'Limba' : 'Language' }}</label>
-                    <select id="policy-locale" name="locale" onchange="this.form.submit()" class="rounded-md border border-line bg-white px-2.5 py-2 text-xs font-semibold text-ink">
-                        <option value="ro" @selected(app()->getLocale() === 'ro')>Română</option>
-                        <option value="en" @selected(app()->getLocale() === 'en')>English</option>
-                    </select>
-                </form>
-            </div>
-        </footer>
+        <x-public-site-footer />
     </div>
 </body>
 </html>

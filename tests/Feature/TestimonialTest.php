@@ -23,17 +23,17 @@ it('allows publishing only after publication consent has been recorded', functio
         ->and($testimonial->fresh()->publication_consent_at)->not->toBeNull();
 });
 
-it('renders only published consented testimonials for the active locale', function () {
+it('renders only published consented Romanian testimonials', function () {
     Testimonial::factory()->approvedAndPublished()->create([
-        'quote' => 'I can finally speak with confidence.',
+        'quote' => 'Pot vorbi în engleză cu mai multă încredere.',
         'author_name' => 'Maria',
         'author_context' => 'Adult learner',
-        'locale' => 'en',
+        'locale' => 'ro',
         'sort_order' => 1,
     ]);
     Testimonial::factory()->approvedAndPublished()->create([
-        'quote' => 'Unrelated Romanian quote.',
-        'locale' => 'ro',
+        'quote' => 'English quote must stay hidden.',
+        'locale' => 'en',
     ]);
     Testimonial::factory()->create([
         'quote' => 'Published without consent must stay hidden.',
@@ -43,10 +43,10 @@ it('renders only published consented testimonials for the active locale', functi
 
     $this->withSession(['locale' => 'en'])->get('/')
         ->assertOk()
-        ->assertSee('I can finally speak with confidence.')
+        ->assertSee('Pot vorbi în engleză cu mai multă încredere.')
         ->assertSee('Maria')
         ->assertSee('Adult learner')
-        ->assertDontSee('Unrelated Romanian quote.')
+        ->assertDontSee('English quote must stay hidden.')
         ->assertDontSee('Published without consent must stay hidden.')
         ->assertDontSee('Cursant anonim');
 });
@@ -113,17 +113,17 @@ it('allows staff to create a consented testimonial from Filament', function () {
 
 it('renders published learner stories as an accessible single-story carousel', function () {
     Testimonial::factory()->approvedAndPublished()->create([
-        'quote' => 'I can speak more confidently at work.',
+        'quote' => 'Vorbesc mai încrezător la serviciu.',
         'author_name' => 'Maria',
         'author_context' => 'English for work',
-        'locale' => 'en',
+        'locale' => 'ro',
         'sort_order' => 1,
     ]);
     Testimonial::factory()->approvedAndPublished()->create([
-        'quote' => 'I can follow meetings without translating every sentence.',
+        'quote' => 'Pot urmări ședințele fără să traduc fiecare propoziție.',
         'author_name' => 'Alex',
         'author_context' => 'Professional English',
-        'locale' => 'en',
+        'locale' => 'ro',
         'sort_order' => 2,
     ]);
 
@@ -137,8 +137,8 @@ it('renders published learner stories as an accessible single-story carousel', f
         ->assertSee('data-autoplay-duration="7000"', false)
         ->assertSee('testimonial-panel is-entering', false)
         ->assertDontSee('data-testimonial-selector', false)
-        ->assertSee('I can speak more confidently at work.')
-        ->assertSee('I can follow meetings without translating every sentence.')
+        ->assertSee('Vorbesc mai încrezător la serviciu.')
+        ->assertSee('Pot urmări ședințele fără să traduc fiecare propoziție.')
         ->assertSee('Maria')
         ->assertSee('Alex');
 
