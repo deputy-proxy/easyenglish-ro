@@ -15,7 +15,7 @@
     --hero-glass-blur: 10px;
 }
 
-/* The hero and navigation begin as one surface, then separate into a floating header. */
+/* The hero and sticky navigation begin as one surface, then gain a floating treatment on scroll. */
 .public-hero-shell {
     --hero-shell-radius: 0px;
     --hero-shell-width: 100%;
@@ -32,16 +32,11 @@
     background-color: transparent;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    transition: background-color 180ms ease, box-shadow 180ms ease, border-radius 180ms ease;
+    transition: background-color 180ms ease, box-shadow 180ms ease, border-radius 180ms ease, padding-inline 180ms ease;
 }
 
 .public-site-header.is-floating {
-    position: fixed;
-    top: 0;
-    left: 50%;
-    width: var(--hero-shell-width);
-    margin-bottom: 0;
-    transform: translateX(-50%);
+    /* Keep the header sticky so changing its visual treatment never changes document flow. */
     border-radius: 0 0 var(--hero-shell-radius) var(--hero-shell-radius);
     background-color: rgb(255 255 255 / 90%);
     box-shadow: 0 8px 28px rgb(20 35 75 / 12%);
