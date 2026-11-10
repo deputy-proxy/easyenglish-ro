@@ -1,0 +1,14 @@
+A new session is assigned to you
+
+Hello, Maria,
+
+A booking has been confirmed and assigned to you. Review the learner details and prepare for the session.
+
+Customer: Alex Popescu
+Customer email: alex@example.com
+English level: B1
+Session goal: Work conversations
+Appointment: 17.11.2026, 14:00
+Open booking: https://easyenglish.ro/teacher/bookings/demo
+
+This is a service email about an assigned session.

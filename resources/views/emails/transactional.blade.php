@@ -1,7 +1,7 @@
 @include('emails.partials.shell-start', ['locale' => $messageData['locale'], 'subject' => $messageData['subject']])
 <tr><td style="padding:34px 30px 30px;">
 @if($messageData['success'] ?? false)
-<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 16px;"><tr><td align="center" width="48" height="48" style="width:48px;height:48px;border-radius:50%;background:#16A765;color:#FFFFFF;font-size:28px;font-weight:bold;line-height:48px;">&#10003;</td></tr></table>
+<table role="presentation" align="center" cellspacing="0" cellpadding="0" border="0" style="margin:0 auto 16px;"><tr><td align="center" width="48" height="48" style="width:48px;height:48px;border-radius:50%;background:#176B4D;color:#FFFFFF;font-size:28px;font-weight:bold;line-height:48px;">&#10003;</td></tr></table>
 @endif
 <h1 style="margin:0 0 22px;color:#14234B;font-size:28px;line-height:1.2;letter-spacing:-.6px;text-align:center;font-weight:700;">{{ $messageData['heading'] }}</h1>
 <p style="margin:0 0 10px;color:#14234B;font-size:16px;font-weight:700;">{{ $messageData['greeting'] }}</p>

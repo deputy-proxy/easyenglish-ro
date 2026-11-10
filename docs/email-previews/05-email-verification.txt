@@ -1,0 +1,9 @@
+Verifică adresa de e-mail
+
+Codul tău de verificare EasyEnglish este: 482951
+
+Codul expiră în 30 de minute.
+
+Link de verificare de rezervă: https://easyenglish.ro/verify?token=preview-token
+
+Nu comunica acest cod nimănui. Dacă nu ai solicitat această verificare, poți ignora acest e-mail.

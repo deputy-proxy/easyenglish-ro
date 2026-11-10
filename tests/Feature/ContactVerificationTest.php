@@ -3,6 +3,7 @@
 use App\Contracts\Notifications\WhatsAppGateway;
 use App\Contracts\Payments\StripeGateway;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
+use App\Mail\ContactVerificationEmail;
 use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BookingCallEvent;
@@ -16,6 +17,7 @@ use App\Services\Payments\StripeCheckoutService;
 use App\Services\Verification\ContactVerificationService;
 use App\Services\Verification\FreeSessionEligibilityService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -944,4 +946,23 @@ test('starting verification for a changed phone invalidates the previous account
         ->and($firstChallenge->fresh()->consumed_at)->not->toBeNull()
         ->and($secondChallenge->isUsable())->toBeTrue()
         ->and(session('contact_verification_id'))->toBe($secondChallenge->id);
+});
+
+test('contact verification sends the branded localized email mailable', function () {
+    Mail::fake();
+    config([
+        'services.contact_verification.mode' => 'email_only',
+        'services.whatsapp.enabled' => false,
+        'services.whatsapp.access_token' => null,
+        'services.whatsapp.phone_number_id' => null,
+    ]);
+
+    app(ContactVerificationService::class)->start('branded@example.com', '+40722123459', 'ro');
+
+    Mail::assertSent(ContactVerificationEmail::class, function (ContactVerificationEmail $mail): bool {
+        return $mail->messageLocale === 'ro'
+            && preg_match('/^[0-9]{6}$/', $mail->code) === 1
+            && str_contains($mail->render(), '30 de minute')
+            && str_contains($mail->render(), 'Nu comunica acest cod nimănui.');
+    });
 });
