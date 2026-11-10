@@ -357,7 +357,7 @@ test('landing page uses a white browser theme and centered mobile process and te
 
     $response->assertSee('<meta name="theme-color" content="#ffffff">', false)
         ->assertSee('min-h-11 min-w-11', false)
-        ->assertSee('h-[13.5px]', false)
+        ->assertSee('h-[27px] w-[27px]', false)
         ->assertSee('flex items-center justify-between gap-3 p-6 text-white', false);
 
     expect($styles)->toContain('.how-step-card {')
