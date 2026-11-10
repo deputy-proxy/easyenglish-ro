@@ -43,7 +43,7 @@ test('transactional email uses the EasyEnglish Option 1 brand system and plain t
 
     expect($html)->toContain('#14234B')
         ->and($html)->toContain('#1450DF')
-        ->and($html)->toContain('logo-white.png')
+        ->and($html)->toContain('data:image/png;base64,')
         ->and($html)->toContain('Confirmarea sesiunii tale')
         ->and($html)->toContain('Gestionează programarea')
         ->and($plain)->toContain('Gestionează programarea: https://easyenglish.ro/book');
@@ -58,7 +58,7 @@ test('verification email renders a prominent code, expiry, backup link and secur
         expect($html)->toContain('482951')
             ->and($html)->toContain($locale === 'en' ? '30 minutes' : '30 de minute')
             ->and($html)->toContain('https://easyenglish.ro/verify?token=example')
-            ->and($html)->toContain('logo-white.png')
+            ->and($html)->toContain('data:image/png;base64,')
             ->and($plain)->toContain('482951')
             ->and($plain)->toContain('https://easyenglish.ro/verify?token=example');
     }
