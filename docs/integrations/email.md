@@ -38,6 +38,10 @@ SMTP remains available if a future provider choice requires it. Configure `MAIL_
 
 The current approved EasyEnglish email visual system and event-to-template inventory are documented in [email templates](../email-templates.md). That document covers the shared Blade presentation, logo asset, Romanian/English flows, preview instructions, and email-client compatibility constraints.
 
+## Previewing email templates
+
+Use `php artisan emails:preview` to generate HTML and plain-text previews for every transactional, verification, and OpenWA email in Romanian and English. The command does not send email unless `--send`, one specific `--event`, one `--locale`, and `--to` are supplied. See [email template previews](../email-templates.md#previewing-and-testing-with-artisan) for examples and production safeguards.
+
 ## Messages and language
 
 The selected Romanian/English locale is persisted with the booking or bundle at creation time, so a later browser-language change does not unexpectedly change an existing customer's email language. Transactional templates are in `resources/views/emails/transactional.blade.php` and `resources/views/emails/transactional-text.blade.php`, with translated subjects and content in `lang/ro/email.php` and `lang/en/email.php`.
