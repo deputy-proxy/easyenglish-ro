@@ -17,15 +17,25 @@ class OpenWaSessionDisconnected extends Mailable
         public string $sessionId,
         public string $reason,
         public CarbonImmutable $disconnectedAt,
-    ) {}
+        public string $messageLocale = 'en',
+    ) {
+        $this->messageLocale = in_array($messageLocale, ['ro', 'en'], true) ? $messageLocale : 'en';
+        $this->locale($this->messageLocale);
+    }
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Action required: EasyEnglish WhatsApp disconnected');
+        return new Envelope(subject: $this->messageLocale === 'ro'
+            ? 'Acțiune necesară: sesiunea WhatsApp EasyEnglish este deconectată'
+            : 'Action required: EasyEnglish WhatsApp disconnected');
     }
 
     public function content(): Content
     {
-        return new Content(view: 'emails.openwa-disconnected', text: 'emails.openwa-disconnected-text');
+        return new Content(
+            view: 'emails.openwa-disconnected',
+            text: 'emails.openwa-disconnected-text',
+            with: ['locale' => $this->messageLocale],
+        );
     }
 }

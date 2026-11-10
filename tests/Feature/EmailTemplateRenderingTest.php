@@ -45,19 +45,29 @@ test('verification email renders a prominent code, expiry, backup link and secur
     }
 });
 
-test('OpenWA disconnection alert renders operational details and a plain text checklist', function () {
-    $mail = new OpenWaSessionDisconnected(
-        'easyenglish-openwa-poc',
-        'connection_lost',
-        CarbonImmutable::parse('2026-11-10T12:00:00Z'),
-    );
+test('OpenWA disconnection alert renders operational details in Romanian and English', function () {
+    foreach (['en', 'ro'] as $locale) {
+        $mail = new OpenWaSessionDisconnected(
+            'easyenglish-openwa-poc',
+            'connection_lost',
+            CarbonImmutable::parse('2026-11-10T12:00:00Z'),
+            $locale,
+        );
 
-    $html = $mail->render();
-    $plain = view('emails.openwa-disconnected-text', ['sessionId' => $mail->sessionId, 'reason' => $mail->reason, 'disconnectedAt' => $mail->disconnectedAt])->render();
+        $html = $mail->render();
+        $plain = view('emails.openwa-disconnected-text', [
+            'locale' => $locale,
+            'sessionId' => $mail->sessionId,
+            'reason' => $mail->reason,
+            'disconnectedAt' => $mail->disconnectedAt,
+        ])->render();
 
-    expect($html)->toContain('easyenglish-openwa-poc')
-        ->and($html)->toContain('connection lost')
-        ->and($html)->toContain('Recommended action')
-        ->and($plain)->toContain('Detected at (UTC)')
-        ->and($plain)->toContain('Reconnect the device');
+        expect($mail->envelope()->subject)->toBe($locale === 'en'
+            ? 'Action required: EasyEnglish WhatsApp disconnected'
+            : 'Acțiune necesară: sesiunea WhatsApp EasyEnglish este deconectată')
+            ->and($html)->toContain('easyenglish-openwa-poc')
+            ->and($html)->toContain($locale === 'en' ? 'Recommended action' : 'Acțiuni recomandate')
+            ->and($html)->toContain($locale === 'en' ? 'Detected at (UTC)' : 'Detectată la (UTC)')
+            ->and($plain)->toContain($locale === 'en' ? 'Reconnect the device' : 'Reconectează dispozitivul');
+    }
 });

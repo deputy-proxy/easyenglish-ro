@@ -1,0 +1,13 @@
+ACȚIUNE NECESARĂ: SESIUNEA WHATSAPP EASYENGLISH ESTE DECONECTATĂ
+
+Sesiunea OpenWA nu mai este conectată. Mesajele WhatsApp și apelurile programate pot fi indisponibile până la reconectarea sesiunii.
+
+Identificator sesiune: easyenglish-openwa-poc
+Detectată la (UTC): 2026-11-10T12:00:00+00:00
+Motivul deconectării: connection lost
+
+Acțiuni recomandate:
+1. Verifică starea serviciului OpenWA și jurnalele recente.
+2. Verifică dacă dispozitivul WhatsApp a fost deconectat.
+3. Reconectează dispozitivul prin scanarea codului QR de asociere, dacă este necesar.
+4. Verifică autentificarea sesiunii și trimite un mesaj de test controlat.
