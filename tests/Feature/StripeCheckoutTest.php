@@ -183,7 +183,7 @@ test('pending purchase pages keep displaying the immutable price and discount sn
         ->get(route('purchase', $bundle))
         ->assertOk()
         ->assertSee('name="displayed_price_ron" value="117"', false)
-        ->assertSee('Saved offer')
+        ->assertSee('Ofertă salvată')
         ->assertSee('156 RON')
         ->assertSee('117');
 });
@@ -333,7 +333,7 @@ test('cancelled bundle checkout returns to the purchase page without creating a 
 
     $this->get(route('purchase', $purchase['bundle']))
         ->assertOk()
-        ->assertSee('lang="en"', false)
+        ->assertSee('lang="ro"', false)
         ->assertSee(__('public.purchase_cancelled_notice'));
 
     expect($purchase['payment']->fresh()->status)->toBe('cancelled')

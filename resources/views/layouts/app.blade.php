@@ -2,4 +2,5 @@
     <flux:main>
         {{ $slot }}
     </flux:main>
+    <x-public-site-footer />
 </x-layouts::app.sidebar>

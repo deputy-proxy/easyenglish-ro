@@ -132,12 +132,12 @@ test('assessment history is paginated and keeps the newest ten records on the fi
         ->assertSee(__('public.dashboard_progress_assessment_history'))
         ->assertViewHas('assessmentHistory', fn ($history): bool => $history->total() === 12 && $history->count() === 10);
 
-    $firstPage->assertSee('Session #'.$bookings[0]->id)
-        ->assertDontSee('Session #'.$bookings[11]->id);
+    $firstPage->assertSee(__('public.dashboard_session_number', ['number' => $bookings[0]->id]))
+        ->assertDontSee(__('public.dashboard_session_number', ['number' => $bookings[11]->id]));
 
     $this->get(route('dashboard', ['view' => 'progress', 'assessments_page' => 2]))
         ->assertOk()
-        ->assertSee('Session #'.$bookings[11]->id)
+        ->assertSee(__('public.dashboard_session_number', ['number' => $bookings[11]->id]))
         ->assertViewHas('assessmentHistory', fn ($history): bool => $history->currentPage() === 2);
 });
 

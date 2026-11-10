@@ -45,7 +45,7 @@ class PublicSiteController extends Controller
 {
     public function home(Request $request, FreeSessionEligibilityService $eligibilityService): View
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         $user = $request->user();
         $verificationId = $request->session()->get('contact_verification_id');
@@ -91,27 +91,9 @@ class PublicSiteController extends Controller
         ]);
     }
 
-    public function setLocale(Request $request): RedirectResponse
-    {
-        $validated = $request->validate(['locale' => ['required', 'in:ro,en']]);
-        $request->session()->put('locale', $validated['locale']);
-
-        $referer = (string) $request->headers->get('referer', '');
-        $refererHost = parse_url($referer, PHP_URL_HOST);
-        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
-        if ($referer === '' || (is_string($refererHost) && is_string($appHost) && ! hash_equals($appHost, $refererHost))) {
-            return redirect()->route('home');
-        }
-
-        $path = parse_url($referer, PHP_URL_PATH) ?: '/';
-        $query = parse_url($referer, PHP_URL_QUERY);
-
-        return redirect($path.($query ? '?'.$query : ''));
-    }
-
     public function availability(Request $request, AvailabilityService $availability): JsonResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate(['week' => ['nullable', 'date_format:Y-m-d']]);
         $timezone = AvailabilityService::TIMEZONE;
         /** @var CarbonImmutable $week */
@@ -143,7 +125,7 @@ class PublicSiteController extends Controller
 
     public function bookingForm(Request $request): View|RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $type = $request->query('type', 'intro');
         abort_unless(in_array($type, ['intro', 'bundle'], true), 404);
 
@@ -209,7 +191,7 @@ class PublicSiteController extends Controller
         ContactVerificationService $verificationService,
         FreeSessionEligibilityService $eligibilityService,
     ): RedirectResponse|JsonResponse {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $user = $request->user();
         abort_unless($user !== null, 401);
 
@@ -280,7 +262,7 @@ class PublicSiteController extends Controller
             $challenge = $verificationService->start(
                 $email,
                 $phone,
-                app()->getLocale(),
+                session('locale', 'ro'),
                 $validated['return_to'],
                 $bundleId,
                 $emailAlreadyVerified,
@@ -337,7 +319,7 @@ class PublicSiteController extends Controller
         ContactVerificationService $verificationService,
         FreeSessionEligibilityService $eligibilityService,
     ): RedirectResponse|JsonResponse {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate([
             'verification_id' => ['required', 'uuid'],
             'phone_code' => ['required', 'digits:6'],
@@ -379,7 +361,7 @@ class PublicSiteController extends Controller
         ContactVerificationService $verificationService,
         FreeSessionEligibilityService $eligibilityService,
     ): RedirectResponse|JsonResponse {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate([
             'verification_id' => ['required', 'uuid'],
             'email_code' => ['required', 'digits:6'],
@@ -423,7 +405,7 @@ class PublicSiteController extends Controller
         ContactVerificationService $verificationService,
         FreeSessionEligibilityService $eligibilityService,
     ): RedirectResponse {
-        $this->applyLocale($request);
+        $this->applyLocale();
         if (! $request->hasValidSignature()) {
             return redirect()->route('home')->withErrors(['verification' => __('public.verification_email_invalid')]);
         }
@@ -435,7 +417,8 @@ class PublicSiteController extends Controller
         $verified = $verificationService->confirmEmail($challenge, $token);
         $user->forceFill(['email_verified_at' => now()])->save();
         $request->session()->put('locale', $verified->locale);
-        app()->setLocale($verified->locale);
+        app()->setLocale('ro');
+        CarbonImmutable::setLocale('ro');
         $savedForm = $request->session()->get('contact_verification_form_data', []);
         $slot = is_array($savedForm) && is_string($savedForm['starts_at'] ?? null) ? $savedForm['starts_at'] : null;
         $message = __('public.verification_email_success');
@@ -565,7 +548,7 @@ class PublicSiteController extends Controller
 
     public function registerForFreeBooking(Request $request, CreateNewUser $users, FreeSessionEligibilityService $eligibilityService): RedirectResponse|JsonResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
@@ -630,7 +613,7 @@ class PublicSiteController extends Controller
 
     public function loginForFreeBooking(Request $request, FreeSessionEligibilityService $eligibilityService): RedirectResponse|JsonResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:254'],
             'password' => ['required', 'string'],
@@ -696,7 +679,7 @@ class PublicSiteController extends Controller
 
     public function submitBooking(Request $request, AvailabilityService $availability, BookingService $bookings): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         // Registration and verification can record WhatsApp service consent before
         // the final booking form is shown. Reuse that consent if the form omits its checkbox.
@@ -784,7 +767,7 @@ class PublicSiteController extends Controller
             'session_goal' => $validated['session_goal'],
             'notes' => $validated['notes'] ?? null,
             'accepted_policy_version' => config('easyenglish.policy_version'),
-            'locale' => app()->getLocale(),
+            'locale' => session('locale', 'ro'),
         ], $startsAt, $entitlement?->id, $validated['type'] === 'intro', ($verificationChallenge?->email_verified_at !== null) || $accountContactsVerified, ($verificationChallenge?->phone_verified_at !== null) || $accountContactsVerified, $request->user()->id);
         $bookings->confirm($booking->id);
         if ($verificationChallenge) {
@@ -799,14 +782,14 @@ class PublicSiteController extends Controller
     {
         abort_unless($request->hasValidSignature(false), 403);
         $booking = Booking::query()->with('teacher')->where('public_reference', $reference)->where('status', 'confirmed')->firstOrFail();
-        $this->applyLocale($request);
+        $this->applyLocale();
 
         return view('public.confirmed', ['booking' => $booking]);
     }
 
     public function manageBooking(Request $request, string $reference, CancellationPolicyService $policy): View
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
         $actions = $policy->customerActions($booking);
         $expiresAt = $booking->starts_at->addDay();
@@ -835,7 +818,7 @@ class PublicSiteController extends Controller
 
     public function rescheduleForm(Request $request, string $reference, AvailabilityService $availability, CancellationPolicyService $policy): View
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $booking = Booking::query()->where('public_reference', $reference)->firstOrFail();
         abort_unless($policy->customerActions($booking)['can_reschedule'], 403);
 
@@ -875,7 +858,7 @@ class PublicSiteController extends Controller
 
     public function purchase(Request $request, BundleDefinition $bundle, DiscountVoucherService $vouchers): View|RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         if (! $request->user()) {
             return redirect()->guest(route('login'));
         }
@@ -947,7 +930,7 @@ class PublicSiteController extends Controller
 
     public function applyPurchaseVoucher(Request $request, BundleDefinition $bundle, DiscountVoucherService $vouchers): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         abort_unless($request->user() !== null, 403);
         $validated = $request->validate(['voucher_code' => ['required', 'string', 'min:2', 'max:64']]);
         $token = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
@@ -969,7 +952,7 @@ class PublicSiteController extends Controller
 
     public function removePurchaseVoucher(Request $request, BundleDefinition $bundle): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         abort_unless($request->user() !== null, 403);
         $token = $request->session()->get('bundle_checkout_tokens.'.$bundle->id);
         $entitlement = is_string($token)
@@ -987,7 +970,7 @@ class PublicSiteController extends Controller
 
     public function startCheckout(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         abort_unless($bundle->is_active, 404);
         $validated = $request->validate([
             'purchase_token' => ['required', 'string', 'min:40', 'max:80', 'regex:/^[A-Za-z0-9]+$/'],
@@ -1035,7 +1018,7 @@ class PublicSiteController extends Controller
                 && PhoneNumber::normalize((string) $request->user()->phone) === PhoneNumber::normalize($validated['phone']);
             $payment = $checkout->start($bundle, [
                 'name' => $validated['name'], 'email' => $validated['email'], 'phone' => $validated['phone'],
-            ], $validated['purchase_token'], (int) $validated['displayed_price_ron'], app()->getLocale(), $verificationChallenge, $accountContactsVerified, $request->user(), $request->session()->get('bundle_voucher_codes.'.$bundle->id));
+            ], $validated['purchase_token'], (int) $validated['displayed_price_ron'], session('locale', 'ro'), $verificationChallenge, $accountContactsVerified, $request->user(), $request->session()->get('bundle_voucher_codes.'.$bundle->id));
         } catch (ValidationException $exception) {
             return back()->withInput()->withErrors($exception->errors());
         } catch (\Throwable $exception) {
@@ -1072,7 +1055,7 @@ class PublicSiteController extends Controller
 
     public function purchaseSuccess(Request $request, StripeCheckoutService $checkout): View|RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate(['session_id' => ['required', 'string', 'max:255', 'regex:/^cs_[A-Za-z0-9_]+$/']]);
         $payment = null;
         try {
@@ -1102,7 +1085,7 @@ class PublicSiteController extends Controller
 
     public function purchaseCancel(Request $request, BundleDefinition $bundle, StripeCheckoutService $checkout): RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $validated = $request->validate([
             'token' => ['required', 'string', 'min:40', 'max:80', 'regex:/^[A-Za-z0-9]+$/'],
             'session_id' => ['nullable', 'string', 'max:255', 'regex:/^cs_[A-Za-z0-9_]+$/'],
@@ -1124,7 +1107,7 @@ class PublicSiteController extends Controller
 
     public function dashboard(Request $request, ProgressChartData $progressChartData, CancellationPolicyService $cancellationPolicy, CustomerPurchasePresenter $purchasePresenter): Response|RedirectResponse
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         $customer = $request->user()->loadMissing('studentProfile');
         if ($customer->isTeacher()) {
             return redirect()->route($customer->teacher_active ? 'teacher.dashboard' : 'teacher.availability');
@@ -1595,7 +1578,7 @@ class PublicSiteController extends Controller
 
     public function policy(Request $request, string $page): View
     {
-        $this->applyLocale($request);
+        $this->applyLocale();
         abort_unless(in_array($page, ['privacy', 'terms'], true), 404);
 
         return view('public.policy', ['page' => $page]);
@@ -1660,13 +1643,12 @@ class PublicSiteController extends Controller
         return URL::signedRoute('booking.manage', ['reference' => $booking->public_reference], $expiresAt);
     }
 
-    private function applyLocale(Request $request): void
+    private function applyLocale(): void
     {
-        $locale = $request->input('locale');
-        if (is_string($locale) && in_array($locale, ['ro', 'en'], true)) {
-            $request->session()->put('locale', $locale);
+        if (! session()->has('locale')) {
+            session()->put('locale', 'ro');
         }
-
-        app()->setLocale($request->session()->get('locale', 'ro'));
+        app()->setLocale('ro');
+        CarbonImmutable::setLocale('ro');
     }
 }

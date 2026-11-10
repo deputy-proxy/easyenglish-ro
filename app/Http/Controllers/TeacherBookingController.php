@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Booking;
 use App\Models\SessionFeedback;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -13,9 +14,11 @@ class TeacherBookingController
 {
     public function show(Request $request, string $reference): View
     {
-        $locale = $request->session()->get('locale', 'en');
-        $locale = in_array($locale, ['en', 'ro'], true) ? $locale : 'en';
-        app()->setLocale($locale);
+        if (! session()->has('locale')) {
+            session()->put('locale', 'ro');
+        }
+        app()->setLocale('ro');
+        CarbonImmutable::setLocale('ro');
 
         $booking = $this->assignedBooking($request, $reference);
         $feedback = SessionFeedback::query()->where('booking_id', $booking->id)->get()->keyBy('metric_key');

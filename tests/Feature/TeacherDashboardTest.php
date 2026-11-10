@@ -177,14 +177,16 @@ test('teacher dashboard shows calendar freshness and own availability exceptions
         ->assertDontSee('Personal appointment');
 });
 
-test('teacher dashboard renders Romanian labels from the current session locale', function () {
+test('teacher dashboard remains Romanian even with a legacy English session preference', function () {
     $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
 
-    $this->actingAs($teacher)->withSession(['locale' => 'ro'])
+    $this->actingAs($teacher)->withSession(['locale' => 'en'])
         ->get(route('teacher.dashboard'))
         ->assertOk()
         ->assertSee('Spațiul profesorului')
         ->assertSee('Sesiunile mele')
+        ->assertSee('data-public-site-footer', false)
+        ->assertDontSee('name=\"locale\"', false)
         ->assertSee('dark:bg-zinc-950', false);
 });
 
@@ -221,11 +223,11 @@ test('teacher session cards show current OpenWA readiness without exposing the j
         ->assertSee(__('public.teacher_open_whatsapp_call'));
 });
 
-test('teacher session detail respects the Romanian session locale', function () {
+test('teacher session detail remains Romanian', function () {
     $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
     $booking = createTeacherDashboardBooking($teacher);
 
-    $this->actingAs($teacher)->withSession(['locale' => 'ro'])
+    $this->actingAs($teacher)->withSession(['locale' => 'en'])
         ->get(route('teacher.bookings.show', $booking->public_reference))
         ->assertOk()
         ->assertSee('Detalii sesiune')

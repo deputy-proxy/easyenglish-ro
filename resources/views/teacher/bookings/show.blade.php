@@ -71,5 +71,6 @@
             @endif
         </section>
     </main>
+    <x-public-site-footer />
 </body>
 </html>

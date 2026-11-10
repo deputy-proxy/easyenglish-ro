@@ -2,7 +2,7 @@
 
 ## Public experience
 
-The public site is available in Romanian and English. Romanian is the default; the language selector stores the visitor's choice in the session and links, labels, forms, validation copy, and policy pages use the selected locale. The landing page is responsive and includes the offer, session details, how it works, bundle prices, the weekly availability grid, cancellation summary, FAQ, and privacy/terms links.
+The public site is available in Romanian only. Romanian is fixed as the site language; public routes ignore legacy locale session values and do not expose a language selector or locale-switch endpoint. The landing page is responsive and includes the offer, session details, how it works, bundle prices, the weekly availability grid, cancellation summary, FAQ, and privacy/terms links.
 
 ## Availability and time handling
 

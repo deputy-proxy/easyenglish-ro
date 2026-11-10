@@ -31,5 +31,6 @@
         @endpersist
 
         @fluxScripts
+        <x-public-site-footer />
     </body>
 </html>

@@ -120,7 +120,7 @@ test('free session availability reveals the booking form for authenticated learn
     ]);
 
     $this->actingAs($user)->withSession(['locale' => 'en'])->get('/')
-        ->assertSee('Book your free introductory session.')
+        ->assertSee(__('public.free_booking_details'))
         ->assertSee('data-availability-content', false)
         ->assertSee('data-booking-form-panel', false)
         ->assertSee('name="csrf-token"', false)
@@ -140,7 +140,7 @@ test('free session availability offers account creation first and an existing-ac
         ->assertSee('name="csrf-token"', false)
         ->assertSee('data-booking-step-content', false)
         ->assertSee('data-booking-feedback', false)
-        ->assertSee('Do you already have an account?', false)
+        ->assertSee(__('public.booking_account_question'), false)
         ->assertSee('data-booking-register-branch', false)
         ->assertSee('data-booking-endpoint="'.route('booking.register').'"', false)
         ->assertSee('action="'.route('booking.register').'"', false)
@@ -177,7 +177,7 @@ test('guest can create an account from the free booking form and is logged in wi
     $this->get(route('home'))
         ->assertOk()
         ->assertSee('data-initial-slot="'.$slot.'"', false)
-        ->assertSee('Your account is ready.', false)
+        ->assertSee(__('public.account_created_continue_booking'), false)
         ->assertSee('action="'.route('booking.submit').'"', false);
 });
 
@@ -190,9 +190,9 @@ test('a validated account that already used its free session sees a dashboard re
     ])->render();
 
     expect($html)
-        ->toContain('Your account has been validated.')
+        ->toContain(__('public.booking_account_validated_title'))
         ->toContain('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"')
-        ->toContain('Go to my purchases')
+        ->toContain(__('public.booking_account_validated_link'))
         ->not->toContain('data-used-free-bundle-modal');
 });
 
@@ -256,7 +256,7 @@ test('public landing page exposes progressive enhancement hooks for its animatio
         ->assertSee('data-reveal-background', false);
 });
 
-test('pain-point situations render as full-width stack cards without changing either locale copy', function () {
+test('pain-point situations render as full-width stack cards in Romanian', function () {
     $expectedCopy = [
         'ro' => [
             'Să trimiți aplicația pentru jobul pe care ți-l dorești.',
@@ -278,8 +278,10 @@ test('pain-point situations render as full-width stack cards without changing ei
         ],
     ];
 
-    foreach ($expectedCopy as $locale => $copy) {
-        $response = $this->withSession(['locale' => $locale])->get('/');
+    $locale = 'ro';
+    $copy = $expectedCopy[$locale];
+    foreach ([$locale] as $activeLocale) {
+        $response = $this->withSession(['locale' => 'en'])->get('/');
         $content = $response->getContent();
 
         $response->assertOk()
@@ -416,15 +418,15 @@ test('landing page explains real progress reporting and handles missing testimon
     $this->withSession(['locale' => 'en'])->get('/')
         ->assertOk()
         ->assertSee('id="testimonials"', false)
-        ->assertSee('We are collecting feedback and permission to share it.')
+        ->assertSee(__('public.testimonials_empty'))
         ->assertSee('id="progress-reports"', false)
-        ->assertSee('your current level, strengths, areas to work on, and practical recommendations')
-        ->assertSee('Confidence')
-        ->assertSee('Fluency')
-        ->assertSee('Vocabulary')
-        ->assertSee('Pronunciation')
-        ->assertSee('Grammar')
-        ->assertSee('not an automated score')
+        ->assertSee(__('public.progress_text'))
+        ->assertSee(__('public.progress_metric_confidence'))
+        ->assertSee(__('public.progress_metric_fluency'))
+        ->assertSee(__('public.progress_metric_vocabulary'))
+        ->assertSee(__('public.progress_metric_pronunciation'))
+        ->assertSee(__('public.progress_metric_grammar'))
+        ->assertSee(__('public.progress_note'))
         ->assertDontSee('95% improvement');
 });
 
@@ -454,33 +456,18 @@ test('public landing page versions logo and hero images using their file content
     }
 });
 
-test('visitor can switch the public experience to English without an account', function () {
-    $this->from('/')->post('/language', ['locale' => 'en'])->assertRedirect('/');
+test('public site always renders Romanian and does not expose a locale switch endpoint', function () {
+    $this->withSession(['locale' => 'en'])->get('/')
+        ->assertOk()
+        ->assertSee('<html lang="ro">', false)
+        ->assertSee('De data asta, ai ceva de spus.')
+        ->assertSee('Confidențialitate')
+        ->assertDontSee('This time, you have something to say.')
+        ->assertDontSee('name="locale"', false)
+        ->assertDontSee('>RO<', false)
+        ->assertDontSee('>EN<', false);
 
-    $this->get('/')->assertOk()->assertSee('This time, you have something to say.')
-        ->assertSee('FOR THE MOMENTS THAT MATTER')
-        ->assertSee('Track your progress')
-        ->assertSee('Simple bundles. English at your pace.')
-        ->assertSee('Choose the bundle that suits you and schedule your conversations whenever you have time.')
-        ->assertDontSee('One free introductory session per person.')
-        ->assertSee('1 free session + 4 paid sessions')
-        ->assertSee('5 sessions in total')
-        ->assertSee('1 free session + 10 paid sessions')
-        ->assertSee('11 sessions in total')
-        ->assertSee('1 free session + 20 paid sessions')
-        ->assertSee('21 sessions in total')
-        ->assertDontSee('Quickly scan the week and choose your preferred day and time.')
-        ->assertSee('data-weekgrid-mobile', false)
-        ->assertSee('Stop waiting to speak perfect English. Start speaking it.')
-        ->assertSee('Get started for free')
-        ->assertSee('bg-primary', false)
-        ->assertSee('bg-surface-subtle', false)
-        ->assertSee('text-success', false)
-        ->assertDontSee('bg-green', false)
-        ->assertDontSee('text-green', false)
-        ->assertDontSee('border-green', false)
-        ->assertDontSee('bg-lime', false)
-        ->assertDontSee('MOST POPULAR');
+    $this->post('/language', ['locale' => 'en'])->assertNotFound();
 });
 
 test('brand palette exposes semantic primary, surface, text, and success tokens', function () {
@@ -522,20 +509,23 @@ test('availability endpoint returns all seven days and only server-bookable time
         ->assertJsonPath('days.1.slots.1.time', '09:30');
 });
 
-test('public privacy and terms pages reuse the shared public navigation in both locales', function () {
-    $this->get('/privacy')
+test('public privacy and terms pages reuse the shared Romanian navigation and footer', function () {
+    $this->withSession(['locale' => 'en'])->get('/privacy')
         ->assertOk()
+        ->assertSee('<html lang="ro">', false)
         ->assertSee('Confidențialitate')
         ->assertSee('data-public-site-header', false)
-        ->assertSee('images/auth-button.svg', false);
+        ->assertSee('data-public-site-footer', false)
+        ->assertSee('images/auth-button.svg', false)
+        ->assertDontSee('name="locale"', false);
 
-    $this->from('/privacy')->post('/language', ['locale' => 'en'])->assertRedirect('/privacy');
-
-    $this->get('/terms')
+    $this->withSession(['locale' => 'en'])->get('/terms')
         ->assertOk()
-        ->assertSee('Terms and cancellation policy')
+        ->assertSee(__('public.footer_terms'))
         ->assertSee('data-public-site-header', false)
-        ->assertSee('images/auth-button.svg', false);
+        ->assertSee('data-public-site-footer', false)
+        ->assertSee('images/auth-button.svg', false)
+        ->assertDontSee('Terms and cancellation policy');
 });
 
 test('public booking page reuses the shared public navigation', function () {
@@ -543,7 +533,47 @@ test('public booking page reuses the shared public navigation', function () {
         ->assertOk()
         ->assertSee('data-public-site-header', false)
         ->assertSee('images/logo-white.svg', false)
-        ->assertSee('images/auth-button.svg', false);
+        ->assertSee('images/auth-button.svg', false)
+        ->assertSee('data-public-site-footer', false);
+});
+
+test('shared footer is centered in two rows and is reused on dashboard and authentication pages', function () {
+    config()->set('easyenglish.contact_email', 'contact@easyenglish.ro');
+
+    $response = $this->get('/')->assertOk()->assertSee('data-public-site-footer', false);
+    $content = $response->getContent();
+    $footerStart = strpos($content, '<footer');
+    $footerEnd = strpos($content, '</footer>', $footerStart);
+    expect($footerStart)->not->toBeFalse()
+        ->and($footerEnd)->not->toBeFalse();
+
+    $footer = substr($content, $footerStart, $footerEnd - $footerStart);
+    expect($footer)
+        ->toContain('flex-col items-center')
+        ->toContain('text-center')
+        ->toContain('justify-center');
+
+    $attribution = strpos($footer, __('public.footer_line'));
+    $privacy = strpos($footer, __('public.footer_privacy'));
+    $terms = strpos($footer, __('public.footer_terms'));
+    $contact = strpos($footer, __('public.footer_contact'));
+    expect($attribution)->not->toBeFalse()
+        ->and($privacy)->toBeGreaterThan($attribution)
+        ->and($terms)->toBeGreaterThan($privacy)
+        ->and($contact)->toBeGreaterThan($terms)
+        ->and($footer)->toContain('mailto:contact@easyenglish.ro');
+
+    $customer = User::factory()->create();
+    $this->actingAs($customer)->withSession(['locale' => 'en'])->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('data-public-site-footer', false)
+        ->assertDontSee('name="locale"', false);
+
+    auth()->logout();
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertSee('data-public-site-footer', false)
+        ->assertDontSee('name="locale"', false);
 });
 
 test('free introduction never creates a booking before contact verification is available', function () {
@@ -599,7 +629,7 @@ test('authenticated bundle customer can book a slot and receives a signed confir
     ]);
     $signedFormUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
 
-    $this->withSession(['locale' => 'en'])->get($signedFormUrl.'&slot='.urlencode('2026-10-27T09:30:00+02:00'))->assertOk()->assertSee('Schedule a session from your bundle');
+    $this->withSession(['locale' => 'en'])->get($signedFormUrl.'&slot='.urlencode('2026-10-27T09:30:00+02:00'))->assertOk()->assertSee(__('public.booking_bundle_title'));
 
     $signedSubmitUrl = URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
     $this->post($signedSubmitUrl, [
@@ -612,7 +642,7 @@ test('authenticated bundle customer can book a slot and receives a signed confir
     expect(Booking::query()->where('status', 'confirmed')->count())->toBe(1)
         ->and($entitlement->fresh()->credits_remaining)->toBe(3);
     $response = $this->get(Booking::query()->firstOrFail()->public_reference ? URL::signedRoute('booking.confirmed', ['reference' => Booking::query()->firstOrFail()->public_reference], null, false) : '/');
-    $response->assertOk()->assertSee('Your booking is confirmed.');
+    $response->assertOk()->assertSee(__('public.booking_confirmed_title'));
 });
 
 test('verified free booking redirects to dashboard and assembles the same OpenWA link for customer and assigned teacher', function () {
@@ -821,7 +851,7 @@ test('public teacher cards open accessible profile dialogs without exposing priv
         ->assertSee('teacher-dialog__photo', false)
         ->assertSee('teacher-dialog__biography', false)
         ->assertSee('I help adults speak with confidence at work and while travelling.')
-        ->assertSee('More about Morgan')
+        ->assertSee(__('public.teacher_more', ['name' => 'Morgan']))
         ->assertDontSee('English conversation teacher')
         ->assertDontSee('Profesor de conversație în limba engleză')
         ->assertDontSee('Book a session')
@@ -906,17 +936,17 @@ test('registration submits asynchronously and returns the authenticated contact-
         ->assertJsonPath('status', 'authenticated')
         ->assertJsonPath('next_step', 'contact_verification')
         ->assertJsonPath('slot', $slot)
-        ->assertJsonPath('locale', 'en')
+        ->assertJsonPath('locale', 'ro')
         ->assertJsonMissingPath('redirect_url');
 
     $user = User::query()->where('email', 'async-learner@example.com')->firstOrFail();
     expect(auth()->id())->toBe($user->id)
-        ->and(session('locale'))->toBe('en')
+        ->and(session('locale'))->toBe('ro')
         ->and(session()->getId())->not->toBe($beforeSessionId)
         ->and($response->json('html'))->toContain('name="_token"')
         ->and($response->json('html'))->toContain('data-booking-starts-at')
         ->and($response->json('html'))->toContain($slot)
-        ->and($response->json('html'))->toContain('Verify your contact details')
+        ->and($response->json('html'))->toContain(__('public.verification_title'))
         ->and($response->json('html'))->toContain('name="accepted_policy"')
         ->and($response->json('html'))->not->toContain('name="whatsapp_service_consent"');
 

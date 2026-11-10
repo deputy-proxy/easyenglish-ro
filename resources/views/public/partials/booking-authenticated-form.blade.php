@@ -139,7 +139,6 @@
             <span>{{ __('public.whatsapp_service_consent') }}</span>
         </label>
     @endif
-    <input type="hidden" name="locale" value="{{ app()->getLocale() }}">
     <input type="hidden" name="type" value="intro">
     <input type="hidden" name="return_to" value="booking">
     <input type="hidden" name="starts_at" value="{{ $bookingSlot }}" data-booking-starts-at required>
