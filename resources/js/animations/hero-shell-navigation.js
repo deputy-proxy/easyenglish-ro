@@ -3,7 +3,7 @@ const MAX_RADIUS = 24;
 
 export function initializeHeroShellNavigation() {
     const shell = document.querySelector('[data-hero-shell]');
-    const header = shell?.querySelector('[data-public-site-header]');
+    const header = document.querySelector('[data-public-site-header].public-site-header--hero');
 
     if (!shell || !header) {
         return () => {};
