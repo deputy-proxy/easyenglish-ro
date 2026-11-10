@@ -37,7 +37,10 @@
 
 .public-site-header--hero {
     position: fixed;
-    inset: 0 0 auto;
+    inset: 0 auto auto;
+    left: 50%;
+    width: var(--hero-shell-width, 100%);
+    transform: translateX(-50%);
 }
 
 .public-site-header.is-floating {

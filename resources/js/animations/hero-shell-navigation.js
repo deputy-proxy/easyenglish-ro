@@ -28,6 +28,8 @@ export function initializeHeroShellNavigation() {
 
         shell.style.setProperty('--hero-shell-width', width + 'px');
         shell.style.setProperty('--hero-shell-radius', radius + 'px');
+        header.style.setProperty('--hero-shell-width', width + 'px');
+        header.style.setProperty('--hero-shell-radius', radius + 'px');
         header.classList.toggle('is-floating', progress >= 1);
     };
 
@@ -61,6 +63,8 @@ export function initializeHeroShellNavigation() {
         }
         shell.style.removeProperty('--hero-shell-width');
         shell.style.removeProperty('--hero-shell-radius');
+        header.style.removeProperty('--hero-shell-width');
+        header.style.removeProperty('--hero-shell-radius');
         header.classList.remove('is-floating');
     };
 }
