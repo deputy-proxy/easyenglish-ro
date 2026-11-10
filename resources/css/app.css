@@ -44,6 +44,15 @@
     padding-inline: var(--hero-shell-padding-inline, clamp(22px, 5.5vw, 96px));
 }
 
+@media (max-width: 767px) {
+    .public-site-header--hero {
+        left: 0;
+        width: 100%;
+        transform: none;
+        padding-inline: 16px;
+    }
+}
+
 .public-site-header.is-floating {
     /* Keep the header sticky so changing its visual treatment never changes document flow. */
     border-radius: 0 0 var(--hero-shell-radius) var(--hero-shell-radius);

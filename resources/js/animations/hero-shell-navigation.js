@@ -9,10 +9,17 @@ export function initializeHeroShellNavigation() {
         return () => {};
     }
 
+    const desktopViewport = window.matchMedia('(min-width: 768px)');
+
+    // Mobile keeps a stable fixed header. Avoid per-scroll geometry writes while
+    // the browser's visual viewport and native scroll position are changing.
+    if (!desktopViewport.matches) {
+        return () => {};
+    }
+
     const controller = new AbortController();
     const options = { signal: controller.signal };
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const desktopViewport = window.matchMedia('(min-width: 768px)');
     let frame = null;
 
     const update = () => {
