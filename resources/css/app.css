@@ -35,6 +35,11 @@
     transition: background-color 180ms ease, box-shadow 180ms ease, border-radius 180ms ease, padding-inline 180ms ease;
 }
 
+.public-site-header--hero {
+    position: fixed;
+    inset: 0 0 auto;
+}
+
 .public-site-header.is-floating {
     /* Keep the header sticky so changing its visual treatment never changes document flow. */
     border-radius: 0 0 var(--hero-shell-radius) var(--hero-shell-radius);
@@ -50,7 +55,7 @@
 }
 
 @media (min-width: 768px) {
-    .public-site-header {
+    .public-site-header:not(.public-site-header--hero) {
         margin-bottom: calc(-72px - env(safe-area-inset-top, 0px));
     }
 }
