@@ -14,7 +14,7 @@ use RuntimeException;
 
 class NotificationMessageFactory
 {
-    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string} */
+    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool} */
     public function make(NotificationDelivery $delivery): array
     {
         $delivery->loadMissing([
@@ -186,10 +186,11 @@ class NotificationMessageFactory
             'ctaUrl' => $ctaUrl,
             'ctaLabel' => $ctaLabel,
             'footer' => $this->t($locale, 'footer'),
+            'success' => in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BundlePurchaseConfirmed, NotificationEvent::RefundSucceeded, NotificationEvent::CustomerCallLinkReady], true),
         ];
     }
 
-    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string} */
+    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool} */
     private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): array
     {
         $booking = $delivery->booking;
@@ -335,6 +336,7 @@ class NotificationMessageFactory
             'ctaUrl' => $ctaUrl,
             'ctaLabel' => $ctaLabel,
             'footer' => $this->t($locale, 'footer'),
+            'success' => in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BundlePurchaseConfirmed, NotificationEvent::RefundSucceeded, NotificationEvent::CustomerCallLinkReady], true),
         ];
     }
 

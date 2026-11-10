@@ -12,7 +12,7 @@ class TransactionalNotificationEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /** @param array{locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string} $messageData */
+    /** @param array{locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success?:bool} $messageData */
     public function __construct(public array $messageData)
     {
         $this->locale($messageData['locale']);

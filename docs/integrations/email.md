@@ -34,6 +34,10 @@ Keep local development on `MAIL_MAILER=log` unless you intentionally configure a
 
 SMTP remains available if a future provider choice requires it. Configure `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_SCHEME`, `MAIL_USERNAME`, and `MAIL_PASSWORD` using that provider's documented settings. Do not guess the port/encryption combination.
 
+## Visual templates and rendering
+
+The current approved EasyEnglish email visual system and event-to-template inventory are documented in [email templates](../email-templates.md). That document covers the shared Blade presentation, logo asset, Romanian/English flows, preview instructions, and email-client compatibility constraints.
+
 ## Messages and language
 
 The selected Romanian/English locale is persisted with the booking or bundle at creation time, so a later browser-language change does not unexpectedly change an existing customer's email language. Transactional templates are in `resources/views/emails/transactional.blade.php` and `resources/views/emails/transactional-text.blade.php`, with translated subjects and content in `lang/ro/email.php` and `lang/en/email.php`.

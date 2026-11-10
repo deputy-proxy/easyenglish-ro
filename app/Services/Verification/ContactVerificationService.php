@@ -5,6 +5,7 @@ namespace App\Services\Verification;
 use App\Contracts\Notifications\WhatsAppGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
+use App\Mail\ContactVerificationEmail;
 use App\Models\ContactVerificationChallenge;
 use App\Services\Notifications\WhatsAppProviderConfiguration;
 use App\Support\PhoneNumber;
@@ -112,14 +113,11 @@ class ContactVerificationService
                     'challenge' => $challenge->id,
                     'token' => $token,
                 ]);
-                $subject = $challenge->locale === 'en' ? 'Verify your Easy English email' : 'Verifică adresa de e-mail Easy English';
-                $body = $challenge->locale === 'en'
-                    ? "Your Easy English verification code is {$emailCode}.\n\nIt expires in 30 minutes. Enter it on the verification form, or use this backup link: {$emailUrl}\n\nDo not share this code. If you did not request it, you can ignore this message."
-                    : "Codul tău de verificare Easy English este {$emailCode}.\n\nExpiră în 30 de minute. Introdu-l în formularul de verificare sau folosește acest link de rezervă: {$emailUrl}\n\nNu comunica acest cod nimănui. Dacă nu ai solicitat verificarea, poți ignora acest mesaj.";
-
-                Mail::raw($body, function ($message) use ($email, $subject): void {
-                    $message->to($email)->subject($subject);
-                });
+                Mail::to($email)->send(new ContactVerificationEmail(
+                    locale: $challenge->locale,
+                    code: $emailCode,
+                    backupUrl: $emailUrl,
+                ));
             }
 
             if ($verifyPhone) {
