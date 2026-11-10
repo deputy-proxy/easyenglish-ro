@@ -56,7 +56,7 @@
 
 @media (min-width: 768px) {
     .public-site-header {
-        margin-bottom: calc(-88px - env(safe-area-inset-top, 0px));
+        margin-bottom: calc(-72px - env(safe-area-inset-top, 0px));
     }
 }
 

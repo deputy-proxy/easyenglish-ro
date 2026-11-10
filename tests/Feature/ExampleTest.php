@@ -48,7 +48,7 @@ test('mobile public navigation reserves its own row while desktop navigation ove
     expect($styles)
         ->not->toContain('margin-bottom: calc(-76px - env(safe-area-inset-top, 0px))')
         ->toContain('@media (min-width: 768px)')
-        ->toContain('margin-bottom: calc(-88px - env(safe-area-inset-top, 0px))')
+        ->toContain('margin-bottom: calc(-72px - env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(76px + env(safe-area-inset-top, 0px))')
         ->toContain('scroll-padding-top: calc(88px + env(safe-area-inset-top, 0px))');
 });
