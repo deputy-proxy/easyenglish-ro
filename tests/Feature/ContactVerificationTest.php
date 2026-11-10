@@ -948,9 +948,10 @@ test('starting verification for a changed phone invalidates the previous account
         ->and(session('contact_verification_id'))->toBe($secondChallenge->id);
 });
 
-test('contact verification sends the branded localized email mailable', function () {
+test('contact verification sends the branded localized email mailable using the configured app url', function () {
     Mail::fake();
     config([
+        'app.url' => 'https://app.easyenglish.test',
         'services.contact_verification.mode' => 'email_only',
         'services.whatsapp.enabled' => false,
         'services.whatsapp.access_token' => null,
@@ -959,10 +960,13 @@ test('contact verification sends the branded localized email mailable', function
 
     app(ContactVerificationService::class)->start('branded@example.com', '+40722123459', 'ro');
 
-    Mail::assertSent(ContactVerificationEmail::class, function (ContactVerificationEmail $mail): bool {
-        return $mail->messageLocale === 'ro'
-            && preg_match('/^[0-9]{6}$/', $mail->code) === 1
-            && str_contains($mail->render(), '30 de minute')
-            && str_contains($mail->render(), 'Nu comunica acest cod nimănui.');
-    });
+    Mail::assertSent(ContactVerificationEmail::class);
+    $mail = Mail::sent(ContactVerificationEmail::class)->first();
+
+    expect($mail)->toBeInstanceOf(ContactVerificationEmail::class)
+        ->and($mail->messageLocale)->toBe('ro')
+        ->and(preg_match('/^[0-9]{6}$/', $mail->code))->toBe(1)
+        ->and($mail->backupUrl)->toStartWith('https://app.easyenglish.test/')
+        ->and($mail->render())->toContain('30 de minute')
+        ->and($mail->render())->toContain('Nu comunica acest cod nimănui.');
 });
