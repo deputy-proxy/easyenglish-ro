@@ -2,15 +2,16 @@
 
 namespace App\Services\Notifications;
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Data\Notifications\WhatsAppTextMessage;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
+use App\Exceptions\WhatsAppDeliveryRejectedException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class OpenWaWhatsAppGateway implements WhatsAppGateway
+class OpenWaWhatsAppGateway implements WhatsAppNotificationGateway
 {
     public function __construct(private readonly OpenWaMessageRenderer $renderer) {}
 
@@ -44,11 +45,33 @@ class OpenWaWhatsAppGateway implements WhatsAppGateway
         } catch (ConnectionException $exception) {
             throw $exception;
         }
-        if ($response->status() === 202 || $response->serverError()) {
+        if ($response->status() === 202) {
             throw new WhatsAppDeliveryAmbiguousException('OpenWA message submission outcome is ambiguous and requires reconciliation before retry.');
         }
+
+        if ($response->status() === 429) {
+            throw new RuntimeException('OpenWA messaging service rate limited the request.');
+        }
+
+        $outcome = $response->json('outcome');
+        $retryable = $response->json('retryable');
+        $providerErrorCode = $response->json('code');
+        $providerErrorCode = is_string($providerErrorCode) ? $providerErrorCode : 'OPENWA_REJECTED';
+
+        if ($outcome === 'not_sent') {
+            if ($retryable === true) {
+                throw new RuntimeException('OpenWA messaging service temporarily rejected the request.');
+            }
+
+            throw new WhatsAppDeliveryRejectedException($providerErrorCode);
+        }
+
+        if ($response->serverError()) {
+            throw new WhatsAppDeliveryAmbiguousException('OpenWA message submission outcome is ambiguous and requires reconciliation before retry.');
+        }
+
         if (! $response->successful()) {
-            throw new RuntimeException('OpenWA messaging provider rejected the request (HTTP '.$response->status().').');
+            throw new WhatsAppDeliveryRejectedException($providerErrorCode);
         }
         $messageId = $response->json('providerMessageId');
         $status = $response->json('status');

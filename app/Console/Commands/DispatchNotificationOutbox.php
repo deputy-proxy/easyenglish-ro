@@ -56,7 +56,7 @@ class DispatchNotificationOutbox extends Command
         $failures = 0;
         NotificationDelivery::query()->where(function ($query): void {
             $query->where('channel', 'email');
-            if (app(WhatsAppProviderConfiguration::class)->isConfigured()) {
+            if (app(WhatsAppProviderConfiguration::class)->isOpenWaMessagingConfigured()) {
                 $query->orWhere('channel', 'whatsapp');
             }
         })->where('status', 'pending')

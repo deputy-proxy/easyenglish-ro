@@ -71,7 +71,7 @@ test('support destinations are hidden when not configured or invalid', function 
 test('phone verification reuses the existing configured whatsapp flow and email-only mode is respected', function () {
     config([
         'services.contact_verification.mode' => 'email_only',
-        'services.whatsapp.enabled' => true,
+        'services.whatsapp.verification_enabled' => true,
         'services.whatsapp.access_token' => 'configured-token',
         'services.whatsapp.phone_number_id' => '123',
         'services.whatsapp.templates.contact_verification' => 'template',

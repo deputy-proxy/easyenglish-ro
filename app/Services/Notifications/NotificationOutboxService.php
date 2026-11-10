@@ -424,7 +424,7 @@ class NotificationOutboxService
 
     private function whatsappSendingEnabled(): bool
     {
-        return app(WhatsAppProviderConfiguration::class)->isConfigured();
+        return app(WhatsAppProviderConfiguration::class)->isOpenWaMessagingConfigured();
     }
 
     private function normalizedPhone(?string $phone): ?string

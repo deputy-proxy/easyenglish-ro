@@ -2,7 +2,7 @@
 
 namespace App\Services\Verification;
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Mail\ContactVerificationEmail;
@@ -20,7 +20,7 @@ use RuntimeException;
 
 class ContactVerificationService
 {
-    public function __construct(private readonly WhatsAppGateway $whatsapp) {}
+    public function __construct(private readonly WhatsAppVerificationGateway $whatsapp) {}
 
     public function start(
         string $email,
@@ -39,7 +39,7 @@ class ContactVerificationService
         $verifyPhone = ! $emailOnly && ! $phoneAlreadyVerified;
 
         if ($verifyPhone && ! $this->whatsappProviderConfigured()) {
-            throw new RuntimeException('WhatsApp verification delivery is not configured for the selected provider.');
+            throw new RuntimeException('Meta WhatsApp verification delivery is disabled or not fully configured.');
         }
         if ($verifyEmail && ! app()->environment('testing') && $this->usesNonDeliveringMailer((string) config('mail.default'))) {
             throw new RuntimeException('Email verification requires a real delivery transport; log/array transports can expose or discard verification secrets.');
@@ -107,6 +107,8 @@ class ContactVerificationService
             'phone_attempts' => 0,
         ]);
 
+        $phoneSubmissionStarted = false;
+
         try {
             if ($verifyEmail) {
                 URL::forceRootUrl((string) config('app.url'));
@@ -124,7 +126,8 @@ class ContactVerificationService
 
             if ($verifyPhone) {
                 $language = config('services.whatsapp.contact_verification_template_languages.'.$challenge->locale, $challenge->locale === 'en' ? 'en' : 'ro');
-                $this->whatsapp->sendTemplate(new WhatsAppTemplateMessage(
+                $phoneSubmissionStarted = true;
+                $result = $this->whatsapp->sendTemplate(new WhatsAppTemplateMessage(
                     $phone,
                     'contact_verification',
                     $language,
@@ -132,19 +135,27 @@ class ContactVerificationService
                     [['index' => '0', 'parameters' => [$phoneCode]]],
                     'contact-verification-'.$challenge->id,
                 ));
+                $challenge->forceFill([
+                    'phone_provider_message_id' => $result['message_id'],
+                    'phone_provider_status' => $result['status'],
+                    'phone_provider_error_code' => null,
+                ])->save();
             }
         } catch (WhatsAppDeliveryAmbiguousException) {
-            // OpenWA may have accepted the message before its acknowledgement was lost.
+            // Meta may have accepted the message before its acknowledgement was lost.
             // Keep the challenge usable so a delivered code is not invalidated; the
             // normal resend cooldown and challenge replacement still prevent stale-code reuse.
             $challenge->forceFill([
                 'phone_sent_at' => now(),
+                'phone_provider_status' => 'ambiguous',
             ])->save();
         } catch (\Throwable $exception) {
             $challenge->forceFill([
                 'email_token_hash' => hash('sha256', Str::random(64)),
                 'email_code_hash' => hash_hmac('sha256', Str::random(32), (string) config('app.key')),
                 'phone_code_hash' => hash_hmac('sha256', Str::random(32), (string) config('app.key')),
+                'phone_provider_status' => $phoneSubmissionStarted ? 'failed' : null,
+                'phone_provider_error_code' => null,
                 'expires_at' => now(),
             ])->save();
 
@@ -161,7 +172,7 @@ class ContactVerificationService
 
     private function whatsappProviderConfigured(): bool
     {
-        return app(WhatsAppProviderConfiguration::class)->isOutboundConfigured();
+        return app(WhatsAppProviderConfiguration::class)->isMetaVerificationConfigured();
     }
 
     /** @param list<string> $visited */

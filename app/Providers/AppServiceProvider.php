@@ -3,7 +3,8 @@
 namespace App\Providers;
 
 use App\Contracts\CallEvents\CallEventProvider;
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
+use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Contracts\Payments\StripeGateway;
 use App\Services\CallEvents\OpenWaCallEventProvider;
 use App\Services\CallEvents\OpenWaConfig;
@@ -25,13 +26,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(WhatsAppGateway::class, function ($app): WhatsAppGateway {
-            return match (config('services.whatsapp.provider', 'meta')) {
-                'meta' => $app->make(MetaWhatsAppCloudApiGateway::class),
-                'openwa' => $app->make(OpenWaWhatsAppGateway::class),
-                default => throw new \InvalidArgumentException('WHATSAPP_PROVIDER must be either meta or openwa.'),
-            };
-        });
+        $this->app->singleton(WhatsAppVerificationGateway::class, MetaWhatsAppCloudApiGateway::class);
+        $this->app->singleton(WhatsAppNotificationGateway::class, OpenWaWhatsAppGateway::class);
         $this->app->singleton(OpenWaConfig::class, fn (): OpenWaConfig => OpenWaConfig::fromArray(config('services.openwa', [])));
         $this->app->singleton(OpenWaHttpClient::class);
         $this->app->singleton(CallEventProvider::class, OpenWaCallEventProvider::class);

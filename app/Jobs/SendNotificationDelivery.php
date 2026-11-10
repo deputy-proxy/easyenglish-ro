@@ -2,9 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
+use App\Exceptions\WhatsAppDeliveryRejectedException;
 use App\Mail\TransactionalNotificationEmail;
 use App\Models\NotificationDelivery;
 use App\Models\WhatsAppContact;
@@ -33,7 +34,7 @@ class SendNotificationDelivery implements ShouldQueue
 
     public function __construct(public readonly int $deliveryId) {}
 
-    public function handle(NotificationMessageFactory $messages, WhatsAppMessageFactory $whatsappMessages, WhatsAppGateway $whatsapp): void
+    public function handle(NotificationMessageFactory $messages, WhatsAppMessageFactory $whatsappMessages, WhatsAppNotificationGateway $whatsapp): void
     {
         $claimed = DB::transaction(function (): bool {
             $delivery = NotificationDelivery::query()->lockForUpdate()->find($this->deliveryId);
@@ -47,10 +48,11 @@ class SendNotificationDelivery implements ShouldQueue
                 'last_error' => null,
             ];
             if ($delivery->channel === 'whatsapp') {
-                $provider = (string) config('services.whatsapp.provider', 'meta');
+                $provider = 'openwa';
                 $providerAttempts = $delivery->provider_attempts ?? [];
                 $providerAttempts[] = ['provider' => $provider, 'attempt' => $delivery->attempts + 1, 'status' => 'sending', 'started_at' => now()->toIso8601String()];
                 $attributes['provider'] = $provider;
+                $attributes['provider_error_code'] = null;
                 $attributes['provider_attempts'] = $providerAttempts;
             }
             $delivery->update($attributes);
@@ -65,10 +67,10 @@ class SendNotificationDelivery implements ShouldQueue
         try {
             $delivery = NotificationDelivery::query()->with(['booking', 'entitlement', 'refund.payment.entitlement', 'recipientUser'])->findOrFail($this->deliveryId);
             if ($delivery->channel === 'whatsapp') {
-                $provider = app(WhatsAppProviderConfiguration::class)->provider();
-                if (! app(WhatsAppProviderConfiguration::class)->isConfigured()) {
-                    throw new NotificationNoLongerEligibleException('The selected WhatsApp provider is disabled.');
+                if (! app(WhatsAppProviderConfiguration::class)->isOpenWaMessagingConfigured()) {
+                    throw new NotificationNoLongerEligibleException('OpenWA messaging is disabled or not fully configured.');
                 }
+                $provider = 'openwa';
 
                 if ($delivery->recipient_type === 'teacher') {
                     $recipientPhone = $delivery->recipientUser?->phone;
@@ -134,6 +136,28 @@ class SendNotificationDelivery implements ShouldQueue
                     $attributes['provider_attempts'] = $this->providerAttemptsWithStatus($delivery, 'skipped');
                 }
                 $delivery->update($attributes);
+            }
+
+            return;
+        } catch (WhatsAppDeliveryRejectedException $exception) {
+            $delivery = NotificationDelivery::query()->find($this->deliveryId);
+            if ($delivery && $delivery->status === 'sending') {
+                $delivery->update([
+                    'status' => 'failed',
+                    'next_attempt_at' => null,
+                    'last_error' => 'WhatsApp delivery rejected ('.$exception->errorCode.').',
+                    'provider_error_code' => $exception->errorCode,
+                    'provider_attempts' => $this->providerAttemptsWithStatus(
+                        $delivery,
+                        'failed',
+                        ['error_code' => $exception->errorCode],
+                    ),
+                ]);
+                Log::warning('Transactional WhatsApp notification was rejected by the provider.', [
+                    'notification_delivery_id' => $delivery->id,
+                    'provider' => 'openwa',
+                    'provider_error_code' => $exception->errorCode,
+                ]);
             }
 
             return;
