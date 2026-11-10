@@ -50,7 +50,9 @@
         width: 100%;
         transform: none;
         padding-inline: 16px;
+        border-radius: 0 0 24px 24px;
         background-color: #fff;
+        box-shadow: 0 8px 28px rgb(20 35 75 / 12%);
     }
 }
 
