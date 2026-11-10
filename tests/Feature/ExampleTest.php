@@ -7,9 +7,9 @@ test('returns a successful response', function () {
     $response = $this->get(route('home'));
 
     $response->assertOk();
-    $response->assertSee('Autentificare');
-    $response->assertSee('images/auth-button.svg');
-    $response->assertSee('/admin/login');
+    $response->assertSee('Autentificare', false);
+    $response->assertSee('images/auth-icon.svg');
+    $response->assertSee(route('login'), false);
     $response->assertSee('public-site-header', false);
     $response->assertSee('sticky inset-x-0 top-0 z-50', false);
     $response->assertSee('data-public-site-header', false);
