@@ -342,7 +342,9 @@ test('landing hero and navigation transform into a floating sticky header on scr
         ->and($script)->toContain("window.matchMedia('(prefers-reduced-motion: reduce)')")
         ->and($script)->toContain("window.matchMedia('(min-width: 768px)')")
         ->and($script)->toContain('desktopViewport.matches ? viewportWidth * 0.025 * progress : 0')
-        ->and($styles)->toContain('padding-inline: clamp(16px, 2vw, 32px)');
+        ->and($script)->toContain('--hero-shell-padding-inline')
+        ->and($script)->toContain('initialPadding + (floatingPadding - initialPadding) * progress')
+        ->and($styles)->toContain('padding-inline: var(--hero-shell-padding-inline, clamp(22px, 5.5vw, 96px))');
 });
 
 test('landing page uses a white browser theme and centered mobile process and teacher interactions', function () {
@@ -357,7 +359,7 @@ test('landing page uses a white browser theme and centered mobile process and te
 
     $response->assertSee('<meta name="theme-color" content="#ffffff">', false)
         ->assertSee('min-h-11 min-w-11', false)
-        ->assertSee('h-[27px] w-[27px]', false)
+        ->assertSee('h-[20.3125px] w-[20.3125px]', false)
         ->assertSee('flex items-center justify-between gap-3 p-6 text-white', false);
 
     expect($styles)->toContain('.how-step-card {')

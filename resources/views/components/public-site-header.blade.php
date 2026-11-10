@@ -24,12 +24,12 @@
             aria-label="{{ app()->getLocale() === 'ro' ? 'Autentificare' : 'Log in' }}"
         >
             <img
-                class="block h-[27px] w-[27px]"
+                class="block h-[20.3125px] w-[20.3125px]"
                 src="{{ \App\Support\VersionedAsset::url('images/auth-icon.svg') }}"
                 alt=""
                 aria-hidden="true"
-                width="27"
-                height="27"
+                width="20"
+                height="20"
             >
         </a>
     </nav>

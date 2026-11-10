@@ -41,6 +41,7 @@
     left: 50%;
     width: var(--hero-shell-width, 100%);
     transform: translateX(-50%);
+    padding-inline: var(--hero-shell-padding-inline, clamp(22px, 5.5vw, 96px));
 }
 
 .public-site-header.is-floating {
@@ -50,7 +51,6 @@
     box-shadow: 0 8px 28px rgb(20 35 75 / 12%);
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
-    padding-inline: clamp(16px, 2vw, 32px);
 }
 
 [data-hero] {
