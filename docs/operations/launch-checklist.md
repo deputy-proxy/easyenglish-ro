@@ -49,11 +49,11 @@
 
 - [ ] Configure SMTP host, port, encryption, credentials, verified sender, and SPF/DKIM/DMARC; test delivery to representative inbox providers. Do not use `MAIL_MAILER=log` for verification because the email link would be exposed in logs.
 - [ ] Confirm transactional email locale persists from the booking/purchase and outbox retries are visible in Filament.
-- [ ] Configure Meta business assets, production system-user token and minimum permissions, phone number, approved template names/languages, signed webhook, and status subscriptions. Approve `WHATSAPP_TEMPLATE_CONTACT_VERIFICATION` with exactly one body text parameter for the six-digit OTP in both Romanian and English.
+- [ ] Configure Meta business assets, production system-user token and minimum permissions, phone number, the approved easyenglish_activation authentication template, signed webhook, and status subscriptions. Meta is used for contact-verification OTPs only.
 - [ ] Verify separate explicit WhatsApp service-message consent, `STOP` opt-out, and that marketing consent is neither assumed nor requested by this service flow.
-- [ ] Test live WhatsApp OTP delivery and phone verification on real devices, then test live delivery for purchase, free intro, appointment confirmation, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund success/failure, and 14-day/3-day expiry reminders.
-- [ ] Test provider rejection, timeout, duplicate/out-of-order status webhooks, retries, unconfigured credentials, and opt-out while a message is queued.
-- [ ] Keep `WHATSAPP_ENABLED=false` until live delivery and opt-out verification pass; CI must continue to use fakes/mocks.
+- [ ] Test live Meta OTP delivery and phone verification on real devices. Separately test OpenWA delivery for purchase, free intro, appointment confirmation, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund success/failure, and 14-day/3-day expiry reminders, including a first-time recipient.
+- [ ] Test Meta OTP rejection, OpenWA timeout/ambiguous reconciliation, duplicate/out-of-order status webhooks, retries, unconfigured credentials, and opt-out while customer and teacher messages are queued.
+- [ ] Keep META_WHATSAPP_VERIFICATION_ENABLED=false until Meta OTP template/webhook and live delivery checks pass. Verify OpenWA transactional notifications and first-time-recipient licensing separately; CI must continue to use fakes/mocks.
 
 ## 6. OpenWA scheduled-call service
 

@@ -95,10 +95,10 @@ test('alerts staff when provider errors exceed the configured rolling window thr
 test('alerts staff when OpenWA is active but its messaging capability is not ready', function (): void {
     $staff = User::factory()->create(['is_staff' => true]);
     config([
-        'services.whatsapp.provider' => 'openwa',
         'services.whatsapp.openwa.enabled' => true,
         'services.whatsapp.openwa.base_url' => 'https://openwa.example.test',
         'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.callback_secret' => str_repeat('c', 48),
     ]);
     Http::fake([
         'https://openwa.example.test/health/ready' => Http::response(['status' => 'ready'], 200),
@@ -111,13 +111,13 @@ test('alerts staff when OpenWA is active but its messaging capability is not rea
     expect(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1);
 });
 
-test('inactive OpenWA messaging readiness does not alert while Meta is selected', function (): void {
+test('disabled OpenWA messaging readiness does not alert', function (): void {
     $staff = User::factory()->create(['is_staff' => true]);
     config([
-        'services.whatsapp.provider' => 'meta',
-        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.enabled' => false,
         'services.whatsapp.openwa.base_url' => 'https://openwa.example.test',
         'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.callback_secret' => str_repeat('c', 48),
     ]);
     Http::fake([
         'https://openwa.example.test/health/ready' => Http::response(['status' => 'ready'], 200),

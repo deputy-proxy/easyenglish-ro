@@ -42,15 +42,7 @@ A confirmed booking queues an idempotent event write using a deterministic event
 
 Rescheduling updates the existing event. If the assigned teacher changes, the previous calendar event is removed before the new teacher's event is written. Cancellation deletes the event. Calendar API failures do not invalidate the booking; jobs retry with backoff and terminal failures appear in the Booking resource. Administrators can use **Retry calendar event**. Teachers cannot disconnect a calendar while future confirmed bookings or pending event removals depend on it.
 
-The confirmation email and signed confirmation page include the assigned teacher's name and contact details after confirmation. WhatsApp appointment confirmation/reminder/reschedule templates must include a fourth body placeholder for teacher contact details. Update and re-submit the following existing Meta templates before enabling teacher assignment with WhatsApp delivery:
-
-- `WHATSAPP_TEMPLATE_INTRO_BOOKING_CONFIRMATION`
-- `WHATSAPP_TEMPLATE_APPOINTMENT_CONFIRMATION`
-- `WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER_24H`
-- `WHATSAPP_TEMPLATE_APPOINTMENT_REMINDER_1H`
-- `WHATSAPP_TEMPLATE_BOOKING_RESCHEDULED`
-
-The fourth placeholder is populated with teacher name, email, and phone (or `EasyEnglish team` when the legacy central schedule is active). Until Meta approves the updated templates, email remains the reliable confirmation channel and WhatsApp delivery failures remain visible in the notification outbox.
+OpenWA transactional notification messages include teacher contact details through the internal message renderer. Update the corresponding OpenWA message catalogue and parameters when copy or content changes. These notification messages do not require Meta template approval; Meta is reserved for contact-verification OTPs.
 
 ## Rollout from central availability
 

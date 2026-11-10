@@ -222,3 +222,56 @@ test('preserves useful OpenWA provider error details while redacting recipient a
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('reports known non-sent provider rejections with a safe code and no automatic retry', async () => {
+  const records = [];
+  const messageStore = {
+    findByKey: (key) => records.find((record) => record.idempotencyKey === key) || null,
+    async upsert(record) {
+      const index = records.findIndex((item) => item.idempotencyKey === record.idempotencyKey);
+      if (index < 0) records.push(record); else records[index] = record;
+    },
+    pendingInbound: () => [],
+  };
+  const server = createServer(createApp({
+    config: { ...config, messagingEnabled: true },
+    state: {
+      phase: 'authenticated',
+      provider: {
+        async sendText() {
+          throw Object.assign(new Error('A licence is required to start a new chat.'), {
+            code: 'LICENSE_REQUIRED',
+            outcome: 'not_sent',
+          });
+        },
+      },
+      metrics: {},
+    },
+    store: createStore(),
+    messageStore,
+    logger: { info() {}, warn() {}, error() {} },
+  }));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+  try {
+    const response = await fetch(base + '/v1/messages', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + config.serviceToken,
+        'Content-Type': 'application/json',
+        'Idempotency-Key': 'license-required-test-01',
+      },
+      body: JSON.stringify({ to: '+40712345678', text: 'A private test message.' }),
+    });
+    assert.equal(response.status, 502);
+    assert.deepEqual(await response.json(), {
+      error: 'OpenWA could not send the message.',
+      code: 'LICENSE_REQUIRED',
+      outcome: 'not_sent',
+      retryable: false,
+    });
+    assert.equal(records[0].status, 'failed');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

@@ -1,6 +1,6 @@
 <?php
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Enums\NotificationEvent;
 use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
@@ -79,8 +79,8 @@ test('confirmed booking creates one bilingual transactional outbox record and du
 
     $delivery->update(['status' => 'queued']);
     $job = new SendNotificationDelivery($delivery->id);
-    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
-    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
+    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppNotificationGateway::class));
+    $job->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppNotificationGateway::class));
 
     expect($delivery->fresh()->status)->toBe('sent')
         ->and($delivery->fresh()->attempts)->toBe(1);
@@ -112,7 +112,7 @@ test('SMTP failures remain visible and schedule a bounded retry without logging 
     $pendingMail->shouldReceive('send')->once()->with(Mockery::type(TransactionalNotificationEmail::class))
         ->andThrow(new RuntimeException('SMTP password should not be stored in the outbox'));
 
-    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
+    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppNotificationGateway::class));
 
     $delivery->refresh();
     expect($delivery->status)->toBe('pending')

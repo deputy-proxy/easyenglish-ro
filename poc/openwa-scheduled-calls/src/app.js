@@ -33,17 +33,17 @@ export function createApp({ config, state, store, messageStore = null, resetSess
   }));
   app.post('/v1/messages', (req, res) => {
     const operation = async () => {
-      if (!config.messagingEnabled || !messageStore) return res.status(503).json({ error: 'OpenWA messaging is disabled.' });
-      if (state.phase !== 'authenticated' || !state.provider) return res.status(503).json({ error: 'OpenWA messaging session is unavailable.' });
+      if (!config.messagingEnabled || !messageStore) return res.status(503).json({ error: 'OpenWA messaging is disabled.', code: 'MESSAGING_DISABLED', outcome: 'not_sent', retryable: true });
+      if (state.phase !== 'authenticated' || !state.provider) return res.status(503).json({ error: 'OpenWA messaging session is unavailable.', code: 'SESSION_UNAVAILABLE', outcome: 'not_sent', retryable: true });
       const key = req.get('Idempotency-Key') || '';
-      if (!/^[A-Za-z0-9:_-]{16,160}$/.test(key)) return res.status(400).json({ error: 'A valid Idempotency-Key header is required.' });
+      if (!/^[A-Za-z0-9:_-]{16,160}$/.test(key)) return res.status(400).json({ error: 'A valid Idempotency-Key header is required.', code: 'INVALID_IDEMPOTENCY_KEY', outcome: 'not_sent', retryable: false });
       const to = typeof req.body?.to === 'string' ? req.body.to : '';
       const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
       if (!/^\+[1-9]\d{7,14}$/.test(to) || text.length < 1 || text.length > 4096) return res.status(400).json({ error: 'A valid E.164 recipient and message text are required.' });
       const requestHash = createHash('sha256').update(JSON.stringify({ to, text })).digest('hex');
       let record = messageStore.findByKey(key);
       if (record) {
-        if (record.requestHash !== requestHash) return res.status(409).json({ error: 'The idempotency key was already used with a different request.' });
+        if (record.requestHash !== requestHash) return res.status(409).json({ error: 'The idempotency key was already used with a different request.', code: 'IDEMPOTENCY_CONFLICT', outcome: 'not_sent', retryable: false });
         if (record.status === 'accepted') return res.json({ providerMessageId: record.providerMessageId, status: 'accepted', replayed: true });
         if (record.status !== 'failed') return res.status(202).json({ status: record.status, retryable: false });
         record.status = 'sending';
@@ -52,7 +52,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
       } else {
         record = { idempotencyKey: key, requestHash, direction: 'outbound', status: 'sending', attempts: 1, createdAt: new Date().toISOString(), providerMessageId: null, toHash: createHash('sha256').update(to).digest('hex'), textHash: createHash('sha256').update(text).digest('hex') };
       }
-      try { await messageStore.upsert(record); } catch { return res.status(503).json({ error: 'OpenWA message persistence is unavailable.' }); }
+      try { await messageStore.upsert(record); } catch { return res.status(503).json({ error: 'OpenWA message persistence is unavailable.', code: 'MESSAGE_STORE_UNAVAILABLE', outcome: 'not_sent', retryable: true }); }
       let result;
       try {
         result = await withTimeout(state.provider.sendText(to, text), messageTimeoutMs, true);
@@ -61,7 +61,10 @@ export function createApp({ config, state, store, messageStore = null, resetSess
         await messageStore.upsert(record).catch(() => {});
         state.metrics.providerErrors += 1;
         log(logger, error.uncertain ? 'warn' : 'error', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error', providerErrorCode: error.code || null, providerOutcome: error.outcome || (error.uncertain ? 'unknown' : 'not_sent'), providerError: safeProviderError(error, to, text), providerCause: safeProviderError(error.cause, to, text) });
-        return error.uncertain ? res.status(202).json({ status: record.status, retryable: false }) : res.status(502).json({ error: 'OpenWA could not send the message.' });
+        const providerErrorCode = typeof error.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(error.code) ? error.code : 'PROVIDER_REJECTED';
+        return error.uncertain
+          ? res.status(202).json({ status: record.status, retryable: false })
+          : res.status(502).json({ error: 'OpenWA could not send the message.', code: providerErrorCode, outcome: 'not_sent', retryable: false });
       }
       record.status = 'accepted'; record.providerMessageId = result.providerMessageId; record.acceptedAt = new Date().toISOString();
       try {
@@ -78,7 +81,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
     return current;
   });
   app.get('/v1/messages/:idempotencyKey', (req, res) => {
-    if (!config.messagingEnabled || !messageStore) return res.status(503).json({ error: 'OpenWA messaging is disabled.' });
+    if (!config.messagingEnabled || !messageStore) return res.status(503).json({ error: 'OpenWA messaging is disabled.', code: 'MESSAGING_DISABLED', outcome: 'not_sent', retryable: true });
     const record = messageStore.findByKey(req.params.idempotencyKey);
     if (!record || record.direction !== 'outbound') return res.status(404).json({ error: 'Message record not found.' });
     return res.json({ status: record.status, providerMessageId: record.providerMessageId || null, attempts: record.attempts || 1, acceptedAt: record.acceptedAt || null });

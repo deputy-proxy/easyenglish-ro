@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Models\ContactVerificationChallenge;
 use App\Models\Message;
 use App\Models\NotificationDelivery;
 use App\Models\WhatsAppContact;
@@ -119,9 +120,20 @@ class WhatsAppWebhookService
             return;
         }
         $timestamp = (string) ($status['timestamp'] ?? '');
-        $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->first();
+        $callbackData = $status['biz_opaque_callback_data'] ?? null;
+        $challenge = ContactVerificationChallenge::query()->where('phone_provider_message_id', $messageId)->first();
+        if (! $challenge && is_string($callbackData)
+            && preg_match('/^contact-verification-([0-9a-fA-F-]{36})$/', $callbackData, $matches) === 1) {
+            $challenge = ContactVerificationChallenge::query()->whereKey($matches[1])->first();
+        }
+        if ($challenge) {
+            $this->handleVerificationStatus($challenge, $status, $messageId, $providerStatus, $timestamp);
+
+            return;
+        }
+
+        $delivery = NotificationDelivery::query()->where('provider_message_id', $messageId)->where('provider', 'meta')->first();
         if (! $delivery) {
-            $callbackData = $status['biz_opaque_callback_data'] ?? null;
             if (is_string($callbackData) && preg_match('/^easyenglish-delivery-(\d+)$/', $callbackData, $matches) === 1) {
                 $delivery = NotificationDelivery::query()->whereKey((int) $matches[1])
                     ->where('channel', 'whatsapp')->where('provider', 'meta')->first();
@@ -130,7 +142,7 @@ class WhatsAppWebhookService
                 }
             }
         }
-        if (! $delivery || ! in_array($delivery->provider, [null, 'meta'], true)) {
+        if (! $delivery || $delivery->provider !== 'meta') {
             return;
         }
         $eventKey = hash('sha256', implode('|', [$messageId, $providerStatus, $timestamp]));
@@ -163,18 +175,50 @@ class WhatsAppWebhookService
         }
 
         $providerAttempts = $delivery->provider_attempts ?? [];
-        if ($providerAttempts !== []) {
-            $last = array_key_last($providerAttempts);
-            if (($providerAttempts[$last]['provider'] ?? null) === 'meta') {
-                $providerAttempts[$last] = array_merge($providerAttempts[$last], [
-                    'status' => $providerStatus,
-                    'completed_at' => now()->toIso8601String(),
-                    'message_id' => $messageId,
-                ]);
-                $changes['provider_attempts'] = $providerAttempts;
+        for ($index = count($providerAttempts) - 1; $index >= 0; $index--) {
+            if (($providerAttempts[$index]['provider'] ?? null) !== 'meta') {
+                continue;
             }
+            $attemptMessageId = $providerAttempts[$index]['message_id'] ?? null;
+            if (is_string($attemptMessageId) && $attemptMessageId !== $messageId) {
+                continue;
+            }
+            $providerAttempts[$index] = array_merge($providerAttempts[$index], [
+                'status' => $providerStatus,
+                'completed_at' => now()->toIso8601String(),
+                'message_id' => $messageId,
+            ]);
+            $changes['provider_attempts'] = $providerAttempts;
+            break;
         }
         $delivery->forceFill($changes)->save();
+    }
+
+    /** @param array<string, mixed> $status */
+    private function handleVerificationStatus(ContactVerificationChallenge $challenge, array $status, string $messageId, string $providerStatus, string $timestamp): void
+    {
+        $eventKey = hash('sha256', implode('|', ['verification', $messageId, $providerStatus, $timestamp]));
+        if (! $this->claimEvent($eventKey, 'verification_status')) {
+            return;
+        }
+
+        $priority = ['accepted' => 0, 'sent' => 1, 'delivered' => 2, 'read' => 3, 'failed' => 4];
+        $currentPriority = $priority[$challenge->phone_provider_status ?? 'accepted'] ?? 0;
+        $incomingPriority = $priority[$providerStatus] ?? null;
+        if ($incomingPriority === null || $incomingPriority < $currentPriority
+            || (in_array($challenge->phone_provider_status, ['failed', 'read'], true)
+                && $providerStatus !== $challenge->phone_provider_status)) {
+            return;
+        }
+
+        $errorCode = data_get($status, 'errors.0.code');
+        $challenge->forceFill([
+            'phone_provider_message_id' => $messageId,
+            'phone_provider_status' => $providerStatus,
+            'phone_provider_error_code' => $providerStatus === 'failed' && is_scalar($errorCode)
+                ? substr((string) $errorCode, 0, 64)
+                : null,
+        ])->save();
     }
 
     /**
@@ -267,7 +311,8 @@ class WhatsAppWebhookService
         NotificationDelivery::query()->where('channel', 'whatsapp')->whereIn('status', ['pending', 'queued'])
             ->where(function ($query) use ($phone): void {
                 $query->whereHas('booking', fn ($booking) => $booking->where('customer_phone', $phone))
-                    ->orWhereHas('entitlement', fn ($entitlement) => $entitlement->where('customer_phone', $phone));
+                    ->orWhereHas('entitlement', fn ($entitlement) => $entitlement->where('customer_phone', $phone))
+                    ->orWhereHas('recipientUser', fn ($recipient) => $recipient->where('phone', $phone));
             })->update(['status' => 'skipped', 'next_attempt_at' => null, 'last_error' => 'Customer opted out of WhatsApp service messages.']);
 
         return 'persisted';

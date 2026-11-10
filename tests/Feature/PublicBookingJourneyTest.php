@@ -1,7 +1,8 @@
 <?php
 
 use App\Contracts\CallEvents\CallEventProvider;
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
+use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Models\AvailabilityRule;
 use App\Models\Booking;
 use App\Models\BundleDefinition;
@@ -688,9 +689,15 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
         'services.openwa.max_attempts' => 5,
         'services.openwa.retry_delays_seconds' => [60, 300, 900, 3600, 14400],
         'services.contact_verification.mode' => 'email_and_whatsapp',
-        'services.whatsapp.enabled' => true,
+        'services.whatsapp.verification_enabled' => true,
         'services.whatsapp.access_token' => 'test-token',
         'services.whatsapp.phone_number_id' => 'test-phone-id',
+        'services.whatsapp.app_secret' => 'meta-test-secret',
+        'services.whatsapp.verify_token' => 'verify-test-token',
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.com',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.callback_secret' => str_repeat('c', 48),
         'services.whatsapp.templates.contact_verification' => 'easyenglish_activation',
         'mail.default' => 'array',
     ]);
@@ -700,7 +707,8 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
     Queue::fake();
 
     $whatsappGateway = new FakeWhatsAppGateway;
-    app()->instance(WhatsAppGateway::class, $whatsappGateway);
+    app()->instance(WhatsAppNotificationGateway::class, $whatsappGateway);
+    app()->instance(WhatsAppVerificationGateway::class, $whatsappGateway);
     app()->instance(FakeWhatsAppGateway::class, $whatsappGateway);
     $this->withSession(['locale' => 'en'])->postJson(route('booking.register'), [
         'name' => 'Journey Customer',
@@ -734,7 +742,7 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
     ])->assertOk()->assertJsonPath('status', 'eligible')->assertJsonPath('eligibility.eligible', true);
     expect($customer->fresh()->email_verified_at)->not->toBeNull()
         ->and($customer->fresh()->phone_verified_at)->not->toBeNull();
-    config(['services.whatsapp.enabled' => false]);
+    config(['services.whatsapp.verification_enabled' => false]);
 
     $this->actingAs($customer)->post(route('booking.submit'), [
         'type' => 'intro',

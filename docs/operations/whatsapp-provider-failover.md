@@ -1,142 +1,110 @@
-# WhatsApp provider failover runbook
+# WhatsApp purpose-based routing and operations runbook
 
-## Purpose
+## Routing policy
 
-Easy English currently uses the isolated OpenWA service as its primary outbound WhatsApp provider. Meta WhatsApp Cloud API is retained as a manually selected fallback. The active outbound provider is selected globally with `WHATSAPP_PROVIDER`. This runbook covers routine OpenWA readiness checks and emergency switching to Meta.
+- Meta Cloud API: phone/contact verification OTPs and their delivery-status callbacks only.
+- OpenWA: customer and teacher transactional notifications, inbound STOP handling, and ordinary WhatsApp messaging.
+- OpenWA scheduled call events: separately controlled by OPENWA_ENABLED.
+- Email: independent of both WhatsApp providers.
 
-The switch changes the provider used for **new submissions**. It does not migrate messages already accepted by a provider, and it does not automatically replay messages with an uncertain send outcome.
+There is no global WHATSAPP_PROVIDER selector and no automatic cross-provider fallback. This runbook replaces the former provider-failover procedure. Do not use a provider switch to move notification traffic between Meta and OpenWA.
 
-## Provider configuration
+## Configuration
 
-Keep OpenWA configured and active on Hostinger and Railway. Retain a separately validated Meta configuration for emergency use. Store secrets in Hostinger Variables and Railway Variables, never in Git.
+### Meta verification on Hostinger
 
-### Meta on Hostinger
-
-```dotenv
-WHATSAPP_PROVIDER=meta
-WHATSAPP_ENABLED=true
-WHATSAPP_ALLOW_FREE_FORM=false
+~~~dotenv
+META_WHATSAPP_VERIFICATION_ENABLED=true
 WHATSAPP_API_VERSION=v26.0
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_BUSINESS_ACCOUNT_ID=...
 WHATSAPP_ACCESS_TOKEN=...
 WHATSAPP_APP_SECRET=...
 WHATSAPP_WEBHOOK_VERIFY_TOKEN=...
-```
+WHATSAPP_TEMPLATE_CONTACT_VERIFICATION=easyenglish_activation
+~~~
 
-The Meta WABA, sender, long-lived system-user token, webhook, opt-out processing, and all transactional templates/language variants must remain active and approved. Keep `WHATSAPP_ALLOW_FREE_FORM=false` unless a caller explicitly establishes a valid customer-service window; normal notifications must use approved templates. `WHATSAPP_ENABLED` controls the Meta adapter; it is not the global provider selector.
+The approved easyenglish_activation Romanian and English variants must be aligned to the application's 30-minute challenge lifetime before enabling OTP delivery. WHATSAPP_ENABLED is a temporary backward-compatible fallback only when META_WHATSAPP_VERIFICATION_ENABLED is absent. Meta transactional templates are not used for ordinary notifications.
 
-### OpenWA on Hostinger
+### OpenWA notifications on Hostinger
 
-```dotenv
+~~~dotenv
 OPENWA_MESSAGING_ENABLED=true
 OPENWA_BASE_URL=https://<existing-railway-openwa-domain>
 OPENWA_SERVICE_TOKEN=...
 OPENWA_MESSAGING_TIMEOUT=20
 OPENWA_MESSAGING_CALLBACK_SECRET=...
-OPENWA_MESSAGING_CALLBACK_URL=https://<easyenglish-host>/webhooks/openwa
-```
+~~~
 
-### OpenWA on Railway
+### OpenWA service on Railway
 
-Configure the matching service variables on the existing `openwa-poc` service:
-
-```dotenv
+~~~dotenv
 OPENWA_MESSAGING_ENABLED=true
 OPENWA_ALLOW_LIVE_TEST=true
 OPENWA_MESSAGING_CALLBACK_URL=https://<easyenglish-host>/webhooks/openwa
 OPENWA_MESSAGING_CALLBACK_SECRET=<same-secret-as-hostinger>
-```
+OPENWA_LICENSE_KEY=... # optional Restricted/Premium licence for new conversations
+~~~
 
-The dedicated EasyEnglish account is paired and a live verification message has succeeded. Keep `OPENWA_ALLOW_LIVE_TEST=true`, `OPENWA_MESSAGING_ENABLED=true`, the existing `OPENWA_SERVICE_TOKEN`, persistent volume, unchanged session encryption key, one-replica deployment, and existing call-event configuration. `OPENWA_ENABLED` remains the independent feature flag for scheduled call events; do not repurpose it.
+Keep the existing one-replica deployment, persistent /data volume, unchanged session encryption key, service token, and paired account. OPENWA_ENABLED remains the separate scheduled-call-event feature flag. Do not change it during messaging operations.
 
-The OpenWA service must be authenticated and `/v1/capabilities` must report `messagingReady: true`. Its callback must reach Hostinger over HTTPS. Do not use Railway private DNS from Hostinger.
+## Readiness checks
 
-## Pre-incident readiness checks
+Run:
 
-Run these during routine operations and after every deployment or provider configuration change:
-
-```sh
+~~~sh
 php artisan whatsapp:provider-status
-```
+php artisan openwa:monitor
+~~~
 
-The command prints the selected provider and secret-free configuration readiness. It does not send a message or prove remote account readiness.
+The status command reports Meta verification configuration, OpenWA notification configuration and remote /v1/capabilities readiness, and scheduled call-event service readiness independently.
 
-For OpenWA, check the Railway deployment and session readiness:
+For OpenWA, confirm /health/ready returns HTTP 200, authenticated /v1/capabilities reports messagingReady: true, the paired session is authenticated, and callback URL/secret match the Laravel deployment. Readiness does not prove unrestricted recipient reachability. CI does not prove real WhatsApp delivery.
 
-```sh
-curl -fsS https://<openwa-domain>/health/ready
-curl -fsS -H 'Authorization: Bearer <OPENWA_SERVICE_TOKEN>' https://<openwa-domain>/v1/capabilities
-```
+## First-time-recipient licensing gate
 
-Do not paste tokens into shared terminals, tickets, or logs. For Meta, verify the sender, access token, webhook subscription, and template approvals in Meta Business Manager. Perform a controlled test to an opted-in staff number through each provider at least once before relying on it.
+Before enabling general transactional messaging, send one controlled notification through Laravel outbox to an opted-in test number never previously contacted by this OpenWA account. Record the delivery ID, provider attempt, service response, and recipient outcome.
 
-**Phone-number compatibility gate:** Meta Cloud API and OpenWA may not be able to use the same WhatsApp number/session concurrently. Confirm the selected Meta sender and OpenWA account arrangement with the actual Meta/WhatsApp account configuration before pairing or enabling either provider. If the fallback uses a different number, make sure staff and customers know the sender may change after failover. Do not assume a shared number works merely because both sets of credentials exist.
+If OpenWA rejects the new recipient with LICENSE_REQUIRED, obtain the Restricted/Premium licence and configure it on the Railway service using OPENWA_LICENSE_KEY. This optional secret belongs only on the OpenWA service, never in Laravel. Repeat the test and manually retry the failed outbox row after configuration. This remains a rollout gate; it is not a reason to block implementation or add Meta fallback.
 
-## Emergency fallback: OpenWA to Meta
+## Provider-specific failure handling
 
-1. In Hostinger, change only the selector:
+### Meta verification unavailable
 
-   ```dotenv
-   WHATSAPP_PROVIDER=meta
-   ```
+- Do not route OTPs through OpenWA.
+- Check META_WHATSAPP_VERIFICATION_ENABLED, sender credentials, App Secret, webhook verification token, approved authentication template, and template expiry.
+- Keep email-only verification behavior unchanged if that mode is intentionally configured.
+- Resolve the Meta issue before re-enabling WhatsApp phone verification.
 
-2. Confirm the Meta settings above are present and `WHATSAPP_ENABLED=true`.
-3. Rebuild cached configuration and restart long-running workers:
+### OpenWA notifications unavailable
 
-   ```sh
-   php artisan config:cache
-   php artisan queue:restart
-   ```
+- Do not route transactional notifications through Meta.
+- Keep email notifications operating independently.
+- Check the Railway service, authenticated session, OPENWA_MESSAGING_ENABLED, callback secret, and recipient eligibility.
+- Recover OpenWA messaging and retain pending deliveries until the service is ready.
+- For ambiguous delivery, reconcile the original OpenWA idempotency key before retrying. Never create a replacement row or blindly replay through another provider.
 
-   If the hosting process manager does not automatically restart workers after `queue:restart`, restart the configured queue worker process using the Hostinger process manager.
-4. Verify the selected provider:
+### Scheduled call events unavailable
 
-   ```sh
-   php artisan whatsapp:provider-status
-   ```
+Treat this as a separate OpenWA call-event incident. Preserve OPENWA_ENABLED and the existing event lifecycle/reconciliation procedure unless a separate call-event rollout change is approved. Do not change OPENWA_MESSAGING_ENABLED as a substitute.
 
-   It must report `Active outbound provider: meta` and selected provider configuration `ready`.
-5. Send one controlled notification to an opted-in staff test number and verify the Meta provider message ID/status in Admin → Operations → Notification delivery.
-6. Keep OpenWA running for diagnosis, but do not switch back until its session is authenticated and the recovery checks below pass.
+## Delivery and callback rules
 
-No code deployment or database migration is required for this switch. Existing queue workers must load the refreshed configuration, which is why the restart is mandatory.
+- New WhatsApp notification rows are attributed to openwa before submission.
+- Meta status callbacks update only Meta-origin notification rows or correlated verification challenges.
+- OpenWA inbound STOP messages and Meta inbound STOP messages use the same contact/opt-out store.
+- Opt-out suppresses pending/queued notifications to both customer and teacher recipients; email is unaffected.
+- Accepted/sent/delivered/read records are not resent because another capability is unavailable.
+- Ambiguous OpenWA sends must be reconciled before manual retry.
 
-## Handling queued and in-flight deliveries
+## Deployment migration
 
-- **Pending / queued, not yet submitted:** will use the newly selected provider when the worker first submits the message.
-- **Sent / accepted / delivered / read:** remain attached to the provider that accepted the message and are never resent because the selector changed.
-- **Failed with a definitive provider rejection:** may be retried through the selected provider using the same logical outbox record/idempotency key after checking the failure reason.
-- **Ambiguous:** do not retry or create a replacement delivery. For an OpenWA delivery, use Admin → Operations → Notification delivery → Reconcile OpenWA. If OpenWA confirms `accepted`, the delivery is marked sent. If it confirms `failed` or has no submission record, it becomes eligible for a controlled retry. If it remains `sending` or `submission_unconfirmed`, leave it quarantined and investigate. Meta ambiguous sends require checking Meta's delivery/status diagnostics; do not blindly replay them.
+The code deployment does not automatically change production environment variables. Coordinate the following after deployment:
 
-A provider's `accepted` response means it accepted the submission, not that the recipient read it. The application cannot promise exactly-once delivery when a provider accepts a request and the connection fails before the acknowledgement is persisted.
-
-## Return to primary: Meta to OpenWA
-
-Return to the primary OpenWA provider only when all of the following are true:
-
-- The dedicated OpenWA session is authenticated and stable, with `/health/ready` returning `200`.
-- `/v1/capabilities` reports `messagingReady: true`.
-- The OpenWA callback URL and shared callback secret are correct, and inbound STOP messages are reaching the Laravel webhook.
-- A controlled staff test message succeeds through OpenWA.
-- The phone-number compatibility gate above has been satisfied.
-- No unresolved ambiguous deliveries are being replayed.
-
-Then change `WHATSAPP_PROVIDER=openwa` in Hostinger, run `php artisan config:cache` and `php artisan queue:restart`, and verify with `php artisan whatsapp:provider-status`. Send a controlled test and inspect its provider/attempt history.
-
-## Rollback and escalation
-
-If the selected provider is not ready after the switch, restore the last known-good selector and repeat the config-cache/worker-restart steps. Keep email notifications available. Do not disable the existing OpenWA call-event feature flag as part of a messaging-provider switch; scheduled call events are a separate integration and may still be needed for active bookings.
-
-Escalate persistent ambiguous sends to an operator with access to the provider's message diagnostics. Never resolve uncertainty by creating a second notification row or changing the idempotency key.
-## Routine production checks
-
-- Keep `WHATSAPP_PROVIDER=openwa` in Hostinger. `php artisan whatsapp:provider-status` must identify OpenWA as the active outbound provider and report selected-provider configuration ready.
-- Authenticated `GET /v1/capabilities` must report `provider=openwa`, `messagingEnabled=true`, `messagingReady=true`, and `connectionState=authenticated`. A `qr_ready`, `disconnected`, or other non-authenticated state means messaging is not ready; do not keep retrying verification sends.
-- `GET /health/ready` must return HTTP 200. Railway `/health/live` is only a process-liveness check and does not prove WhatsApp session readiness.
-- Keep exactly one Railway replica and the persistent `/data` volume. Preserve `OPENWA_SESSION_ENCRYPTION_KEY` across deployments and restarts. Never replace or delete session files as a routine recovery action.
-- After every Railway deployment, verify session restoration before considering the service ready. If the session returns to QR pairing or reports `SESSION_RESTORE_UNAVAILABLE`, stop outbound tests and investigate persistence/restoration before scanning another QR code.
-- Inspect **Admin → Operations → Notification delivery** for provider, attempt history, acknowledgements, and callback processing. Reconcile ambiguous OpenWA submissions using the existing idempotency key before any retry.
-- Keep the inbound callback URL and shared HMAC secret aligned between Railway and Hostinger. Confirm inbound STOP/opt-out events are persisted and pending deliveries are suppressed.
-
-The successful live verification test on 7 November 2026 confirms the basic OpenWA outbound path. Continue the wider acceptance matrix for email/WhatsApp verification, inbound opt-out, transactional notifications, booking lifecycle messages, reminders, delivery reconciliation, and restart/reconnect recovery.
+1. Set META_WHATSAPP_VERIFICATION_ENABLED explicitly to the intended Meta OTP state.
+2. Keep OPENWA_MESSAGING_ENABLED aligned on Hostinger and Railway.
+3. Leave OPENWA_ENABLED unchanged unless a separate scheduled-call decision is approved.
+4. Remove obsolete WHATSAPP_PROVIDER from deployment configuration; it no longer controls routing.
+5. Run php artisan config:cache and php artisan queue:restart.
+6. Run both readiness commands above.
+7. Complete the Meta authentication-template approval and OpenWA first-time-recipient licensing tests before enabling general traffic.

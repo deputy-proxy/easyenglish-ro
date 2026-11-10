@@ -1133,7 +1133,7 @@ class PublicSiteController extends Controller
         }
         $contactVerificationEmailOnly = config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only';
         $phoneVerificationAvailable = ! $contactVerificationEmailOnly
-            && app(WhatsAppProviderConfiguration::class)->isOutboundConfigured();
+            && app(WhatsAppProviderConfiguration::class)->isMetaVerificationConfigured();
 
         $now = CarbonImmutable::now(AvailabilityService::TIMEZONE)->utc();
         $bookings = Booking::query()

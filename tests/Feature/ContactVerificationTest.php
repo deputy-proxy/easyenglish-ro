@@ -1,6 +1,6 @@
 <?php
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Contracts\Payments\StripeGateway;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Mail\ContactVerificationEmail;
@@ -13,6 +13,7 @@ use App\Models\FreeSessionClaim;
 use App\Models\User;
 use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
+use App\Services\Notifications\WhatsAppWebhookService;
 use App\Services\Payments\StripeCheckoutService;
 use App\Services\Verification\ContactVerificationService;
 use App\Services\Verification\FreeSessionEligibilityService;
@@ -29,14 +30,16 @@ use Tests\Support\FakeWhatsAppGateway;
 
 beforeEach(function (): void {
     config([
-        'services.whatsapp.enabled' => true,
+        'services.whatsapp.verification_enabled' => true,
         'services.whatsapp.access_token' => 'test-token',
         'services.whatsapp.phone_number_id' => 'test-phone-id',
+        'services.whatsapp.app_secret' => 'meta-test-secret',
+        'services.whatsapp.verify_token' => 'verify-test-token',
         'services.whatsapp.templates.contact_verification' => 'easyenglish_activation',
         'mail.default' => 'array',
     ]);
     $gateway = new FakeWhatsAppGateway;
-    app()->instance(WhatsAppGateway::class, $gateway);
+    app()->instance(WhatsAppVerificationGateway::class, $gateway);
     app()->instance(FakeWhatsAppGateway::class, $gateway);
 });
 
@@ -66,7 +69,7 @@ function makeVerificationChallenge(array $overrides = []): ContactVerificationCh
 test('email-only mode sends verification email without requiring WhatsApp configuration', function () {
     config([
         'services.contact_verification.mode' => 'email_only',
-        'services.whatsapp.enabled' => false,
+        'services.whatsapp.verification_enabled' => false,
         'services.whatsapp.access_token' => null,
         'services.whatsapp.phone_number_id' => null,
     ]);
@@ -82,6 +85,27 @@ test('email-only mode sends verification email without requiring WhatsApp config
     expect($challenge->fresh()->isComplete())->toBeTrue();
 });
 
+test('verification never falls back to OpenWA when Meta is disabled, while email-only verification remains available', function () {
+    config([
+        'services.whatsapp.verification_enabled' => false,
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.com',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.callback_secret' => str_repeat('c', 48),
+    ]);
+
+    expect(fn () => app(ContactVerificationService::class)->start('meta-disabled@example.com', '+40722123456', 'en'))
+        ->toThrow(RuntimeException::class, 'Meta WhatsApp verification delivery is disabled or not fully configured.')
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
+
+    config(['services.contact_verification.mode' => 'email_only']);
+    $challenge = app(ContactVerificationService::class)->start('email-only@example.com', '+40722123457', 'en');
+
+    expect($challenge->email_sent_at)->not->toBeNull()
+        ->and($challenge->phone_sent_at)->toBeNull()
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
+});
+
 test('verification start stores hashes and sends a WhatsApp code without logging secrets', function () {
     $challenge = app(ContactVerificationService::class)->start('Learner@example.com', '+40722123456', 'en');
     $gateway = app(FakeWhatsAppGateway::class);
@@ -94,6 +118,8 @@ test('verification start stores hashes and sends a WhatsApp code without logging
         ->and($challenge->phone_code_hash)->not->toBe($code)
         ->and($code)->toMatch('/^[0-9]{6}$/')
         ->and($gateway->sent)->toHaveCount(1)
+        ->and($challenge->phone_provider_message_id)->toStartWith('wamid.')
+        ->and($challenge->phone_provider_status)->toBe('accepted')
         ->and($gateway->sent[0]['template'])->toBe('easyenglish_activation')
         ->and($gateway->sent[0]['language'])->toBe('en')
         ->and($gateway->sent[0]['components'][0])->toBe([
@@ -106,6 +132,31 @@ test('verification start stores hashes and sends a WhatsApp code without logging
             'index' => '0',
             'parameters' => [['type' => 'text', 'text' => $code]],
         ]);
+});
+
+test('Meta webhook delivery statuses reconcile verification OTP challenges by opaque callback data', function () {
+    $challenge = makeVerificationChallenge([
+        'phone_provider_status' => 'accepted',
+    ]);
+
+    app(WhatsAppWebhookService::class)->handle([
+        'entry' => [[
+            'changes' => [[
+                'value' => [
+                    'statuses' => [[
+                        'id' => 'wamid.verification-delivered',
+                        'status' => 'delivered',
+                        'timestamp' => '1794050000',
+                        'biz_opaque_callback_data' => 'contact-verification-'.$challenge->id,
+                    ]],
+                ],
+            ]],
+        ]],
+    ]);
+
+    expect($challenge->fresh()->phone_provider_message_id)->toBe('wamid.verification-delivered')
+        ->and($challenge->fresh()->phone_provider_status)->toBe('delivered')
+        ->and($challenge->fresh()->phone_provider_error_code)->toBeNull();
 });
 
 test('public verification form starts the email and WhatsApp steps', function () {
@@ -157,9 +208,9 @@ test('verification requests are rate-limited per normalized contact', function (
 });
 
 test('provider delivery failure invalidates a partially delivered challenge', function () {
-    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway = Mockery::mock(WhatsAppVerificationGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('fake provider failure'));
-    app()->instance(WhatsAppGateway::class, $gateway);
+    app()->instance(WhatsAppVerificationGateway::class, $gateway);
 
     expect(fn () => app(ContactVerificationService::class)->start('partial@example.com', '+40722987657', 'en'))
         ->toThrow(RuntimeException::class);
@@ -168,9 +219,9 @@ test('provider delivery failure invalidates a partially delivered challenge', fu
 });
 
 test('ambiguous WhatsApp delivery preserves the verification challenge for a possibly delivered code', function () {
-    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway = Mockery::mock(WhatsAppVerificationGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new WhatsAppDeliveryAmbiguousException('provider acknowledgement was lost'));
-    app()->instance(WhatsAppGateway::class, $gateway);
+    app()->instance(WhatsAppVerificationGateway::class, $gateway);
 
     $challenge = app(ContactVerificationService::class)->start('ambiguous@example.com', '+40722123457', 'en');
 
@@ -519,7 +570,7 @@ test('inline email and phone verification returns the next state without automat
 test('email-only inline verification does not require WhatsApp consent or send a WhatsApp message', function () {
     config([
         'services.contact_verification.mode' => 'email_only',
-        'services.whatsapp.enabled' => false,
+        'services.whatsapp.verification_enabled' => false,
         'services.whatsapp.access_token' => null,
         'services.whatsapp.phone_number_id' => null,
     ]);
@@ -888,9 +939,9 @@ test('verification delivery failure returns an explicit state and never verifies
         'phone' => '+40722123473',
         'email_verified_at' => now(),
     ]);
-    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway = Mockery::mock(WhatsAppVerificationGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('provider unavailable'));
-    app()->instance(WhatsAppGateway::class, $gateway);
+    app()->instance(WhatsAppVerificationGateway::class, $gateway);
 
     $response = $this->actingAs($user)->withSession(['locale' => 'en'])->postJson(route('verification.start'), [
         'email' => $user->email,
@@ -953,7 +1004,7 @@ test('contact verification sends the branded localized email mailable using the 
     config([
         'app.url' => 'https://app.easyenglish.test',
         'services.contact_verification.mode' => 'email_only',
-        'services.whatsapp.enabled' => false,
+        'services.whatsapp.verification_enabled' => false,
         'services.whatsapp.access_token' => null,
         'services.whatsapp.phone_number_id' => null,
     ]);

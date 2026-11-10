@@ -1,7 +1,8 @@
 <?php
 
 use App\Contracts\CallEvents\CallEventProvider;
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
+use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\CallEvents\CallEventResult;
 use App\Exceptions\CallEvents\CallEventProviderException;
 use App\Exceptions\NotificationNoLongerEligibleException;
@@ -35,12 +36,16 @@ use Tests\Support\FakeWhatsAppGateway;
 function enableWhatsAppForCallEventTests(): void
 {
     config([
-        'services.whatsapp.provider' => 'meta',
-        'services.whatsapp.enabled' => true,
+        'services.whatsapp.verification_enabled' => true,
         'services.whatsapp.api_version' => 'v26.0',
         'services.whatsapp.phone_number_id' => '123456789',
         'services.whatsapp.access_token' => 'test-access-token',
         'services.whatsapp.app_secret' => 'meta-test-secret',
+        'services.whatsapp.verify_token' => 'verify-test-token',
+        'services.whatsapp.openwa.enabled' => true,
+        'services.whatsapp.openwa.base_url' => 'https://openwa.example.com',
+        'services.whatsapp.openwa.service_token' => str_repeat('s', 48),
+        'services.whatsapp.openwa.callback_secret' => str_repeat('c', 48),
         'services.whatsapp.verify_token' => 'verify-test-token',
     ]);
 }
@@ -845,7 +850,8 @@ test('teacher WhatsApp delivery worker sends to the teacher contact and updates 
         ->where('event', 'customer_call_link_ready')
         ->firstOrFail();
     $fakeGateway = new FakeWhatsAppGateway;
-    app()->instance(WhatsAppGateway::class, $fakeGateway);
+    app()->instance(WhatsAppNotificationGateway::class, $fakeGateway);
+    app()->instance(WhatsAppVerificationGateway::class, $fakeGateway);
 
     (new SendNotificationDelivery($delivery->id))->handle(
         app(NotificationMessageFactory::class),
@@ -973,7 +979,7 @@ test('a transient teacher WhatsApp failure retries only that recipient without c
         ->where('channel', 'email')
         ->firstOrFail();
     $teacherDelivery->update(['status' => 'queued']);
-    $gateway = Mockery::mock(WhatsAppGateway::class);
+    $gateway = Mockery::mock(WhatsAppNotificationGateway::class);
     $gateway->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary provider failure'));
 
     (new SendNotificationDelivery($teacherDelivery->id))->handle(
@@ -1021,7 +1027,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
     $teacherDelivery->update(['status' => 'queued']);
 
     $customerGateway = new FakeWhatsAppGateway;
-    $teacherFailure = Mockery::mock(WhatsAppGateway::class);
+    $teacherFailure = Mockery::mock(WhatsAppNotificationGateway::class);
     $teacherFailure->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary teacher delivery failure'));
     (new SendNotificationDelivery($customerDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $customerGateway);
     (new SendNotificationDelivery($teacherDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $teacherFailure);
@@ -1057,7 +1063,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
     $secondCustomerDelivery->update(['status' => 'queued']);
     $secondTeacherDelivery->update(['status' => 'queued']);
 
-    $customerFailure = Mockery::mock(WhatsAppGateway::class);
+    $customerFailure = Mockery::mock(WhatsAppNotificationGateway::class);
     $customerFailure->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary customer delivery failure'));
     $secondTeacherGateway = new FakeWhatsAppGateway;
     (new SendNotificationDelivery($secondCustomerDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $customerFailure);

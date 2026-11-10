@@ -27,25 +27,31 @@ class MonitorOpenWaOperations extends Command
         $openWaReady = null;
         $providerErrorsInWindow = null;
         $staleCallEvents = 0;
-        $activeWhatsAppProvider = (string) config('services.whatsapp.provider', 'meta');
-        $openWaMessagingReady = null;
-        $activeWhatsAppConfigured = false;
-        try {
-            $providerConfiguration = app(WhatsAppProviderConfiguration::class);
-            $activeWhatsAppConfigured = $providerConfiguration->provider() === 'openwa'
-                || ! $providerConfiguration->isEnabled()
-                || $providerConfiguration->isConfigured();
-        } catch (\Throwable) {
-            $activeWhatsAppConfigured = false;
-        }
+        $providerConfiguration = app(WhatsAppProviderConfiguration::class);
+        $metaVerificationEnabled = $providerConfiguration->isMetaVerificationEnabled();
+        $metaVerificationReady = $providerConfiguration->isMetaVerificationConfigured();
         $this->trackCondition(
-            'whatsapp-active-provider-configuration',
-            ! $activeWhatsAppConfigured,
-            'Active WhatsApp provider configuration is incomplete',
-            'The selected WhatsApp provider is missing required credentials or callback configuration. Check the provider environment variables and run php artisan whatsapp:provider-status after updating them.',
+            'meta-verification-readiness',
+            $metaVerificationEnabled && ! $metaVerificationReady,
+            'Meta WhatsApp verification is not ready',
+            'Meta contact verification is enabled but its Cloud API credentials, approved authentication template, or webhook callback configuration are incomplete. Check php artisan whatsapp:provider-status.',
             $alerts,
             $recovered,
         );
+
+        $openWaMessagingEnabled = $providerConfiguration->isOpenWaMessagingEnabled();
+        $openWaMessagingConfigured = $providerConfiguration->isOpenWaMessagingConfigured();
+        $openWaMessagingReady = null;
+        if ($openWaMessagingEnabled) {
+            $this->trackCondition(
+                'openwa-messaging-configuration',
+                ! $openWaMessagingConfigured,
+                'OpenWA messaging configuration is incomplete',
+                'OpenWA notifications are enabled but the HTTPS service URL, service token, or callback secret is missing or invalid. Check php artisan whatsapp:provider-status.',
+                $alerts,
+                $recovered,
+            );
+        }
 
         if ((bool) config('services.openwa.enabled')) {
             $ready = $client->isReady();
@@ -105,7 +111,7 @@ class MonitorOpenWaOperations extends Command
             );
         }
 
-        if ($activeWhatsAppProvider === 'openwa' || (bool) config('services.whatsapp.openwa.enabled')) {
+        if ($openWaMessagingEnabled) {
             $baseUrl = rtrim((string) config('services.whatsapp.openwa.base_url'), '/');
             $token = config('services.whatsapp.openwa.service_token');
             $ready = false;
@@ -120,9 +126,9 @@ class MonitorOpenWaOperations extends Command
             $openWaMessagingReady = $ready;
             $this->trackCondition(
                 'openwa-messaging-readiness',
-                $activeWhatsAppProvider === 'openwa' && ! $ready,
-                'Active WhatsApp provider is not ready',
-                'OpenWA is selected for outbound WhatsApp messaging but its messaging capability is not ready. Switch WHATSAPP_PROVIDER to meta after confirming Meta credentials and templates are operational.',
+                ! $ready,
+                'OpenWA notification messaging is not ready',
+                'OpenWA notifications are enabled but the messaging capability is not ready. Check the Railway service, paired session, and messaging callback configuration. Meta is reserved for verification and is not an automatic fallback.',
                 $alerts,
                 $recovered,
             );
@@ -179,9 +185,11 @@ class MonitorOpenWaOperations extends Command
 
         Log::info('OpenWA operations monitor completed.', [
             'openwa_enabled' => (bool) config('services.openwa.enabled'),
-            'active_whatsapp_provider' => $activeWhatsAppProvider,
+            'meta_verification_enabled' => $metaVerificationEnabled,
+            'meta_verification_ready' => $metaVerificationReady,
+            'openwa_messaging_enabled' => $openWaMessagingEnabled,
+            'openwa_messaging_configured' => $openWaMessagingConfigured,
             'openwa_messaging_ready' => $openWaMessagingReady,
-            'active_whatsapp_configured' => $activeWhatsAppConfigured,
             'openwa_ready' => $openWaReady,
             'provider_errors_in_window' => $providerErrorsInWindow,
             'stale_call_event_operations' => $staleCallEvents,

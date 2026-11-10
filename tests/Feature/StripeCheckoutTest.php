@@ -1,6 +1,6 @@
 <?php
 
-use App\Contracts\Notifications\WhatsAppGateway;
+use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Payments\StripeGateway;
 use App\Jobs\SendNotificationDelivery;
 use App\Mail\TransactionalNotificationEmail;
@@ -421,7 +421,7 @@ test('verified bundle purchase queues a Romanian or English transactional email 
     postStripeTestEvent($this, stripeTestEvent('evt_bundle_email_locale', 'checkout.session.completed', $fake->retrieveCheckoutSession('cs_test_1')))->assertOk();
     $delivery = NotificationDelivery::query()->where('event', 'bundle_purchase_confirmed')->firstOrFail();
     $delivery->update(['status' => 'queued']);
-    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppGateway::class));
+    (new SendNotificationDelivery($delivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), app(WhatsAppNotificationGateway::class));
 
     expect($delivery->fresh()->status)->toBe('sent');
     Mail::assertSent(TransactionalNotificationEmail::class, fn (TransactionalNotificationEmail $mail): bool => $mail->messageData['locale'] === 'en'
