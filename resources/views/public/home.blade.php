@@ -15,7 +15,7 @@
 <body class="bg-paper font-sans text-ink antialiased">
     <div class="public-hero-shell" data-hero-shell>
         <x-public-site-header :hero="true" />
-        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pt-6 pb-5 md:pb-[150px] text-center text-ink sm:px-7 md:min-h-[min(900px,100svh)] md:justify-start md:px-6 md:pb-[150px] md:pt-[140px]" data-hero>
+        <section class="relative isolate flex w-full flex-col items-center overflow-hidden bg-white px-5 pt-6 pb-5 md:pb-[150px] text-center text-ink sm:px-7 md:min-h-[100dvh] md:justify-start md:px-6 md:pb-[150px] md:pt-[140px]" data-hero>
             <div class="pointer-events-none absolute inset-0 hidden overflow-hidden bg-white md:block" aria-hidden="true">
                 <img class="absolute bottom-0 left-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-left-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-teacher.png') }}" alt="" fetchpriority="high" data-hero-image>
                 <img class="absolute bottom-0 right-0 top-auto w-[min(40vw,635px)] max-h-full max-w-none object-contain object-right-bottom" src="{{ \App\Support\VersionedAsset::url('images/hero-student.png') }}" alt="" fetchpriority="high" data-hero-image>
