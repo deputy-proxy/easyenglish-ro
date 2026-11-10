@@ -5,6 +5,25 @@ use App\Mail\OpenWaSessionDisconnected;
 use App\Mail\TransactionalNotificationEmail;
 use Carbon\CarbonImmutable;
 
+test('email header and footer embed the logo as an inline image', function () {
+    $message = new class
+    {
+        public function embed(string $path): string
+        {
+            expect($path)->toBe(public_path('images/email/logo-white.png'));
+
+            return 'cid:easyenglish-logo';
+        }
+    };
+
+    $header = view('emails.partials.header', ['message' => $message])->render();
+    $footer = view('emails.partials.footer', ['message' => $message])->render();
+
+    expect(file_exists(public_path('images/email/logo-white.png')))->toBeTrue()
+        ->and($header)->toContain('src="cid:easyenglish-logo"')
+        ->and($footer)->toContain('src="cid:easyenglish-logo"');
+});
+
 test('transactional email uses the EasyEnglish Option 1 brand system and plain text alternative', function () {
     $mail = new TransactionalNotificationEmail([
         'locale' => 'ro',

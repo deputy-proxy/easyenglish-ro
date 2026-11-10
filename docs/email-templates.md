@@ -100,7 +100,7 @@ Verification and OpenWA messages are separate direct-mail flows and are not memb
 - Use presentation tables and inline CSS; do not rely on JavaScript, external stylesheets, flexbox/grid, or background images.
 - Keep the outer container fluid with a 600px maximum width.
 - Use Arial/Helvetica/system fallbacks for broad availability.
-- Use a PNG logo because SVG support varies across email clients. The image is supplementary; the message remains understandable if images are blocked.
+- Use a PNG logo because SVG support varies across email clients. The logo is embedded as an inline CID image when the email is sent, so recipients do not need to fetch it from the application server. HTML preview files fall back to the public asset URL. The image is supplementary; the message remains understandable if images are blocked.
 - Keep CTA destinations visible in plain-text output.
 - Optional detail rows and CTA sections are omitted when no data is available.
 - Test Gmail, Outlook and at least one Romanian mailbox provider before production launch. Local HTML rendering is not proof of identical rendering across all email clients.
