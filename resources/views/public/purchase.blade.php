@@ -131,7 +131,7 @@
 
                             <div>
                                 <label class="mb-2 block text-sm font-semibold" for="phone">{{ __('public.field_phone') }}</label>
-                                <input class="min-h-[52px] w-full rounded-xl border border-line bg-surface-subtle px-4 text-base text-ink outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10" id="phone" name="phone" type="tel" value="{{ old('phone', auth()->user()?->phone ?? $verification?->customer_phone) }}" autocomplete="tel" inputmode="tel" pattern="[+0-9 () .-]{7,32}" required maxlength="32">
+                                <input class="min-h-[52px] w-full rounded-xl border border-line bg-surface-subtle px-4 text-base text-ink outline-none transition focus:border-primary focus:bg-white focus:ring-4 focus:ring-primary/10" id="phone" name="phone" type="tel" value="{{ old('phone', auth()->user()?->phone ?? $verification?->customer_phone) }}" autocomplete="tel" inputmode="tel" pattern="\+?([0-9]|\s|\(|\)|\.|-){7,32}" required maxlength="32">
                             </div>
 
                             @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only')

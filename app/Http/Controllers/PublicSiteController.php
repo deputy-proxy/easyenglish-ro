@@ -516,6 +516,11 @@ class PublicSiteController extends Controller
             ->first()?->canReceiveServiceMessages() === true;
         $contactsVerified = $user->email_verified_at !== null && ($emailOnly || $phoneAlreadyVerified);
         $eligibility = $contactsVerified ? $eligibilityService->check((string) $user->email, $phone) : null;
+
+        // The refreshed form already communicates eligibility (or prior use). Keep the
+        // separate feedback region for intermediate states only, otherwise it repeats
+        // or contradicts the final state after the last required channel is verified.
+        $message = $contactsVerified ? '' : $message;
         $verification = $challenge && $challenge->isUsable()
             && $challenge->customer_email === mb_strtolower($user->email)
             ? $challenge

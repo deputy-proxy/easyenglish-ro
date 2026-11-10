@@ -344,7 +344,7 @@
                                 </div>
                                 <div class="grid gap-2">
                                     <label class="text-sm font-semibold text-ink" for="free-session-phone">{{ __('public.field_phone') }}</label>
-                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone') }}" autocomplete="tel" required maxlength="32" pattern="[+0-9 () .-]{7,32}">
+                                    <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone') }}" autocomplete="tel" required maxlength="32" pattern="\+?([0-9]|\s|\(|\)|\.|-){7,32}">
                                 </div>
                                 <div class="grid gap-2">
                                     <label class="text-sm font-semibold text-ink" for="free-session-level">{{ __('public.field_level') }}</label>
