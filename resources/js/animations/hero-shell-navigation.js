@@ -25,11 +25,19 @@ export function initializeHeroShellNavigation() {
         const gutter = desktopViewport.matches ? viewportWidth * 0.025 * progress : 0;
         const width = viewportWidth - gutter * 2;
         const radius = MAX_RADIUS * progress;
+        const initialPadding = desktopViewport.matches
+            ? Math.min(96, Math.max(22, viewportWidth * 0.055))
+            : 16;
+        const floatingPadding = desktopViewport.matches
+            ? Math.min(32, Math.max(16, viewportWidth * 0.02))
+            : 16;
+        const padding = initialPadding + (floatingPadding - initialPadding) * progress;
 
         shell.style.setProperty('--hero-shell-width', width + 'px');
         shell.style.setProperty('--hero-shell-radius', radius + 'px');
         header.style.setProperty('--hero-shell-width', width + 'px');
         header.style.setProperty('--hero-shell-radius', radius + 'px');
+        header.style.setProperty('--hero-shell-padding-inline', padding + 'px');
         header.classList.toggle('is-floating', progress >= 1);
     };
 
@@ -65,6 +73,7 @@ export function initializeHeroShellNavigation() {
         shell.style.removeProperty('--hero-shell-radius');
         header.style.removeProperty('--hero-shell-width');
         header.style.removeProperty('--hero-shell-radius');
+        header.style.removeProperty('--hero-shell-padding-inline');
         header.classList.remove('is-floating');
     };
 }
