@@ -519,13 +519,55 @@ test('inline phone confirmation returns eligibility without creating a booking, 
         ->assertJsonPath('status', 'eligible')
         ->assertJsonPath('next_step', 'eligible')
         ->assertJsonPath('eligibility.eligible', true)
+        ->assertJsonPath('message', '')
         ->assertJsonMissingPath('eligibility.email')
         ->assertJsonMissingPath('eligibility.phone');
+
+    expect($response->json('html'))
+        ->toContain(__('public.verification_eligible'))
+        ->not->toContain(__('public.verification_email_success'))
+        ->not->toContain(__('public.verification_phone_success'))
+        ->toContain('formaction="'.route('verification.start', [], false).'"')
+        ->not->toContain('formaction="'.route('verification.phone.confirm', [], false).'"');
 
     expect($user->fresh()->phone_verified_at)->not->toBeNull()
         ->and($challenge->fresh()->phone_verified_at)->not->toBeNull()
         ->and(Booking::query()->count())->toBe(0)
         ->and(FreeSessionClaim::query()->count())->toBe(0);
+});
+
+test('inline phone confirmation keeps only the email verification instruction while email remains pending', function () {
+    $user = User::factory()->create([
+        'email' => 'phone-first@example.com',
+        'phone' => '+40722123466',
+        'email_verified_at' => null,
+        'phone_verified_at' => null,
+    ]);
+    $challenge = makeVerificationChallenge([
+        'customer_email' => $user->email,
+        'customer_phone' => $user->phone,
+        'phone_code_hash' => hash_hmac('sha256', '123456', (string) config('app.key')),
+    ]);
+
+    $response = $this->actingAs($user)->withSession([
+        'locale' => 'en',
+        'contact_verification_id' => $challenge->id,
+    ])->postJson(route('verification.phone.confirm'), [
+        'verification_id' => $challenge->id,
+        'phone_code' => '123456',
+        'phone' => $user->phone,
+    ]);
+
+    $response->assertOk()
+        ->assertJsonPath('status', 'verification_required')
+        ->assertJsonPath('message', __('public.verification_phone_success'));
+
+    expect($response->json('html'))
+        ->toContain(__('public.verification_status_verified'))
+        ->toContain('formaction="'.route('verification.email-code.confirm', [], false).'"');
+
+    expect($user->fresh()->phone_verified_at)->not->toBeNull()
+        ->and($user->fresh()->email_verified_at)->toBeNull();
 });
 
 test('inline email and phone verification returns the next state without automatically booking', function () {
@@ -548,7 +590,13 @@ test('inline email and phone verification returns the next state without automat
         'phone' => $user->phone,
     ]);
     $emailResponse->assertOk()->assertJsonPath('status', 'verification_required')
-        ->assertJsonPath('next_step', 'contact_verification');
+        ->assertJsonPath('next_step', 'contact_verification')
+        ->assertJsonPath('message', __('public.verification_email_success'));
+
+    expect($emailResponse->json('html'))
+        ->toContain('formaction="'.route('verification.phone.confirm', [], false).'"')
+        ->not->toContain('formaction="'.route('verification.phone.confirm').'"');
+
     expect($user->fresh()->email_verified_at)->not->toBeNull()
         ->and($user->fresh()->phone_verified_at)->toBeNull()
         ->and(Booking::query()->count())->toBe(0)
@@ -560,7 +608,13 @@ test('inline email and phone verification returns the next state without automat
         'phone' => $user->phone,
     ]);
     $phoneResponse->assertOk()->assertJsonPath('status', 'eligible')
-        ->assertJsonPath('eligibility.eligible', true);
+        ->assertJsonPath('eligibility.eligible', true)
+        ->assertJsonPath('message', '');
+
+    expect($phoneResponse->json('html'))
+        ->toContain(__('public.verification_eligible'))
+        ->not->toContain(__('public.verification_email_success'))
+        ->not->toContain(__('public.verification_phone_success'));
 
     expect($user->fresh()->phone_verified_at)->not->toBeNull()
         ->and(Booking::query()->count())->toBe(0)
@@ -606,7 +660,8 @@ test('email-only inline verification does not require WhatsApp consent or send a
         'phone' => $user->phone,
     ]);
     $emailConfirmed->assertOk()->assertJsonPath('status', 'eligible')
-        ->assertJsonPath('eligibility.eligible', true);
+        ->assertJsonPath('eligibility.eligible', true)
+        ->assertJsonPath('message', '');
     expect($emailConfirmed->json('html'))->not->toContain('data-phone-change-controls');
 
     expect($user->fresh()->email_verified_at)->not->toBeNull()
@@ -818,6 +873,7 @@ test('final inline verification returns only an already-used outcome when either
     $response->assertOk()
         ->assertJsonPath('status', 'already_used')
         ->assertJsonPath('eligibility.eligible', false)
+        ->assertJsonPath('message', '')
         ->assertJsonMissingPath('eligibility.email')
         ->assertJsonMissingPath('eligibility.phone');
 

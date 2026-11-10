@@ -135,6 +135,12 @@ test('free session availability reveals the booking form for authenticated learn
         ->assertSee('name="accepted_policy"', false);
 });
 
+test('public booking phone inputs use a valid HTML pattern', function () {
+    $this->withSession(['locale' => 'en'])->get('/')
+        ->assertOk()
+        ->assertSee('pattern="\\+?([0-9]|\\s|\\(|\\)|\\.|-){7,32}"', false);
+});
+
 test('free session availability offers account creation first and an existing-account login branch', function () {
     $this->withSession(['locale' => 'en'])->get('/')
         ->assertSee('data-booking-form-panel', false)

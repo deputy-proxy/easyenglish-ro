@@ -94,7 +94,7 @@
         </div>
         <div class="grid gap-2">
             <label class="text-sm font-semibold text-ink" for="free-session-phone">{{ __('public.field_phone') }}</label>
-            <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone', $bookingFormData['phone'] ?? $verification?->customer_phone ?? auth()->user()->phone) }}" autocomplete="tel" required maxlength="32" pattern="[+0-9 () .-]{7,32}">
+            <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/15" id="free-session-phone" name="phone" type="tel" value="{{ old('phone', $bookingFormData['phone'] ?? $verification?->customer_phone ?? auth()->user()->phone) }}" autocomplete="tel" required maxlength="32" pattern="\+?([0-9]|\s|\(|\)|\.|-){7,32}">
         </div>
     </div>
     @if(! auth()->user()->studentProfile?->english_level)
@@ -150,11 +150,11 @@
                 <input class="mt-1 size-4 shrink-0 accent-primary" type="checkbox" name="whatsapp_service_consent" value="1" data-phone-change-consent>
                 <span>{{ __('public.whatsapp_service_consent') }}</span>
             </label>
-            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start') }}" formmethod="post">{{ __('public.verification_send_button_remaining') }}</button>
+            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start', [], false) }}" formmethod="post">{{ __('public.verification_send_button_remaining') }}</button>
         </div>
     @endif
     @if(! $contactsVerified)
-        <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start') }}" formmethod="post">
+        <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-primary px-6 py-3 text-sm font-bold text-white transition hover:bg-primary-hover" type="submit" formaction="{{ route('verification.start', [], false) }}" formmethod="post">
             {{ __(config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only' ? 'public.verification_send_button_email_only' : (($phoneAlreadyVerified || auth()->user()->email_verified_at) ? 'public.verification_send_button_remaining' : 'public.verification_send_button')) }}
         </button>
         @if($verification && ! $verification->email_verified_at)
@@ -162,14 +162,14 @@
                 <label class="text-sm font-semibold text-ink" for="free-session-email-code">{{ __('public.verification_email_code_label') }}</label>
                 <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-email-code" name="email_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
             </div>
-            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.email-code.confirm') }}" formmethod="post">{{ __('public.verification_confirm_email_button') }}</button>
+            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.email-code.confirm', [], false) }}" formmethod="post">{{ __('public.verification_confirm_email_button') }}</button>
         @endif
         @if(config('services.contact_verification.mode', 'email_and_whatsapp') !== 'email_only' && $verification && ! $verification->phone_verified_at)
             <div class="grid gap-2">
                 <label class="text-sm font-semibold text-ink" for="free-session-phone-code">{{ __('public.verification_code_label') }}</label>
                 <input class="min-h-12 rounded-xl border border-line bg-white px-4 text-sm text-ink" id="free-session-phone-code" name="phone_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="123456">
             </div>
-            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.phone.confirm') }}" formmethod="post">{{ __('public.verification_confirm_phone_button') }}</button>
+            <button class="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-primary px-6 py-3 text-sm font-bold text-primary" type="submit" formaction="{{ route('verification.phone.confirm', [], false) }}" formmethod="post">{{ __('public.verification_confirm_phone_button') }}</button>
         @endif
     @endif
     @if($contactsVerified && (($eligibility['eligible'] ?? false) || config('services.contact_verification.mode', 'email_and_whatsapp') === 'email_only'))
