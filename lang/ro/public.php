@@ -4,7 +4,7 @@ return [
     'hero_visual_alt' => 'Două persoane vorbesc la telefon, ilustrând o conversație individuală în engleză.',
     'motivation_eyebrow' => 'PENTRU MOMENTELE CARE CONTEAZĂ',
     'motivation_title' => '„Aș putea. Dacă m-aș descurca mai bine în engleză.”',
-    'motivation_title_desktop' => "Aș putea.\nDacă m-aș descurca mai bine în engleză.",
+    'motivation_title_desktop' => '„Aș putea.\nDacă m-aș descurca mai bine în engleză.”',
     'motivation_text' => 'Ai mai multe de spus decât reușești uneori să exprimi pe moment. Exersăm pentru acele situații reale, nu pentru un test imaginar.',
     'motivation_job' => 'Să trimiți aplicația pentru jobul pe care ți-l dorești.',
     'motivation_meeting' => 'Să-ți susții ideea într-o ședință, fără să pierzi momentul căutând cuvintele.',
