@@ -2,13 +2,14 @@
 
 namespace Tests\Support;
 
+use App\Contracts\Notifications\MetaWhatsAppTransactionalGateway;
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Data\Notifications\WhatsAppTextMessage;
 use Illuminate\Support\Str;
 
-class FakeWhatsAppGateway implements WhatsAppNotificationGateway, WhatsAppVerificationGateway
+class FakeWhatsAppGateway implements MetaWhatsAppTransactionalGateway, WhatsAppNotificationGateway, WhatsAppVerificationGateway
 {
     /** @var list<array<string, mixed>> */
     public array $sent = [];

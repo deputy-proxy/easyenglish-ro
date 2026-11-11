@@ -22,6 +22,26 @@ class WhatsAppProviderConfiguration
             && preg_match('/^[a-z0-9_]{1,128}$/', (string) config('services.whatsapp.templates.contact_verification')) === 1;
     }
 
+    public function isMetaTransactionalConfigured(): bool
+    {
+        if (! (bool) config('services.whatsapp.transactional_enabled')
+            || ! filled(config('services.whatsapp.access_token'))
+            || ! filled(config('services.whatsapp.phone_number_id'))
+            || ! is_string(config('services.whatsapp.api_version'))
+            || preg_match('/^v[0-9]+\.[0-9]+$/', (string) config('services.whatsapp.api_version')) !== 1) {
+            return false;
+        }
+
+        foreach (['customer_call_link_ready', 'teacher_call_link_ready'] as $template) {
+            $name = config('services.whatsapp.templates.'.$template);
+            if (! is_string($name) || preg_match('/^[a-z0-9_]{1,128}$/', $name) !== 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function isOpenWaMessagingEnabled(): bool
     {
         return (bool) config('services.whatsapp.openwa.enabled');

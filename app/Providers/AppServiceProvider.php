@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Contracts\CallEvents\CallEventProvider;
+use App\Contracts\Notifications\MetaWhatsAppTransactionalGateway;
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Contracts\Payments\StripeGateway;
@@ -27,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(WhatsAppVerificationGateway::class, MetaWhatsAppCloudApiGateway::class);
+        $this->app->singleton(MetaWhatsAppTransactionalGateway::class, MetaWhatsAppCloudApiGateway::class);
         $this->app->singleton(WhatsAppNotificationGateway::class, OpenWaWhatsAppGateway::class);
         $this->app->singleton(OpenWaConfig::class, fn (): OpenWaConfig => OpenWaConfig::fromArray(config('services.openwa', [])));
         $this->app->singleton(OpenWaHttpClient::class);

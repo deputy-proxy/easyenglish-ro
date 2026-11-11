@@ -1,5 +1,6 @@
 <?php
 
+use App\Contracts\Notifications\MetaWhatsAppTransactionalGateway;
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
@@ -56,6 +57,7 @@ function enableWhatsAppForTests(): void
 {
     config([
         'services.whatsapp.verification_enabled' => true,
+        'services.whatsapp.transactional_enabled' => true,
         'services.whatsapp.api_version' => 'v26.0',
         'services.whatsapp.phone_number_id' => '123456789',
         'services.whatsapp.access_token' => 'test-access-token',
@@ -68,6 +70,7 @@ function enableWhatsAppForTests(): void
     ]);
     $fake = new FakeWhatsAppGateway;
     app()->instance(WhatsAppNotificationGateway::class, $fake);
+    app()->instance(MetaWhatsAppTransactionalGateway::class, $fake);
     app()->instance(FakeWhatsAppGateway::class, $fake);
 }
 
@@ -152,6 +155,23 @@ test('Meta Cloud API gateway sends a template request with bearer token and neve
         && $request['type'] === 'template'
         && $request['template']['name'] === 'easyenglish_activation'
         && $request['biz_opaque_callback_data'] === 'contact-verification-test');
+});
+
+test('Meta Cloud API sends call-link templates when transactional delivery is enabled', function () {
+    enableWhatsAppForTests();
+    Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.call-link-1']]], 200)]);
+
+    $result = app(MetaWhatsAppCloudApiGateway::class)->sendTemplate(new WhatsAppTemplateMessage(
+        '+40722123456', 'customer_call_link_ready', 'ro', ['Ana', '12.11.2026 15:00', '15:00', '15', 'Europe/Bucharest', 'https://call.whatsapp.com/video/example', 'Deschide linkul'], [], 'call-link-delivery-1'
+    ));
+
+    expect($result)->toBe(['message_id' => 'wamid.call-link-1', 'status' => 'accepted']);
+    Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/v26.0/123456789/messages')
+        && $request->hasHeader('Authorization', 'Bearer test-access-token')
+        && $request['type'] === 'template'
+        && $request['template']['name'] === 'easyenglish_call_link_ready'
+        && $request['template']['language']['code'] === 'ro'
+        && $request['template']['components'][0]['parameters'][5]['text'] === 'https://call.whatsapp.com/video/example');
 });
 
 test('Meta Cloud API rejection exposes safe provider error details for diagnostics', function () {
@@ -471,6 +491,7 @@ test('provider status reports Meta verification and OpenWA messaging independent
 
     $this->artisan('whatsapp:provider-status')
         ->expectsOutputToContain('Meta verification: configured')
+        ->expectsOutputToContain('Meta call-link notifications: configured')
         ->expectsOutputToContain('OpenWA notifications: disabled')
         ->expectsOutputToContain('OpenWA scheduled call events: disabled')
         ->assertSuccessful();
@@ -488,6 +509,7 @@ test('provider status reports Meta verification and OpenWA messaging independent
 
     $this->artisan('whatsapp:provider-status')
         ->expectsOutputToContain('Meta verification: disabled')
+        ->expectsOutputToContain('Meta call-link notifications: configured')
         ->expectsOutputToContain('OpenWA notifications: configured')
         ->expectsOutputToContain('OpenWA messaging session: ready')
         ->assertSuccessful();
@@ -498,11 +520,11 @@ test('Meta verification gateway rejects non-verification templates and all free-
 
     expect(fn () => app(MetaWhatsAppCloudApiGateway::class)->sendTemplate(
         new WhatsAppTemplateMessage('+40722123456', 'purchase_confirmation', 'en', ['name'], [], 'meta-scope-test')
-    ))->toThrow(RuntimeException::class, 'Meta WhatsApp is reserved for contact-verification OTP templates.');
+    ))->toThrow(RuntimeException::class, 'Meta WhatsApp only supports contact verification and approved call-link templates.');
 
     expect(fn () => app(MetaWhatsAppCloudApiGateway::class)->sendText(
         new WhatsAppTextMessage('+40722123456', 'Not an OTP.', 'meta-scope-test')
-    ))->toThrow(RuntimeException::class, 'Meta WhatsApp is reserved for contact-verification OTP templates.');
+    ))->toThrow(RuntimeException::class, 'Meta WhatsApp only supports approved templates; free-form messages are not enabled.');
 });
 
 test('OpenWA notification readiness is independent of Meta verification readiness', function () {
@@ -549,6 +571,7 @@ test('ordinary WhatsApp notifications never fall back to Meta when OpenWA is dis
     enableWhatsAppForTests();
     config([
         'services.whatsapp.verification_enabled' => true,
+        'services.whatsapp.transactional_enabled' => true,
         'services.whatsapp.openwa.enabled' => false,
     ]);
 
