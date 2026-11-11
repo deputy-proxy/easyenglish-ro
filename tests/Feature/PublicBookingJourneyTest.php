@@ -547,6 +547,8 @@ test('public legal pages identify the controller and explain privacy and consume
         ->assertSee('17808982')
         ->assertSee('J2005012930400')
         ->assertSee('office@edventure.ro')
+        ->assertSee('Strada Dr. Nicolae D. Staicovici nr. 4, Sector 5, București, România')
+        ->assertDontSee('Bd. Uverturii 10')
         ->assertSee('Stripe')
         ->assertSee('ANSPDCP')
         ->assertSee('Cookie-uri');
@@ -554,10 +556,23 @@ test('public legal pages identify the controller and explain privacy and consume
     $this->get('/terms')
         ->assertOk()
         ->assertSee('ROAD CENTRE SRL')
+        ->assertSee('Strada Dr. Nicolae D. Staicovici nr. 4, Sector 5, București, România')
+        ->assertDontSee('Bd. Uverturii 10')
         ->assertSee('cel puțin 24 de ore')
         ->assertSee('cel puțin 12 ore')
         ->assertSee('39 RON')
         ->assertSee('dreptul de retragere');
+
+    $englishPrivacySections = __('public.privacy_sections', [], 'en');
+    $englishTermsSections = __('public.terms_sections', [], 'en');
+
+    expect(collect($englishPrivacySections)->pluck('body')->implode(' '))
+        ->toContain('4 Dr. Nicolae D. Staicovici Street, Sector 5, Bucharest, Romania')
+        ->not->toContain('Bd. Uverturii 10');
+
+    expect(collect($englishTermsSections)->pluck('body')->implode(' '))
+        ->toContain('4 Dr. Nicolae D. Staicovici Street, Sector 5, Bucharest, Romania')
+        ->not->toContain('Bd. Uverturii 10');
 });
 
 test('public booking page reuses the shared public navigation', function () {
