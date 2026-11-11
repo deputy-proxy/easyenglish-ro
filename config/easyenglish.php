@@ -7,7 +7,7 @@ return [
         'name' => 'ROAD CENTRE SRL',
         'cui' => '17808982',
         'trade_register' => 'J2005012930400',
-        'address' => 'Bd. Uverturii 10, Bl. B1, Sc. 1, Et. 4, Ap. 50, Sector 6, București, 060942, România',
+        'address' => 'Strada Dr. Nicolae D. Staicovici nr. 4, Sector 5, București, România',
     ],
     'contact_whatsapp' => env('EASYENGLISH_CONTACT_WHATSAPP'),
     'retention_enabled' => env('DATA_RETENTION_ENABLED', false),
