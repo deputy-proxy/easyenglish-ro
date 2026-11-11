@@ -52,7 +52,9 @@ class NotificationOutboxService
                 'metadata' => $metadata,
             ],
         );
-        $this->enqueueWhatsApp($eventValue, $booking->customer_phone, $booking->id, $booking->bundle_entitlement_id, null, $metadata, $eventKey);
+        if ($eventValue !== NotificationEvent::IntroBookingConfirmed->value) {
+            $this->enqueueWhatsApp($eventValue, $booking->customer_phone, $booking->id, $booking->bundle_entitlement_id, null, $metadata, $eventKey);
+        }
 
         return $delivery;
     }

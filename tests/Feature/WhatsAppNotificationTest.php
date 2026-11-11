@@ -4,7 +4,9 @@ use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Data\Notifications\WhatsAppTextMessage;
+use App\Enums\NotificationEvent;
 use App\Jobs\SendNotificationDelivery;
+use App\Mail\TransactionalNotificationEmail;
 use App\Models\Booking;
 use App\Models\Message;
 use App\Models\NotificationDelivery;
@@ -69,7 +71,7 @@ function enableWhatsAppForTests(): void
     app()->instance(FakeWhatsAppGateway::class, $fake);
 }
 
-test('WhatsApp messages are queued only after explicit service consent and use a separate idempotent channel record', function () {
+test('free-session booking confirmation is email-only even when the customer has WhatsApp consent', function () {
     enableWhatsAppForTests();
     $booking = makeWhatsAppBooking();
     $outbox = app(NotificationOutboxService::class);
@@ -81,18 +83,18 @@ test('WhatsApp messages are queued only after explicit service consent and use a
     $outbox->enqueueBookingConfirmation($booking);
     $outbox->enqueueBookingConfirmation($booking);
 
-    expect(NotificationDelivery::query()->where('channel', 'whatsapp')->count())->toBe(1)
+    expect(NotificationDelivery::query()->where('channel', 'whatsapp')->count())->toBe(0)
         ->and(NotificationDelivery::query()->where('channel', 'email')->count())->toBe(1)
         ->and(WhatsAppContact::query()->firstOrFail()->consent_source)->toBe('booking_form');
 });
 
-test('WhatsApp worker sends an approved template and persists provider message ID without placing a call', function () {
+test('free-session confirmation email includes a calendar invitation and does not send a WhatsApp message', function () {
     enableWhatsAppForTests();
     Mail::fake();
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
     app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
-    $delivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
+    $delivery = NotificationDelivery::query()->where('channel', 'email')->firstOrFail();
     $delivery->update(['status' => 'queued']);
 
     (new SendNotificationDelivery($delivery->id))->handle(
@@ -101,16 +103,19 @@ test('WhatsApp worker sends an approved template and persists provider message I
         app(WhatsAppNotificationGateway::class),
     );
 
-    $delivery->refresh();
-    $fake = app(FakeWhatsAppGateway::class);
-    expect($delivery->status)->toBe('sent')
-        ->and($delivery->provider)->toBe('openwa')
-        ->and($delivery->provider_status)->toBe('accepted')
-        ->and($delivery->provider_message_id)->toStartWith('wamid.')
-        ->and($fake->sent)->toHaveCount(1)
-        ->and($fake->sent[0]['template'])->toBe('easyenglish_intro_booking_confirmation')
-        ->and($fake->sent[0]['language'])->toBe('en_US')
-        ->and($fake->sent[0]['components'][0]['parameters'][0]['text'])->toBe('WhatsApp Test Customer');
+    $sentMail = Mail::sent(TransactionalNotificationEmail::class)->first();
+    $invitation = $sentMail->messageData['calendarInvitation'];
+    (new TransactionalNotificationEmail($sentMail->messageData))->assertHasAttachedData(
+        $invitation,
+        'easyenglish-session.ics',
+        ['mime' => 'text/calendar; charset=UTF-8; method=REQUEST'],
+    );
+
+    expect($delivery->fresh()->status)->toBe('sent')
+        ->and($invitation)->toContain('BEGIN:VCALENDAR')
+        ->and($invitation)->toContain('METHOD:REQUEST')
+        ->and($invitation)->toContain('ATTENDEE')
+        ->and(app(FakeWhatsAppGateway::class)->sent)->toBeEmpty();
 });
 
 test('WhatsApp service consent is visible and required before a booking can be submitted', function () {
@@ -178,7 +183,7 @@ test('WhatsApp provider failures are retried with a redacted error on the same o
     enableWhatsAppForTests();
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
-    app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
+    app(NotificationOutboxService::class)->enqueueBookingEvent($booking, NotificationEvent::AppointmentConfirmed);
     $delivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
     $delivery->update(['status' => 'queued']);
     $gateway = Mockery::mock(WhatsAppNotificationGateway::class);
@@ -235,7 +240,7 @@ test('OpenWA LICENSE_REQUIRED rejection is terminal and can be manually retried 
     Mail::fake();
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
-    app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
+    app(NotificationOutboxService::class)->enqueueBookingEvent($booking, NotificationEvent::AppointmentConfirmed);
     $delivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
     $delivery->update(['status' => 'queued']);
 
@@ -310,7 +315,7 @@ test('STOP reply opts the contact out and skips pending WhatsApp deliveries with
     enableWhatsAppForTests();
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
-    app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
+    app(NotificationOutboxService::class)->enqueueBookingEvent($booking, NotificationEvent::AppointmentConfirmed);
     $whatsappDelivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
     $emailDelivery = NotificationDelivery::query()->where('channel', 'email')->firstOrFail();
     $teacher = User::factory()->create(['is_teacher' => true, 'phone' => '+40722987654', 'phone_verified_at' => now()]);
@@ -363,7 +368,7 @@ test('OpenWA inbound callback is authenticated and STOP opts out using the share
     ]);
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
-    app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
+    app(NotificationOutboxService::class)->enqueueBookingEvent($booking, NotificationEvent::AppointmentConfirmed);
     $delivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
     $payload = json_encode(['id' => 'wamid-openwa-stop-1', 'from' => '40722123456', 'to' => '40700000000', 'timestamp' => '1794050000', 'text' => 'STOP'], JSON_THROW_ON_ERROR);
     $signature = 'sha256='.hash_hmac('sha256', $payload, str_repeat('c', 48));
@@ -430,7 +435,7 @@ test('WhatsApp connection loss quarantines the delivery as ambiguous instead of 
     enableWhatsAppForTests();
     $booking = makeWhatsAppBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'booking_form');
-    app(NotificationOutboxService::class)->enqueueBookingConfirmation($booking);
+    app(NotificationOutboxService::class)->enqueueBookingEvent($booking, NotificationEvent::AppointmentConfirmed);
     $delivery = NotificationDelivery::query()->where('channel', 'whatsapp')->firstOrFail();
     $delivery->update(['status' => 'queued']);
     $gateway = Mockery::mock(WhatsAppNotificationGateway::class);

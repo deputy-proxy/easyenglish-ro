@@ -12,10 +12,16 @@ class TransactionalNotificationEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    /** @param array{locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success?:bool} $messageData */
+    /** @param array{locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success?:bool,calendarInvitation?:string} $messageData */
     public function __construct(public array $messageData)
     {
         $this->locale($messageData['locale']);
+
+        if (is_string($messageData['calendarInvitation'] ?? null)) {
+            $this->attachData($messageData['calendarInvitation'], 'easyenglish-session.ics', [
+                'mime' => 'text/calendar; charset=UTF-8; method=REQUEST',
+            ]);
+        }
     }
 
     public function envelope(): Envelope
