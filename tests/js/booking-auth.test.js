@@ -28,19 +28,19 @@ function response(status, payload) {
     return { status, ok: status >= 200 && status < 300, json: async () => payload };
 }
 
-test('submits registration with CSRF/session headers and advances to the returned booking step', async () => {
+test('submits registration with CSRF/session headers and redirects to the dashboard', async () => {
     const form = makeForm();
     const states = [];
     let request;
+    let redirectUrl;
     let success;
-    let redirects = 0;
     const result = await submitBookingAuthForm(form, {
         csrfToken: 'csrf-token',
         formDataFactory: (target) => ({ form: target }),
-        fetcher: async (url, options) => { request = { url, ...options }; return response(201, { status: 'authenticated', next_step: 'contact_verification', html: '<form></form>', slot: '2026-11-06T09:00:00' }); },
+        fetcher: async (url, options) => { request = { url, ...options }; return response(200, { status: 'dashboard_redirect', redirect_url: '/dashboard?slot=2026-11-06T09%3A00%3A00' }); },
         onState: (state) => states.push(state),
         onSuccess: (payload) => { success = payload; },
-        onRedirect: () => { redirects++; },
+        onRedirect: (url) => { redirectUrl = url; },
     });
 
     assert.equal(request.url, '/booking/register');
@@ -49,10 +49,10 @@ test('submits registration with CSRF/session headers and advances to the returne
     assert.equal(request.headers['X-CSRF-TOKEN'], 'csrf-token');
     assert.equal(request.headers.Accept, 'application/json');
     assert.equal(request.headers['X-Requested-With'], 'XMLHttpRequest');
-    assert.equal(result.next_step, 'contact_verification');
-    assert.equal(success.html, '<form></form>');
-    assert.equal(redirects, 0);
-    assert.deepEqual(states, ['submitting', 'success']);
+    assert.equal(result.status, 'dashboard_redirect');
+    assert.equal(redirectUrl, '/dashboard?slot=2026-11-06T09%3A00%3A00');
+    assert.equal(success, undefined);
+    assert.deepEqual(states, ['submitting', 'dashboard_redirect']);
     assert.equal(form.dataset.submitting, 'false');
     assert.equal(form.button.disabled, false);
     assert.equal(form.attributes['aria-busy'], undefined);
@@ -88,7 +88,7 @@ test('uses the explicit registration endpoint when the form action attribute is 
 
     await submitBookingAuthForm(form, {
         formDataFactory: () => ({}),
-        fetcher: async (url) => { requestedUrl = url; return response(201, { status: 'authenticated', html: '<form></form>' }); },
+        fetcher: async (url) => { requestedUrl = url; return response(200, { status: 'dashboard_redirect', redirect_url: '/dashboard' }); },
     });
 
     assert.equal(requestedUrl, '/book/register');

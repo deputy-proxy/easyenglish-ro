@@ -775,4 +775,12 @@ return [
     'voucher_apply' => 'Apply code',
     'voucher_remove' => 'Remove voucher',
     'voucher_discount_label' => 'Voucher :code',
+    'booking_personalized_title' => ':name, schedule your free introductory session.',
+    'booking_landing_title' => 'Start speaking English with confidence.',
+    'booking_landing_text' => 'Choose an available time for your free introductory session. It takes just 15 minutes.',
+    'booking_internal_disabled' => 'The calendar is available to view. Booking is available only to learner accounts.',
+    'bundles_personalized_title' => ':name, are you ready for the next step?',
+    'bundles_personalized_text' => 'Choose one of the bundles below to build your confidence in English.',
+    'booking_header_cta' => 'Choose a time',
+    'booking_header_bundles_cta' => 'View bundles',
 ];

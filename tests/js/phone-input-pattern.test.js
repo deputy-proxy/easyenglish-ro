@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const templates = [
-    'resources/views/public/home.blade.php',
+    'resources/views/components/booking/availability-section.blade.php',
     'resources/views/public/partials/booking-authenticated-form.blade.php',
-    'resources/views/public/booking.blade.php',
+    'resources/views/public/partials/booking-bundle-form.blade.php',
     'resources/views/public/purchase.blade.php',
 ];
 
