@@ -72,6 +72,23 @@ class GoogleCalendarService
             // Calendar event sync will surface any remaining authorization or API problem.
         }
 
+        Booking::query()
+            ->where('teacher_id', $teacher->id)
+            ->whereIn('status', ['confirmed', 'refund_pending'])
+            ->where('starts_at', '>', now())
+            ->where(function ($query): void {
+                $query->whereNull('google_calendar_event_id')
+                    ->orWhereNull('calendar_synced_at')
+                    ->orWhereNotNull('calendar_sync_error');
+            })
+            ->select('id')
+            ->orderBy('id')
+            ->chunkById(100, function ($bookings): void {
+                foreach ($bookings as $booking) {
+                    SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
+                }
+            });
+
         return $calendar->refresh();
     }
 
@@ -221,7 +238,23 @@ class GoogleCalendarService
 
         $calendar = $booking->teacher?->teacherCalendar;
         if ($calendar === null) {
-            throw new RuntimeException('The assigned teacher has no connected Google Calendar.');
+            if ($eventId !== null) {
+                if ($storedCalendar === null) {
+                    throw new RuntimeException('The original teacher calendar is unavailable; the saved event could not be removed.');
+                }
+
+                $this->deleteEvent($storedCalendar, $eventId, $booking->google_calendar_id ?: $storedCalendar->calendar_id);
+            }
+
+            $booking->update([
+                'google_calendar_user_id' => null,
+                'google_calendar_id' => null,
+                'google_calendar_event_id' => null,
+                'calendar_synced_at' => now(),
+                'calendar_sync_error' => null,
+            ]);
+
+            return;
         }
 
         if ($eventId !== null && ($booking->google_calendar_user_id !== $calendar->user_id || $booking->google_calendar_id !== $calendar->calendar_id)) {

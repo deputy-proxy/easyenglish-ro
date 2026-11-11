@@ -528,6 +528,54 @@ test('calendar reconciliation continues for connected inactive teachers during r
     Queue::assertPushed(SyncTeacherCalendar::class, fn ($job): bool => $job->teacherCalendarId === $inactive->teacherCalendar->id);
 });
 
+test('booking calendar sync succeeds when the assigned teacher has not connected Google Calendar', function () {
+    $teacher = User::factory()->create([
+        'name' => 'Optional Calendar Teacher',
+        'email' => 'optional.calendar@example.com',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+    $booking = confirmedTeacherBooking($teacher);
+
+    app(GoogleCalendarService::class)->synchronizeBooking($booking);
+
+    expect($booking->fresh()->calendar_synced_at)->not->toBeNull()
+        ->and($booking->fresh()->calendar_sync_error)->toBeNull()
+        ->and($booking->fresh()->google_calendar_event_id)->toBeNull();
+});
+
+test('booking calendar reconciliation ignores teachers without calendars but remains ready to sync after connection', function () {
+    $connectedTeacher = createCalendarTeacher('Connected Reconciliation Teacher', 'connected.reconciliation@example.com');
+    $unconnectedTeacher = User::factory()->create([
+        'name' => 'Unconnected Reconciliation Teacher',
+        'email' => 'unconnected.reconciliation@example.com',
+        'is_teacher' => true,
+        'teacher_active' => true,
+    ]);
+    $connectedBooking = confirmedTeacherBooking($connectedTeacher);
+    $unconnectedBooking = confirmedTeacherBooking($unconnectedTeacher);
+    Queue::fake();
+
+    $this->artisan('bookings:reconcile-calendar-events')->assertSuccessful();
+
+    Queue::assertPushed(SyncBookingCalendarEvent::class, fn ($job): bool => $job->bookingId === $connectedBooking->id);
+    Queue::assertNotPushed(SyncBookingCalendarEvent::class, fn ($job): bool => $job->bookingId === $unconnectedBooking->id);
+
+    TeacherCalendar::query()->create([
+        'user_id' => $unconnectedTeacher->id,
+        'calendar_id' => 'primary',
+        'calendar_email' => $unconnectedTeacher->email,
+        'access_token' => 'encrypted-access-token',
+        'refresh_token' => 'encrypted-refresh-token',
+        'token_expires_at' => now()->addHour(),
+        'status' => 'connected',
+    ]);
+
+    $this->artisan('bookings:reconcile-calendar-events')->assertSuccessful();
+
+    Queue::assertPushed(SyncBookingCalendarEvent::class, fn ($job): bool => $job->bookingId === $unconnectedBooking->id);
+});
+
 test('calendar-event reconciliation queues missing future events and failed cancellation cleanup only', function () {
     $teacher = createCalendarTeacher('Reconciliation Teacher', 'reconciliation.teacher@example.com');
     $missingEvent = confirmedTeacherBooking($teacher);
