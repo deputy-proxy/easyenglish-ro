@@ -5,6 +5,7 @@ namespace App\Services\CallEvents;
 use App\Contracts\CallEvents\CallEventProvider;
 use App\Data\CallEvents\CallEventResult;
 use App\Exceptions\CallEvents\CallEventProviderException;
+use App\Mail\CallEventFailureAlert;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BookingCallEvent;
@@ -13,6 +14,7 @@ use App\Services\Notifications\NotificationOutboxService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class BookingCallEventService
@@ -373,11 +375,11 @@ class BookingCallEventService
 
     private function scheduleRetry(BookingCallEvent $event, string $retryStatus, string $category, string $message, bool $retryable): BookingCallEvent
     {
-        return DB::transaction(function () use ($event, $retryStatus, $category, $message, $retryable): BookingCallEvent {
+        $result = DB::transaction(function () use ($event, $retryStatus, $category, $message, $retryable): array {
             $lockedEvent = BookingCallEvent::query()->lockForUpdate()->findOrFail($event->id);
             if ($lockedEvent->status === 'cancelled' || ($lockedEvent->status === 'scheduled' && $lockedEvent->cancel_requested_at === null)
                 || ($lockedEvent->status === 'failed' && $lockedEvent->cancel_requested_at === null)) {
-                return $lockedEvent;
+                return ['event' => $lockedEvent, 'alert' => false];
             }
 
             if ($lockedEvent->cancel_requested_at !== null) {
@@ -387,11 +389,13 @@ class BookingCallEventService
             $wasFailed = $lockedEvent->status === 'failed';
             $canRetry = $retryable && $attempts < $this->config->maxAttempts;
             $delayIndex = min(max($attempts - 1, 0), count($this->config->retryDelaysSeconds) - 1);
+            $shouldAlert = $lockedEvent->admin_failure_alerted_at === null && $lockedEvent->cancel_requested_at === null;
             $lockedEvent->update([
                 'status' => $canRetry ? $retryStatus : 'failed',
                 'next_attempt_at' => $canRetry ? now()->addSeconds($this->config->retryDelaysSeconds[$delayIndex]) : null,
                 'last_error_category' => mb_substr($category, 0, 64),
                 'last_error_message' => mb_substr($message, 0, 255),
+                'admin_failure_alerted_at' => $shouldAlert ? now() : $lockedEvent->admin_failure_alerted_at,
             ]);
 
             if (! $canRetry && ! $wasFailed && $lockedEvent->status === 'failed') {
@@ -412,8 +416,39 @@ class BookingCallEventService
                 });
             }
 
-            return $lockedEvent->fresh();
+            return ['event' => $lockedEvent->fresh(), 'alert' => $shouldAlert];
         }, attempts: 3);
+
+        /** @var BookingCallEvent $updatedEvent */
+        $updatedEvent = $result['event'];
+        if ($result['alert']) {
+            try {
+                $booking = $updatedEvent->booking()->with('teacher')->first();
+                $recipient = trim((string) config('easyenglish.admin_email'));
+                if ($booking !== null && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+                    Mail::to($recipient)->queue(new CallEventFailureAlert([
+                        'booking_reference' => $booking->public_reference,
+                        'customer_name' => $booking->customer_name,
+                        'customer_email' => $booking->customer_email,
+                        'customer_phone' => $booking->customer_phone,
+                        'teacher_name' => $booking->teacher->name ?? 'Not assigned',
+                        'session_start' => $booking->starts_at->toDateTimeString(),
+                        'session_end' => $booking->ends_at->toDateTimeString(),
+                        'status' => $updatedEvent->status,
+                        'failure_category' => $category,
+                        'failure_details' => $message,
+                        'attempts' => $updatedEvent->attempts,
+                    ]));
+                }
+            } catch (Throwable $exception) {
+                Log::error('Could not send WhatsApp call-link failure alert to the administrator.', [
+                    'booking_call_event_id' => $updatedEvent->id,
+                    'exception' => $exception::class,
+                ]);
+            }
+        }
+
+        return $updatedEvent;
     }
 
     private function safeErrorMessage(string $category): string

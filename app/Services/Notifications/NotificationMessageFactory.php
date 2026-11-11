@@ -350,7 +350,14 @@ class NotificationMessageFactory
             'success' => in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BundlePurchaseConfirmed, NotificationEvent::RefundSucceeded, NotificationEvent::CustomerCallLinkReady], true),
         ];
 
-        if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)) {
+        if (in_array($event, [NotificationEvent::CustomerCallLinkReady, NotificationEvent::TeacherCallLinkReady], true)) {
+            $message['calendarInvitation'] = app(CalendarInvitationFactory::class)->make(
+                $booking,
+                $recipient,
+                $delivery->recipient_type === 'teacher' ? (string) $teacher?->name : $booking->customer_name,
+                $callEvent?->join_url,
+            );
+        } elseif (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)) {
             $message['calendarInvitation'] = app(CalendarInvitationFactory::class)->make($booking, $recipient, $delivery->recipient_type === 'teacher' ? (string) $teacher?->name : $booking->customer_name);
         }
 

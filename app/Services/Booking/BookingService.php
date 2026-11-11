@@ -197,8 +197,10 @@ class BookingService
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
             $booking = Booking::query()->lockForUpdate()->findOrFail($bookingId);
             if ($booking->status === 'confirmed') {
-                $this->notifications->enqueueBookingConfirmation($booking);
-                $this->notifications->enqueueTeacherBookingConfirmed($booking);
+                if (! $this->shouldWaitForCallLink($booking)) {
+                    $this->notifications->enqueueBookingConfirmation($booking);
+                    $this->notifications->enqueueTeacherBookingConfirmed($booking);
+                }
                 if ($booking->teacher_id !== null) {
                     SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
                     $this->queueCallEventCreation($booking);
@@ -252,11 +254,13 @@ class BookingService
                 ],
             ]);
             $booking->refresh();
-            $this->notifications->enqueueBookingConfirmation($booking);
+            if (! $this->shouldWaitForCallLink($booking)) {
+                $this->notifications->enqueueBookingConfirmation($booking);
+                $this->notifications->enqueueTeacherBookingConfirmed($booking);
+            }
             if ($previousTeacherId !== null && $previousTeacherId !== $booking->teacher_id) {
                 $this->notifications->enqueueTeacherBookingCancelled($booking, $previousTeacherId, 'reassigned');
             }
-            $this->notifications->enqueueTeacherBookingConfirmed($booking);
             if ($booking->teacher_id !== null) {
                 SyncBookingCalendarEvent::dispatch($booking->id)->afterCommit();
                 $this->queueCallEventCreation($booking->refresh());
@@ -431,10 +435,12 @@ class BookingService
                 ],
             ]);
             $booking->refresh();
-            $this->notifications->enqueueBookingEvent($booking, NotificationEvent::BookingRescheduled, [
-                'previous_starts_at' => $previousStart->toIso8601String(),
-                'reason' => $reason,
-            ], $newUtc->toIso8601String());
+            if (! $this->shouldWaitForCallLink($booking)) {
+                $this->notifications->enqueueBookingEvent($booking, NotificationEvent::BookingRescheduled, [
+                    'previous_starts_at' => $previousStart->toIso8601String(),
+                    'reason' => $reason,
+                ], $newUtc->toIso8601String());
+            }
             $this->queueCallEventCancellation($booking);
             if ($teacherChanged && $previousTeacherId !== null) {
                 $this->notifications->enqueueTeacherBookingCancelled($booking, $previousTeacherId, 'reassigned', [
@@ -444,7 +450,7 @@ class BookingService
                     ],
                 ]);
             }
-            if ($booking->teacher_id !== null) {
+            if ($booking->teacher_id !== null && ! $this->shouldWaitForCallLink($booking)) {
                 $this->notifications->enqueueTeacherBookingRescheduled($booking, $booking->teacher_id, $previousStart);
             }
             if ($booking->teacher_id !== null) {
@@ -560,6 +566,17 @@ class BookingService
 
             return $booking->refresh();
         }, attempts: 3);
+    }
+
+    private function shouldWaitForCallLink(Booking $booking): bool
+    {
+        return (bool) config('services.openwa.enabled')
+            && BookingCallEventEligibility::shouldCreate(
+                $booking,
+                (bool) config('services.openwa.apply_to_paid_sessions', false),
+                (string) config('services.openwa.rollout_stage', 'off'),
+                array_values(array_filter((array) config('services.openwa.rollout_customer_emails', []), 'is_string')),
+            );
     }
 
     private function queueCallEventCreation(Booking $booking): void

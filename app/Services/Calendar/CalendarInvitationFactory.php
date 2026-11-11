@@ -6,7 +6,7 @@ use App\Models\Booking;
 
 class CalendarInvitationFactory
 {
-    public function make(Booking $booking, string $attendeeEmail, string $attendeeName): string
+    public function make(Booking $booking, string $attendeeEmail, string $attendeeName, ?string $callUrl = null): string
     {
         $teacher = $booking->teacher;
         $organizerEmail = (string) config('mail.from.address');
@@ -16,7 +16,7 @@ class CalendarInvitationFactory
             'Customer: '.$booking->customer_name,
             'Teacher: '.($booking->teacher_id !== null ? $teacher->name : 'To be confirmed'),
             'Duration: '.$booking->starts_at->diffInMinutes($booking->ends_at).' minutes',
-            'Join via the WhatsApp call link sent separately before the session.',
+            $callUrl !== null ? 'Join via WhatsApp: '.$callUrl : 'Join via the WhatsApp call link sent separately before the session.',
         ];
 
         $lines = [
@@ -31,7 +31,7 @@ class CalendarInvitationFactory
             'DTSTART:'.$booking->starts_at->utc()->format('Ymd\THis\Z'),
             'DTEND:'.$booking->ends_at->utc()->format('Ymd\THis\Z'),
             'SUMMARY:'.$this->escape('EasyEnglish Session'),
-            'LOCATION:'.$this->escape('WhatsApp call'),
+            'LOCATION:'.$this->escape($callUrl ?: 'WhatsApp call'),
             'DESCRIPTION:'.$this->escape(implode("\n", $description)),
             'STATUS:CONFIRMED',
             'SEQUENCE:'.(int) $booking->reschedule_count,
