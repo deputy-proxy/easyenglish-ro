@@ -540,6 +540,26 @@ test('public privacy and terms pages reuse the shared Romanian navigation and fo
         ->assertDontSee('Terms and cancellation policy');
 });
 
+test('public legal pages identify the controller and explain privacy and consumer terms', function () {
+    $this->get('/privacy')
+        ->assertOk()
+        ->assertSee('ROAD CENTRE SRL')
+        ->assertSee('17808982')
+        ->assertSee('J2005012930400')
+        ->assertSee('office@edventure.ro')
+        ->assertSee('Stripe')
+        ->assertSee('ANSPDCP')
+        ->assertSee('Cookie-uri');
+
+    $this->get('/terms')
+        ->assertOk()
+        ->assertSee('ROAD CENTRE SRL')
+        ->assertSee('cel puțin 24 de ore')
+        ->assertSee('cel puțin 12 ore')
+        ->assertSee('39 RON')
+        ->assertSee('dreptul de retragere');
+});
+
 test('public booking page reuses the shared public navigation', function () {
     $this->get('/book?type=intro')
         ->assertOk()
