@@ -24,6 +24,7 @@ class ReconcileBookingCalendarEvents extends Command
                 $query->where(function ($query): void {
                     $query->whereIn('status', ['confirmed', 'refund_pending'])
                         ->where('starts_at', '>', now())
+                        ->whereHas('teacher.teacherCalendar')
                         ->where(function ($query): void {
                             $query->whereNull('google_calendar_event_id')
                                 ->orWhereNull('calendar_synced_at')
