@@ -59,49 +59,14 @@
                 <h2 class="text-xl font-semibold text-ink dark:text-white">{{ __('public.dashboard_calendar_title') }}</h2>
                 <p class="mt-2 text-sm text-muted dark:text-zinc-300">{{ __('public.dashboard_calendar_help') }}</p>
                 @if (str_contains($calendarBookingUrl, '/book'))
-                    <div class="mt-5" data-availability data-week="{{ $calendarWeekStart->format('Y-m-d') }}" data-book-url="{{ $calendarBookingUrl }}">
-                        <div class="mb-4 flex items-center justify-between gap-3" data-week-navigation>
-                            <button class="testimonial-arrow" type="button" data-prev aria-label="{{ __('public.previous_week') }}">
-                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m7 7-7-7 7-7" /></svg>
-                            </button>
-                            <button class="testimonial-arrow testimonial-arrow--next" type="button" data-next aria-label="{{ __('public.next_week') }}">
-                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-7-7 7 7-7 7" /></svg>
-                            </button>
-                        </div>
-                        <div data-weekgrid class="grid gap-3 sm:grid-cols-4 lg:grid-cols-7"><p>{{ __('public.availability_loading') }}</p></div>
-                        <p class="mt-4 text-xs text-zinc-500">{{ __('public.timezone_note') }}</p>
-                    </div>
-                    <script>
-                        (() => {
-                            const root = document.querySelector('[data-availability]');
-                            if (!root) return;
-                            const grid = root.querySelector('[data-weekgrid]');
-                            let week = root.dataset.week;
-                            const base = root.dataset.bookUrl;
-                            const previous = root.querySelector('[data-prev]');
-                            const next = root.querySelector('[data-next]');
-                            const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
-                            const add = (date, days) => { const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + days); return d.toLocaleDateString('en-CA'); };
-                            const monday = date => { const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString('en-CA'); };
-                            const render = days => {
-                                grid.innerHTML = '';
-                                days.forEach(day => {
-                                    const col = document.createElement('div'); col.className = 'rounded-xl border border-line p-3 dark:border-zinc-700';
-                                    const head = document.createElement('p'); head.className = 'mb-3 font-semibold text-zinc-800 dark:text-zinc-100'; head.textContent = `${day.label} ${day.day}`; col.append(head);
-                                    day.slots.forEach(slot => {
-                                        const button = document.createElement('button'); button.type = 'button'; button.className = 'mb-2 w-full rounded-lg bg-primary-soft px-2 py-2 text-sm font-bold text-primary-strong hover:bg-primary hover:text-white'; button.textContent = slot.time;
-                                        button.addEventListener('click', () => { const join = base.includes('?') ? '&' : '?'; location.href = base + join + 'slot=' + encodeURIComponent(slot.starts_at); }); col.append(button);
-                                    });
-                                    if (!day.slots.length) { const empty = document.createElement('p'); empty.className = 'text-xs text-zinc-500'; empty.textContent = @json(__('public.slot_none')); col.append(empty); }
-                                    grid.append(col);
-                                });
-                            };
-                            const load = () => { grid.innerHTML = '<p>' + @json(__('public.availability_loading')) + '</p>'; fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), { headers: { Accept: 'application/json' } }).then(response => response.json()).then(data => render(data.days)).catch(() => { grid.textContent = @json(__('public.dashboard_calendar_full')); }); previous.disabled = week <= monday(today); };
-                            previous.addEventListener('click', () => { if (!previous.disabled) { week = add(week, -7); load(); } });
-                            next.addEventListener('click', () => { week = add(week, 7); load(); });
-                            load();
-                        })();
-                    </script>
+                    @include('components.booking.availability-section', [
+                        'bookingState' => $calendarBookingState,
+                        'weekStart' => $calendarWeekStart,
+                        'compact' => false,
+                        'showBookingModal' => false,
+                        'selectionMode' => 'navigate',
+                        'bookingUrl' => $calendarBookingUrl,
+                    ])
                 @else
                     <div class="mt-5 rounded-xl bg-paper p-5 dark:bg-zinc-800"><p class="text-sm text-zinc-700 dark:text-zinc-200">{{ __('public.dashboard_no_credits') }}</p><a class="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white" href="{{ route('home') }}#bundles">{{ __('public.dashboard_buy_bundle') }}</a></div>
                 @endif

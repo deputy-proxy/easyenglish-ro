@@ -40,6 +40,13 @@ export async function submitBookingAuthForm(form, {
         });
         const payload = await response.json().catch(() => null);
 
+        if (payload?.status === 'dashboard_redirect' && typeof payload.redirect_url === 'string' && payload.redirect_url !== '') {
+            onState(payload.status);
+            onRedirect(payload.redirect_url);
+
+            return payload;
+        }
+
         if (response.status === 409 && payload?.status === 'two_factor_required') {
             onState('two_factor_required');
             if (typeof payload.redirect_url === 'string' && payload.redirect_url !== '') {

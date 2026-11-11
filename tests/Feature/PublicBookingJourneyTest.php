@@ -13,7 +13,6 @@ use App\Models\FreeSessionClaim;
 use App\Models\NotificationDelivery;
 use App\Models\TeacherCalendar;
 use App\Models\User;
-use App\Models\WhatsAppContact;
 use App\Services\Booking\AvailabilityService;
 use App\Services\CallEvents\BookingCallEventService;
 use App\Services\CallEvents\OpenWaConfig;
@@ -33,6 +32,14 @@ beforeEach(function (): void {
 afterEach(function (): void {
     CarbonImmutable::setTestNow();
 });
+
+function createStudentUser(array $attributes = []): User
+{
+    $user = User::factory()->create($attributes);
+    $user->studentProfile()->firstOrCreate([], ['english_level' => 'B1', 'learning_goal' => 'Work conversations']);
+
+    return $user;
+}
 
 function addPublicAvailability(CarbonImmutable $day): void
 {
@@ -113,7 +120,7 @@ test('public landing page renders in Romanian by default with approved prices an
 });
 
 test('free session availability reveals the booking form for authenticated learners', function () {
-    $user = User::factory()->create([
+    $user = createStudentUser([
         'email' => 'free-session@example.com',
         'phone' => '+40722123456',
         'english_level' => null,
@@ -172,7 +179,7 @@ test('guest can create an account from the free booking form and is logged in wi
         'starts_at' => $slot,
         'accepted_policy' => '1',
         'whatsapp_service_consent' => '1',
-    ])->assertRedirect(route('home'));
+    ])->assertRedirect(route('dashboard', ['slot' => $slot]));
 
     $user = User::query()->where('email', 'new-learner@example.com')->firstOrFail();
 
@@ -181,14 +188,10 @@ test('guest can create an account from the free booking form and is logged in wi
         ->and($user->english_level)->toBe('B1')
         ->and($user->session_goal)->toBe('Speak more confidently at work');
 
-    $this->get(route('home'))
-        ->assertOk()
-        ->assertSee('data-initial-slot="'.$slot.'"', false)
-        ->assertSee(__('public.account_created_continue_booking'), false)
-        ->assertSee('action="'.route('booking.submit').'"', false);
+    $this->get(route('dashboard', ['slot' => $slot]))->assertOk();
 });
 
-test('a validated account that already used its free session sees a dashboard redirect instead of package selection', function () {
+test('the authenticated booking partial fails closed if free-session eligibility is already used', function () {
     app()->setLocale('en');
 
     $html = view('public.partials.booking-authenticated-form', [
@@ -204,21 +207,18 @@ test('a validated account that already used its free session sees a dashboard re
 });
 
 test('guest can sign in from the free booking form and keep the selected slot', function () {
-    $user = User::factory()->create(['email' => 'existing-learner@example.com']);
+    $user = createStudentUser(['email' => 'existing-learner@example.com']);
     $slot = '2026-10-27T09:00:00+03:00';
 
     $this->withSession(['locale' => 'en'])->post(route('booking.login'), [
         'email' => $user->email,
         'password' => 'password',
         'starts_at' => $slot,
-    ])->assertRedirect(route('home'));
+    ])->assertRedirect(route('dashboard', ['slot' => $slot]));
 
     expect(auth()->id())->toBe($user->id);
 
-    $this->get(route('home'))
-        ->assertOk()
-        ->assertSee('data-initial-slot="'.$slot.'"', false)
-        ->assertSee('action="'.route('booking.submit').'"', false);
+    $this->get(route('dashboard', ['slot' => $slot]))->assertOk();
 });
 
 test('existing account login preserves Fortify two-factor authentication', function () {
@@ -231,13 +231,127 @@ test('existing account login preserves Fortify two-factor authentication', funct
         'starts_at' => $slot,
     ])->assertRedirect(route('login'));
 
-    $homeUrl = route('home').'?'.http_build_query(['slot' => $slot], '', '&', PHP_QUERY_RFC3986);
+    $homeUrl = route('dashboard', ['slot' => $slot]);
     expect(auth()->check())->toBeFalse()
         ->and(session('url.intended'))->toBe($homeUrl);
 
-    $this->get($homeUrl)
+    $this->get($homeUrl)->assertRedirect(route('login'));
+});
+
+test('eligible customer receives personalized copy and homepage and campaign page share the availability component', function () {
+    $customer = createStudentUser(['name' => 'Adrian Popescu', 'phone' => '+40722123456']);
+
+    $this->actingAs($customer)->get('/')
         ->assertOk()
-        ->assertSee('data-initial-slot="'.$slot.'"', false);
+        ->assertSee('Adrian, programează-ți sesiunea introductivă gratuită.')
+        ->assertSee('data-booking-enabled="true"', false);
+
+    $this->get('/book')
+        ->assertOk()
+        ->assertSee('data-availability', false)
+        ->assertSee('Adrian, programează-ți sesiunea introductivă gratuită.')
+        ->assertSee('data-booking-enabled="true"', false);
+});
+
+test('customer dashboard calendar reuses the shared component and navigates to the same booking flow', function () {
+    $customer = createStudentUser(['email' => 'dashboard-calendar@example.com']);
+
+    $this->actingAs($customer)->get(route('dashboard', ['view' => 'calendar']))
+        ->assertOk()
+        ->assertSee('data-availability', false)
+        ->assertSee('data-selection-mode="navigate"', false)
+        ->assertSee('data-book-url="'.route('booking.create', ['type' => 'intro']).'"', false);
+});
+
+test('customer with used free session sees personalized bundles instead of availability', function () {
+    $customer = createStudentUser(['name' => 'Adrian Popescu', 'email' => 'adrian.used@example.com', 'phone' => '+40722123456']);
+    FreeSessionClaim::query()->create([
+        'customer_email' => $customer->email, 'customer_phone' => $customer->phone,
+        'status' => 'used', 'verified_at' => now(), 'used_at' => now(),
+    ]);
+
+    $this->actingAs($customer)->get('/')
+        ->assertOk()
+        ->assertDontSee('id="availability"', false)
+        ->assertSee('Adrian, ești pregătit să faci următorul pas?')
+        ->assertSee('Alege unul dintre pachetele de mai jos pentru a-ți crește încrederea în engleza ta.');
+
+    $this->get('/book')
+        ->assertOk()
+        ->assertDontSee('data-availability', false)
+        ->assertSee('Adrian, ești pregătit să faci următorul pas?')
+        ->assertSee(route('purchase', BundleDefinition::query()->where('is_active', true)->firstOrFail()), false);
+
+    $this->get(route('dashboard', ['slot' => '2026-10-29T09:00:00+02:00']))
+        ->assertRedirect(route('dashboard', ['view' => 'purchases', 'slot' => '2026-10-29T09:00:00+02:00']));
+});
+
+test('admin teacher and staff accounts see disabled availability even with student profiles', function () {
+    foreach ([['is_admin' => true], ['is_teacher' => true], ['is_staff' => true]] as $index => $flags) {
+        $user = User::factory()->create(['name' => 'Internal '.$index, ...$flags]);
+        $user->studentProfile()->create(['english_level' => 'B1', 'learning_goal' => 'Internal test']);
+        $this->actingAs($user)->get('/')
+            ->assertOk()
+            ->assertSee('data-booking-enabled="false"', false)
+            ->assertSee(__('public.booking_internal_disabled'))
+            ->assertDontSee('data-booking-async-form', false);
+
+        $this->get('/book')
+            ->assertOk()
+            ->assertSee('data-booking-enabled="false"', false)
+            ->assertSee(__('public.booking_internal_disabled'))
+            ->assertDontSee('data-booking-async-form', false);
+    }
+
+    $component = file_get_contents(resource_path('views/components/booking/availability-section.blade.php'));
+    expect($component)->toContain('button.disabled = true;')
+        ->and($component)->toContain("if (root.dataset.bookingEnabled === 'true') button.addEventListener('click'");
+});
+
+test('authenticated account without a student profile is not treated as a customer', function () {
+    $user = User::factory()->create(['name' => 'Staffless Account']);
+
+    $this->actingAs($user)->get('/')
+        ->assertOk()
+        ->assertSee('data-booking-enabled="false"', false)
+        ->assertSee(__('public.booking_internal_disabled'));
+});
+
+test('internal and profile-less accounts cannot submit public bookings', function () {
+    addPublicAvailability(CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest'));
+
+    foreach ([['is_admin' => true], ['is_teacher' => true], ['is_staff' => true], []] as $index => $flags) {
+        $user = User::factory()->create(['email' => 'blocked-'.$index.'@example.com', ...$flags]);
+        if ($index < 3) {
+            $user->studentProfile()->create(['english_level' => 'B1', 'learning_goal' => 'Internal test']);
+        }
+        $this->actingAs($user)->post(route('booking.submit'), [
+            'type' => 'intro', 'starts_at' => '2026-10-27T09:00:00+02:00',
+            'name' => $user->name, 'email' => $user->email, 'phone' => '+40722123456',
+            'english_level' => 'B1', 'session_goal' => 'Work conversations', 'accepted_policy' => '1',
+        ])->assertForbidden();
+    }
+
+    expect(Booking::query()->count())->toBe(0);
+});
+
+test('contact verification remains separate from customer and free-session eligibility state', function () {
+    $customer = createStudentUser(['name' => 'Mara Ionescu', 'email' => 'mara.unverified@example.com', 'phone' => '+40722123456']);
+
+    $this->actingAs($customer)->get('/')
+        ->assertOk()
+        ->assertSee('data-booking-enabled="true"', false)
+        ->assertSee(__('public.verification_title'))
+        ->assertDontSee(__('public.booking_account_validated_title'));
+});
+
+test('customer with an empty display name falls back to generic booking copy', function () {
+    $customer = createStudentUser(['name' => '   ', 'email' => 'nameless@example.com']);
+
+    $this->actingAs($customer)->get('/')
+        ->assertOk()
+        ->assertSee(__('public.availability_title'))
+        ->assertDontSee('programează-ți sesiunea introductivă gratuită');
 });
 
 test('public landing page exposes progressive enhancement hooks for its animation system', function () {
@@ -575,12 +689,12 @@ test('public legal pages identify the controller and explain privacy and consume
         ->not->toContain('Bd. Uverturii 10');
 });
 
-test('public booking page reuses the shared public navigation', function () {
+test('campaign booking page uses a minimal logo and action header', function () {
     $this->get('/book?type=intro')
         ->assertOk()
-        ->assertSee('data-public-site-header', false)
+        ->assertSee('aria-label="Easy English home"', false)
         ->assertSee('images/logo-white.svg', false)
-        ->assertSee('images/auth-icon.svg', false)
+        ->assertSee(__('public.booking_header_cta'))
         ->assertSee('data-public-site-footer', false);
 });
 
@@ -610,7 +724,7 @@ test('shared footer is centered in two rows and is reused on dashboard and authe
         ->and($contact)->toBeGreaterThan($terms)
         ->and($footer)->toContain('href="'.route('contact').'"');
 
-    $customer = User::factory()->create();
+    $customer = createStudentUser();
     $this->actingAs($customer)->withSession(['locale' => 'en'])->get(route('dashboard'))
         ->assertOk()
         ->assertSee('data-public-site-footer', false)
@@ -624,7 +738,7 @@ test('shared footer is centered in two rows and is reused on dashboard and authe
 });
 
 test('free introduction never creates a booking before contact verification is available', function () {
-    $this->actingAs(User::factory()->create(['email' => 'learner@example.com']));
+    $this->actingAs(createStudentUser(['email' => 'learner@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
 
@@ -638,7 +752,7 @@ test('free introduction never creates a booking before contact verification is a
 });
 
 test('verified account can book its free introduction without repeating contact verification', function () {
-    $this->actingAs(User::factory()->create([
+    $this->actingAs(createStudentUser([
         'email' => 'verified-learner@example.com',
         'phone' => '+40722123456',
         'email_verified_at' => now(),
@@ -661,12 +775,13 @@ test('verified account can book its free introduction without repeating contact 
 });
 
 test('authenticated bundle customer can book a slot and receives a signed confirmation', function () {
-    $this->actingAs(User::factory()->create(['email' => 'learner@example.com']));
+    $this->actingAs(createStudentUser(['email' => 'learner@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
     $definition = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $entitlement = BundleEntitlement::query()->create([
         'bundle_definition_id' => $definition->id,
+        'customer_user_id' => auth()->id(),
         'customer_name' => 'Test Learner',
         'customer_email' => 'learner@example.com',
         'customer_phone' => '+40722123456',
@@ -676,7 +791,11 @@ test('authenticated bundle customer can book a slot and receives a signed confir
     ]);
     $signedFormUrl = URL::signedRoute('booking.create', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
 
-    $this->withSession(['locale' => 'en'])->get($signedFormUrl.'&slot='.urlencode('2026-10-27T09:30:00+02:00'))->assertOk()->assertSee(__('public.booking_bundle_title'));
+    $this->withSession(['locale' => 'en'])->get($signedFormUrl.'&slot='.urlencode('2026-10-27T09:30:00+02:00'))->assertOk()->assertSee(__('public.booking_bundle_title'))->assertSee('data-availability', false)->assertSee('id="booking-form"', false);
+    $this->get(route('dashboard', ['view' => 'calendar']))
+        ->assertOk()
+        ->assertSee('data-selection-mode="navigate"', false)
+        ->assertSee('type=bundle', false);
 
     $signedSubmitUrl = URL::signedRoute('booking.submit', ['type' => 'bundle', 'entitlement' => $entitlement->id], now()->addMinutes(30));
     $this->post($signedSubmitUrl, [
@@ -764,7 +883,7 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
         'accepted_policy' => '1',
         'whatsapp_service_consent' => '1',
         'locale' => 'en',
-    ])->assertCreated()->assertJsonPath('next_step', 'contact_verification');
+    ])->assertOk()->assertJsonPath('status', 'dashboard_redirect');
 
     $customer = User::query()->where('email', 'journey-customer@example.com')->firstOrFail();
     $this->postJson(route('verification.start'), [
@@ -823,7 +942,7 @@ test('verified free booking redirects to dashboard and assembles the same OpenWA
 });
 
 test('public booking rejects a phone field without enough digits', function () {
-    $this->actingAs(User::factory()->create(['email' => 'different@example.com']));
+    $this->actingAs(createStudentUser(['email' => 'different@example.com']));
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
 
@@ -866,13 +985,12 @@ test('bundle purchase page discloses expiry and cancellation terms before checko
         ->assertSee('Plata online nu este încă activată');
 });
 
-test('selecting a free timeslot sends guests to login and preserves the selected slot', function () {
+test('selecting a free timeslot on the campaign page keeps guests in the shared booking flow', function () {
     $url = '/book?type=intro&slot='.urlencode('2026-10-29T09:00:00+02:00');
 
-    $this->get($url)->assertRedirect(route('login'));
-    expect(session('url.intended'))->toContain('slot=');
+    $this->get($url)->assertOk()->assertSee('data-availability', false)->assertSee('data-booking-enabled="true"', false)->assertSee('data-booking-async-form', false)->assertSee('2026-10-29T09:00:00+02:00');
 
-    $this->actingAs(User::factory()->create(['email' => 'dashboard-learner@example.com']))
+    $this->actingAs(createStudentUser(['email' => 'dashboard-learner@example.com']))
         ->get($url)->assertOk()->assertSee('2026-10-29T09:00:00+02:00');
 });
 
@@ -986,25 +1104,15 @@ test('registration submits asynchronously and returns the authenticated contact-
         'locale' => 'en',
     ]);
 
-    $response->assertCreated()
-        ->assertJsonPath('status', 'authenticated')
-        ->assertJsonPath('next_step', 'contact_verification')
-        ->assertJsonPath('slot', $slot)
-        ->assertJsonPath('locale', 'ro')
-        ->assertJsonMissingPath('redirect_url');
+    $response->assertOk()
+        ->assertJsonPath('status', 'dashboard_redirect')
+        ->assertJsonPath('redirect_url', route('dashboard', ['slot' => $slot]));
 
     $user = User::query()->where('email', 'async-learner@example.com')->firstOrFail();
     expect(auth()->id())->toBe($user->id)
         ->and(session('locale'))->toBe('ro')
         ->and(session()->getId())->not->toBe($beforeSessionId)
-        ->and($response->json('html'))->toContain('name="_token"')
-        ->and($response->json('html'))->toContain('data-booking-starts-at')
-        ->and($response->json('html'))->toContain($slot)
-        ->and($response->json('html'))->toContain(__('public.verification_title'))
-        ->and($response->json('html'))->toContain('name="accepted_policy"')
-        ->and($response->json('html'))->not->toContain('name="whatsapp_service_consent"');
-
-    expect(WhatsAppContact::query()->where('phone', '+40722123456')->first()?->canReceiveServiceMessages())->toBeTrue();
+        ->and($response->json('redirect_url'))->toBe(route('dashboard', ['slot' => $slot]));
 });
 
 test('contact verification preserves policy acceptance from asynchronous registration when checkbox data is omitted', function () {
@@ -1057,7 +1165,7 @@ test('contact verification returns a localized policy acceptance error when cons
 });
 
 test('existing account login submits asynchronously and advances directly to booking when contacts are already verified', function () {
-    $user = User::factory()->create([
+    $user = createStudentUser([
         'email' => 'async-existing@example.com',
         'phone' => '+40722123456',
         'email_verified_at' => now(),
@@ -1074,17 +1182,12 @@ test('existing account login submits asynchronously and advances directly to boo
     ]);
 
     $response->assertOk()
-        ->assertJsonPath('status', 'authenticated')
-        ->assertJsonPath('next_step', 'eligible')
-        ->assertJsonPath('slot', $slot)
-        ->assertJsonMissingPath('redirect_url');
+        ->assertJsonPath('status', 'dashboard_redirect')
+        ->assertJsonPath('redirect_url', route('dashboard', ['slot' => $slot]));
 
     expect(auth()->id())->toBe($user->id)
         ->and(session()->getId())->not->toBe($beforeSessionId)
-        ->and($response->json('html'))->toContain('name="_token"')
-        ->and($response->json('html'))->toContain('data-booking-starts-at')
-        ->and($response->json('html'))->toContain($slot)
-        ->and($response->json('html'))->toContain('name="whatsapp_service_consent"');
+        ->and($response->json('redirect_url'))->toBe(route('dashboard', ['slot' => $slot]));
 });
 
 test('asynchronous login reports invalid credentials as an accessible authentication error', function () {
@@ -1135,7 +1238,7 @@ test('duplicate asynchronous registration cannot create a second account', funct
         'locale' => 'en',
     ];
 
-    $this->postJson(route('booking.register'), $payload)->assertCreated();
+    $this->postJson(route('booking.register'), $payload)->assertOk()->assertJsonPath('status', 'dashboard_redirect');
     Auth::logout();
     $this->flushSession();
 
@@ -1158,12 +1261,12 @@ test('asynchronous login preserves the Fortify two-factor challenge and selected
         ->assertJsonPath('redirect_url', route('login'));
 
     expect(auth()->check())->toBeFalse()
-        ->and(session('url.intended'))->toBe(route('home', ['slot' => $slot]))
+        ->and(session('url.intended'))->toBe(route('dashboard', ['slot' => $slot]))
         ->and(session('locale'))->toBe('en');
 });
 
 test('booking submission rejects a slot that is no longer available on the server', function () {
-    $user = User::factory()->create([
+    $user = createStudentUser([
         'email' => 'stale-slot@example.com',
         'phone' => '+40722123456',
         'email_verified_at' => now(),
@@ -1188,7 +1291,7 @@ test('booking submission rejects a slot that is no longer available on the serve
 });
 
 test('final booking submission preserves policy acceptance recorded during registration', function () {
-    $user = User::factory()->create([
+    $user = createStudentUser([
         'email' => 'policy-final-submit@example.com',
         'phone' => '+40722123456',
         'email_verified_at' => now(),
@@ -1217,7 +1320,7 @@ test('final booking submission preserves policy acceptance recorded during regis
 });
 
 test('final free booking still requires WhatsApp consent when no prior consent exists', function () {
-    $user = User::factory()->create([
+    $user = createStudentUser([
         'email' => 'whatsapp-consent-required@example.com',
         'phone' => '+40722123456',
         'email_verified_at' => now(),

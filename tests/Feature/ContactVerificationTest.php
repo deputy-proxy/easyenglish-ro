@@ -43,6 +43,14 @@ beforeEach(function (): void {
     app()->instance(FakeWhatsAppGateway::class, $gateway);
 });
 
+function makeBookingCustomer(array $attributes = []): User
+{
+    $user = User::factory()->create($attributes);
+    $user->studentProfile()->firstOrCreate([], ['english_level' => 'B1', 'learning_goal' => 'Work conversations']);
+
+    return $user;
+}
+
 function addVerificationAvailability(Carbon $day): void
 {
     AvailabilityRule::query()->create([
@@ -160,7 +168,7 @@ test('Meta webhook delivery statuses reconcile verification OTP challenges by op
 });
 
 test('public verification form starts the email and WhatsApp steps', function () {
-    $this->actingAs(User::factory()->create(['email' => 'new-learner@example.com']));
+    $this->actingAs(makeBookingCustomer(['email' => 'new-learner@example.com']));
     $this->from('/book?type=intro')->post(route('verification.start'), [
         'return_to' => 'booking',
         'type' => 'intro',
@@ -181,7 +189,7 @@ test('public verification form starts the email and WhatsApp steps', function ()
 });
 
 test('bundle checkout can start verification and preserves the bundle destination', function () {
-    $this->actingAs(User::factory()->create(['email' => 'bundle-verification@example.com']));
+    $this->actingAs(makeBookingCustomer(['email' => 'bundle-verification@example.com']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $this->from(route('purchase', $bundle))->post(route('verification.start'), [
         'return_to' => 'purchase',
@@ -254,7 +262,7 @@ test('expired verification challenges cannot verify either channel', function ()
 });
 
 test('email verification route validates the signed single-use link and returns to the booking form', function () {
-    $this->actingAs(User::factory()->create(['name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456']));
+    $this->actingAs(makeBookingCustomer(['name' => 'Test Learner', 'email' => 'learner@example.com', 'phone' => '+40722123456']));
     $challenge = makeVerificationChallenge();
     $url = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(10), [
         'challenge' => $challenge->id,
@@ -277,7 +285,7 @@ test('email verification route validates the signed single-use link and returns 
 });
 
 test('email verification return to a bundle shows the separate free-session offer without bundle verification controls', function () {
-    $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
+    $this->actingAs(makeBookingCustomer(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $bundle = BundleDefinition::query()->where('price_ron', 156)->firstOrFail();
     $challenge = makeVerificationChallenge(['return_to' => 'purchase', 'return_bundle_id' => $bundle->id]);
     $url = URL::temporarySignedRoute('verification.email.confirm', now()->addMinutes(10), [
@@ -340,7 +348,7 @@ test('phone verification limits incorrect code attempts', function () {
 });
 
 test('free introduction is created only when both contact channels are verified', function () {
-    $this->actingAs(User::factory()->create(['email' => 'learner@example.com', 'phone' => '+40722123456']));
+    $this->actingAs(makeBookingCustomer(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
@@ -363,7 +371,7 @@ test('free introduction is created only when both contact channels are verified'
 });
 
 test('email-only mode permits a free introduction after email verification without WhatsApp consent', function () {
-    $this->actingAs(User::factory()->create(['email' => 'email-only-booking@example.com', 'phone' => '+40722123459']));
+    $this->actingAs(makeBookingCustomer(['email' => 'email-only-booking@example.com', 'phone' => '+40722123459']));
     config(['services.contact_verification.mode' => 'email_only']);
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
@@ -423,7 +431,7 @@ test('verified contacts are persisted on bundle checkout without adding a free s
 });
 
 test('verified challenge cannot be reused with a different email or phone', function () {
-    $this->actingAs(User::factory()->create(['email' => 'attacker@example.com', 'phone' => '+40722123456']));
+    $this->actingAs(makeBookingCustomer(['email' => 'attacker@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
     $this->travelTo($day->copy()->subHour());
     addVerificationAvailability($day);
@@ -454,7 +462,7 @@ test('contact verification endpoints require the authenticated account and sessi
 });
 
 test('inline verification skips an email channel already verified on the current account', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'verified-email@example.com',
         'phone' => '+40722123460',
         'email_verified_at' => now(),
@@ -493,7 +501,7 @@ test('inline verification skips an email channel already verified on the current
 });
 
 test('inline phone confirmation returns eligibility without creating a booking, hold, or claim', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'verified-email-phone-pending@example.com',
         'phone' => '+40722123461',
         'email_verified_at' => now(),
@@ -537,7 +545,7 @@ test('inline phone confirmation returns eligibility without creating a booking, 
 });
 
 test('inline phone confirmation keeps only the email verification instruction while email remains pending', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'phone-first@example.com',
         'phone' => '+40722123466',
         'email_verified_at' => null,
@@ -571,7 +579,7 @@ test('inline phone confirmation keeps only the email verification instruction wh
 });
 
 test('inline email and phone verification returns the next state without automatically booking', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'both-channels@example.com',
         'phone' => '+40722123462',
         'email_verified_at' => null,
@@ -628,7 +636,7 @@ test('email-only inline verification does not require WhatsApp consent or send a
         'services.whatsapp.access_token' => null,
         'services.whatsapp.phone_number_id' => null,
     ]);
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'email-only-inline@example.com',
         'phone' => '+40722123463',
         'email_verified_at' => null,
@@ -670,7 +678,7 @@ test('email-only inline verification does not require WhatsApp consent or send a
 });
 
 test('verification rejects a phone changed after the challenge was issued', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'phone-changed@example.com',
         'phone' => '+40722123464',
         'email_verified_at' => now(),
@@ -695,7 +703,7 @@ test('verification rejects a phone changed after the challenge was issued', func
 
 test('verification challenge cannot be confirmed from another authenticated account', function () {
     $challenge = makeVerificationChallenge();
-    $otherUser = User::factory()->create(['email' => 'other-account@example.com']);
+    $otherUser = makeBookingCustomer(['email' => 'other-account@example.com']);
 
     $this->actingAs($otherUser)->withSession(['contact_verification_id' => $challenge->id])
         ->postJson(route('verification.phone.confirm'), [
@@ -744,7 +752,7 @@ test('free-session eligibility uses normalized email OR phone and reuses only te
 });
 
 test('inline verification skips a phone channel already verified for the exact current phone', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'verified-phone@example.com',
         'phone' => '+40722123466',
         'email_verified_at' => null,
@@ -773,7 +781,7 @@ test('inline verification skips a phone channel already verified for the exact c
 });
 
 test('a previously verified phone is not skipped when the learner submits a different number', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'changed-verified-phone@example.com',
         'phone' => '+40722123467',
         'email_verified_at' => now(),
@@ -803,7 +811,7 @@ test('a previously verified phone is not skipped when the learner submits a diff
 test('the landing page performs a read-only eligibility check for already verified contacts', function () {
     app()->setLocale('en');
 
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'already-verified@example.com',
         'phone' => '+40722123469',
         'email_verified_at' => now(),
@@ -830,10 +838,9 @@ test('the landing page performs a read-only eligibility check for already verifi
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee(__('public.booking_account_validated_title'))
-        ->assertSee('data-booking-dashboard-redirect="'.route('dashboard', ['view' => 'purchases']).'"', false)
-        ->assertSee(__('public.booking_account_validated_link'))
-        ->assertDontSee('data-used-free-bundle-modal', false)
+        ->assertDontSee('id="availability"', false)
+        ->assertSee(__('public.bundles_personalized_title', ['name' => strtok($user->name, ' ')]))
+        ->assertSee(__('public.bundles_personalized_text'))
         ->assertDontSee(__('public.booking_submit_intro'));
 
     expect(Booking::query()->count())->toBe(0)
@@ -844,7 +851,7 @@ test('the landing page performs a read-only eligibility check for already verifi
 test('final inline verification returns only an already-used outcome when either identifier has a prior claim', function () {
     app()->setLocale('en');
 
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'claim-owner@example.com',
         'phone' => '+40722123470',
         'email_verified_at' => now(),
@@ -886,7 +893,7 @@ test('final inline verification returns only an already-used outcome when either
 });
 
 test('inline verification returns distinct invalid, expired, consumed, and locked challenge states', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'challenge-states@example.com',
         'phone' => '+40722123471',
         'email_verified_at' => null,
@@ -942,7 +949,7 @@ test('inline verification returns distinct invalid, expired, consumed, and locke
 });
 
 test('verification start returns explicit resend and hourly rate-limit states', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'throttled-verification@example.com',
         'phone' => '+40722123472',
         'email_verified_at' => null,
@@ -990,7 +997,7 @@ test('verification start returns explicit resend and hourly rate-limit states', 
 });
 
 test('verification delivery failure returns an explicit state and never verifies a channel', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'delivery-failure@example.com',
         'phone' => '+40722123473',
         'email_verified_at' => now(),
@@ -1021,7 +1028,7 @@ test('verification delivery failure returns an explicit state and never verifies
 });
 
 test('starting verification for a changed phone invalidates the previous account challenge', function () {
-    $user = User::factory()->create([
+    $user = makeBookingCustomer([
         'email' => 'replace-challenge@example.com',
         'phone' => '+40722123474',
         'email_verified_at' => now(),

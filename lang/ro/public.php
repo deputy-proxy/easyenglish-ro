@@ -775,4 +775,12 @@ return [
     'voucher_apply' => 'Aplică codul',
     'voucher_remove' => 'Elimină voucherul',
     'voucher_discount_label' => 'Voucher :code',
+    'booking_personalized_title' => ':name, programează-ți sesiunea introductivă gratuită.',
+    'booking_landing_title' => 'Începe să vorbești engleza cu încredere.',
+    'booking_landing_text' => 'Alege un interval disponibil pentru sesiunea ta introductivă gratuită. Durează doar 15 minute.',
+    'booking_internal_disabled' => 'Calendarul este disponibil pentru consultare. Rezervările sunt disponibile doar pentru conturile de cursant.',
+    'bundles_personalized_title' => ':name, ești pregătit să faci următorul pas?',
+    'bundles_personalized_text' => 'Alege unul dintre pachetele de mai jos pentru a-ți crește încrederea în engleza ta.',
+    'booking_header_cta' => 'Alege un interval',
+    'booking_header_bundles_cta' => 'Vezi pachetele',
 ];

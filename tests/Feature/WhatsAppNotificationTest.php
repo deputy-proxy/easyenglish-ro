@@ -114,7 +114,9 @@ test('WhatsApp worker sends an approved template and persists provider message I
 });
 
 test('WhatsApp service consent is visible and required before a booking can be submitted', function () {
-    $this->actingAs(User::factory()->create(['email' => 'no-consent@example.com', 'phone' => '+40722123456']));
+    $user = User::factory()->create(['email' => 'no-consent@example.com', 'phone' => '+40722123456']);
+    $user->studentProfile()->create(['english_level' => 'B1', 'learning_goal' => 'Practise speaking']);
+    $this->actingAs($user);
     $this->withSession(['locale' => 'en'])->get('/book?type=intro')->assertOk()
         ->assertSee('name="whatsapp_service_consent"', false)
         ->assertSee(__('public.whatsapp_service_consent'));
