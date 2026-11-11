@@ -24,6 +24,11 @@ class WhatsAppProviderStatus extends Command
         $this->line('Meta webhook/status callbacks: '.($metaEnabled ? ($metaReady ? 'configured' : 'incomplete') : 'inactive'));
         $failed = $metaEnabled && ! $metaReady;
 
+        $metaTransactionalEnabled = (bool) config('services.whatsapp.transactional_enabled');
+        $metaTransactionalReady = $configuration->isMetaTransactionalConfigured();
+        $this->line('Meta call-link notifications: '.($metaTransactionalEnabled ? ($metaTransactionalReady ? 'configured' : 'incomplete') : 'disabled'));
+        $failed = $failed || ($metaTransactionalEnabled && ! $metaTransactionalReady);
+
         $openWaEnabled = $configuration->isOpenWaMessagingEnabled();
         $openWaConfigured = $configuration->isOpenWaMessagingConfigured();
         $this->line('OpenWA notifications: '.($openWaEnabled ? ($openWaConfigured ? 'configured' : 'incomplete') : 'disabled'));

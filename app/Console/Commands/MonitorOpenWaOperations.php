@@ -30,6 +30,17 @@ class MonitorOpenWaOperations extends Command
         $providerConfiguration = app(WhatsAppProviderConfiguration::class);
         $metaVerificationEnabled = $providerConfiguration->isMetaVerificationEnabled();
         $metaVerificationReady = $providerConfiguration->isMetaVerificationConfigured();
+        $metaTransactionalEnabled = (bool) config('services.whatsapp.transactional_enabled');
+        $metaTransactionalReady = $providerConfiguration->isMetaTransactionalConfigured();
+        $this->trackCondition(
+            'meta-call-link-readiness',
+            $metaTransactionalEnabled && ! $metaTransactionalReady,
+            'Meta call-link delivery is not ready',
+            'Meta call-link notifications are enabled but the Cloud API credentials or approved customer/teacher call-link templates are incomplete. Check php artisan whatsapp:provider-status.',
+            $alerts,
+            $recovered,
+        );
+
         $this->trackCondition(
             'meta-verification-readiness',
             $metaVerificationEnabled && ! $metaVerificationReady,

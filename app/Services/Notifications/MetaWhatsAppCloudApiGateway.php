@@ -2,6 +2,7 @@
 
 namespace App\Services\Notifications;
 
+use App\Contracts\Notifications\MetaWhatsAppTransactionalGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\Notifications\WhatsAppTemplateMessage;
 use App\Data\Notifications\WhatsAppTextMessage;
@@ -11,12 +12,20 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class MetaWhatsAppCloudApiGateway implements WhatsAppVerificationGateway
+class MetaWhatsAppCloudApiGateway implements MetaWhatsAppTransactionalGateway, WhatsAppVerificationGateway
 {
     public function sendTemplate(WhatsAppTemplateMessage $message): array
     {
-        if ($message->template !== 'contact_verification') {
-            throw new RuntimeException('Meta WhatsApp is reserved for contact-verification OTP templates.');
+        $isVerification = $message->template === 'contact_verification';
+        $isTransactionalCallLink = in_array($message->template, ['customer_call_link_ready', 'teacher_call_link_ready'], true);
+        if (! $isVerification && ! $isTransactionalCallLink) {
+            throw new RuntimeException('Meta WhatsApp only supports contact verification and approved call-link templates.');
+        }
+        if ($isVerification && ! (bool) config('services.whatsapp.verification_enabled')) {
+            throw new RuntimeException('Meta WhatsApp contact verification is disabled.');
+        }
+        if ($isTransactionalCallLink && ! (bool) config('services.whatsapp.transactional_enabled')) {
+            throw new RuntimeException('Meta WhatsApp transactional call-link delivery is disabled.');
         }
 
         [$token, $phoneNumberId, $version] = $this->configuration();
@@ -47,7 +56,7 @@ class MetaWhatsAppCloudApiGateway implements WhatsAppVerificationGateway
 
     public function sendText(WhatsAppTextMessage $message): array
     {
-        throw new RuntimeException('Meta WhatsApp is reserved for contact-verification OTP templates.');
+        throw new RuntimeException('Meta WhatsApp only supports approved templates; free-form messages are not enabled.');
     }
 
     /** @return array{string,string,string} */
@@ -56,7 +65,7 @@ class MetaWhatsAppCloudApiGateway implements WhatsAppVerificationGateway
         $token = config('services.whatsapp.access_token');
         $phoneNumberId = config('services.whatsapp.phone_number_id');
         $version = config('services.whatsapp.api_version');
-        if (! (bool) config('services.whatsapp.verification_enabled') || ! is_string($token) || $token === ''
+        if (! is_string($token) || $token === ''
             || ! is_string($phoneNumberId) || $phoneNumberId === '' || ! is_string($version) || ! preg_match('/^v[0-9]+\.[0-9]+$/', $version)) {
             throw new RuntimeException('WhatsApp Cloud API is disabled or not fully configured.');
         }

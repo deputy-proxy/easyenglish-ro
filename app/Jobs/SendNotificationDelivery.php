@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Contracts\Notifications\MetaWhatsAppTransactionalGateway;
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Data\Notifications\WhatsAppTextMessage;
 use App\Exceptions\NotificationNoLongerEligibleException;
@@ -49,7 +50,7 @@ class SendNotificationDelivery implements ShouldQueue
                 'last_error' => null,
             ];
             if ($delivery->channel === 'whatsapp') {
-                $provider = 'openwa';
+                $provider = $this->usesMetaForCallLink($delivery) ? 'meta' : 'openwa';
                 $providerAttempts = $delivery->provider_attempts ?? [];
                 $providerAttempts[] = ['provider' => $provider, 'attempt' => $delivery->attempts + 1, 'status' => 'sending', 'started_at' => now()->toIso8601String()];
                 $attributes['provider'] = $provider;
@@ -68,10 +69,15 @@ class SendNotificationDelivery implements ShouldQueue
         try {
             $delivery = NotificationDelivery::query()->with(['booking', 'entitlement', 'refund.payment.entitlement', 'recipientUser'])->findOrFail($this->deliveryId);
             if ($delivery->channel === 'whatsapp') {
-                if (! app(WhatsAppProviderConfiguration::class)->isOpenWaMessagingConfigured()) {
+                $usesMeta = $this->usesMetaForCallLink($delivery);
+                $configuration = app(WhatsAppProviderConfiguration::class);
+                if ($usesMeta && ! $configuration->isMetaTransactionalConfigured()) {
+                    throw new \RuntimeException('Meta WhatsApp call-link delivery is disabled or not fully configured.');
+                }
+                if (! $usesMeta && ! $configuration->isOpenWaMessagingConfigured()) {
                     throw new NotificationNoLongerEligibleException('OpenWA messaging is disabled or not fully configured.');
                 }
-                $provider = 'openwa';
+                $provider = $usesMeta ? 'meta' : 'openwa';
 
                 if ($delivery->recipient_type === 'teacher') {
                     $recipientPhone = $delivery->recipientUser?->phone;
@@ -95,9 +101,10 @@ class SendNotificationDelivery implements ShouldQueue
                 }
 
                 $messageData = $whatsappMessages->make($delivery);
+                $gateway = $usesMeta ? app(MetaWhatsAppTransactionalGateway::class) : $whatsapp;
                 $result = $messageData instanceof WhatsAppTextMessage
-                    ? $whatsapp->sendText($messageData)
-                    : $whatsapp->sendTemplate($messageData);
+                    ? $gateway->sendText($messageData)
+                    : $gateway->sendTemplate($messageData);
                 $current = NotificationDelivery::query()->findOrFail($this->deliveryId);
                 $providerAttempts = $this->providerAttemptsWithStatus($current, 'accepted', ['message_id' => $result['message_id']]);
                 try {
@@ -158,7 +165,7 @@ class SendNotificationDelivery implements ShouldQueue
                 ]);
                 Log::warning('Transactional WhatsApp notification was rejected by the provider.', [
                     'notification_delivery_id' => $delivery->id,
-                    'provider' => 'openwa',
+                    'provider' => $delivery->provider ?? 'openwa',
                     'provider_error_code' => $exception->errorCode,
                 ]);
             }
@@ -197,6 +204,11 @@ class SendNotificationDelivery implements ShouldQueue
                 'exception' => $exception::class,
             ]);
         }
+    }
+
+    private function usesMetaForCallLink(NotificationDelivery $delivery): bool
+    {
+        return in_array($delivery->event, ['customer_call_link_ready', 'teacher_call_link_ready'], true);
     }
 
     /**

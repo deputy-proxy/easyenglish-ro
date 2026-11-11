@@ -5,7 +5,8 @@
 | Purpose | Provider | Control |
 |---|---|---|
 | Contact-verification OTPs and their delivery-status callbacks | Meta Cloud API only | META_WHATSAPP_VERIFICATION_ENABLED |
-| Customer and teacher transactional notifications | OpenWA only | OPENWA_MESSAGING_ENABLED |
+| Customer and teacher transactional notifications (excluding call-link-ready messages) | OpenWA only | OPENWA_MESSAGING_ENABLED |
+| Customer and teacher scheduled call-link notifications | Meta Cloud API approved templates | META_WHATSAPP_TRANSACTIONAL_ENABLED |
 | Scheduled WhatsApp call-event creation, retrieval, cancellation, and reconciliation | OpenWA call-event service | OPENWA_ENABLED |
 | Transactional email | Laravel mail transport | MAIL_* |
 
@@ -15,10 +16,11 @@ Laravel remains the source of truth for verification challenges, notification ou
 
 ## Meta: contact-verification OTPs only
 
-Meta sends only the approved easyenglish_activation authentication template. Configure these values in Hostinger secrets:
+Meta sends the approved easyenglish_activation authentication template and, when explicitly enabled, the approved customer/teacher call-link templates. Configure these values in Hostinger secrets:
 
 ~~~dotenv
 META_WHATSAPP_VERIFICATION_ENABLED=true
+META_WHATSAPP_TRANSACTIONAL_ENABLED=false
 WHATSAPP_API_VERSION=v26.0
 WHATSAPP_PHONE_NUMBER_ID=...
 WHATSAPP_BUSINESS_ACCOUNT_ID=...
@@ -42,9 +44,15 @@ ContactVerificationService uses WhatsAppVerificationGateway and requires complet
 
 Each challenge stores its Meta provider message ID and status (accepted, sent, delivered, read, failed, or ambiguous). Meta opaque callback data carries the challenge identifier so status callbacks can update the correct challenge, including when the initial acknowledgement was ambiguous. Challenge expiry, code attempt limits, resend cooldown, and email verification behavior remain unchanged.
 
+## Meta: scheduled call-link notifications
+
+When `META_WHATSAPP_TRANSACTIONAL_ENABLED=true`, Laravel sends only `customer_call_link_ready` and `teacher_call_link_ready` through Meta Cloud API. Configure and obtain approval for the `WHATSAPP_TEMPLATE_CUSTOMER_CALL_LINK_READY` and `WHATSAPP_TEMPLATE_TEACHER_CALL_LINK_READY` templates in the same Meta WhatsApp Business account/phone number configured by `WHATSAPP_PHONE_NUMBER_ID` and `WHATSAPP_ACCESS_TOKEN`. Both Romanian and English variants must be approved for the languages used by the booking and teacher profiles. The call URL is passed as a body text parameter. These are template messages, so they can be delivered outside the 24-hour customer-service window.
+
+The Meta transactional flag is independent from `META_WHATSAPP_VERIFICATION_ENABLED`. Call-link notifications are never sent through OpenWA as a fallback. If Meta transactional delivery is disabled or misconfigured, the existing outbox delivery remains retryable and visible to staff. All other customer and teacher transactional notifications continue through OpenWA.
+
 ## OpenWA: transactional notifications
 
-OpenWA sends ordinary WhatsApp notifications to customers and teachers: booking confirmations, teacher notifications, call-link-ready notices, reminders, cancellations, bundle expiry, and refund notices.
+OpenWA sends ordinary WhatsApp notifications to customers and teachers: booking confirmations, teacher notifications, reminders, cancellations, bundle expiry, and refund notices.
 
 Configure matching settings on Hostinger and Railway:
 

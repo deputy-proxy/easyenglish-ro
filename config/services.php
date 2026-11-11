@@ -48,6 +48,7 @@ return [
 
     'whatsapp' => [
         'verification_enabled' => (bool) env('META_WHATSAPP_VERIFICATION_ENABLED', env('WHATSAPP_ENABLED', false)),
+        'transactional_enabled' => (bool) env('META_WHATSAPP_TRANSACTIONAL_ENABLED', false),
 
         'api_version' => env('WHATSAPP_API_VERSION', 'v26.0'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),

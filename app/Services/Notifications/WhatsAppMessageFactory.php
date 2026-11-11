@@ -137,7 +137,7 @@ class WhatsAppMessageFactory
         return new WhatsAppTemplateMessage($phone, $key, (string) $language, $parameters, [], 'easyenglish-delivery-'.$delivery->id);
     }
 
-    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): WhatsAppTemplateMessage|WhatsAppTextMessage
+    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): WhatsAppTemplateMessage
     {
         $booking = $delivery->booking;
         $teacher = $delivery->recipientUser;
@@ -255,10 +255,6 @@ class WhatsAppMessageFactory
             $recipient = PhoneNumber::normalize((string) $phone);
         } catch (\InvalidArgumentException) {
             throw new NotificationNoLongerEligibleException('The WhatsApp recipient phone number is invalid.');
-        }
-
-        if ($event === NotificationEvent::CustomerCallLinkReady) {
-            return new WhatsAppTextMessage($recipient, (string) $callEvent->join_url, 'easyenglish-delivery-'.$delivery->id);
         }
 
         $template = config('services.whatsapp.templates.'.$key);
