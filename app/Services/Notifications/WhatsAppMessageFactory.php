@@ -3,6 +3,7 @@
 namespace App\Services\Notifications;
 
 use App\Data\Notifications\WhatsAppTemplateMessage;
+use App\Data\Notifications\WhatsAppTextMessage;
 use App\Enums\NotificationEvent;
 use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Models\Booking;
@@ -14,7 +15,7 @@ use RuntimeException;
 
 class WhatsAppMessageFactory
 {
-    public function make(NotificationDelivery $delivery): WhatsAppTemplateMessage
+    public function make(NotificationDelivery $delivery): WhatsAppTemplateMessage|WhatsAppTextMessage
     {
         $delivery->loadMissing(['booking.teacher', 'booking.entitlement.definition', 'entitlement.definition', 'refund.payment.entitlement.definition', 'recipientUser', 'bookingCallEvent']);
         $event = NotificationEvent::tryFrom($delivery->event);
@@ -136,7 +137,7 @@ class WhatsAppMessageFactory
         return new WhatsAppTemplateMessage($phone, $key, (string) $language, $parameters, [], 'easyenglish-delivery-'.$delivery->id);
     }
 
-    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): WhatsAppTemplateMessage
+    private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): WhatsAppTemplateMessage|WhatsAppTextMessage
     {
         $booking = $delivery->booking;
         $teacher = $delivery->recipientUser;
@@ -254,6 +255,10 @@ class WhatsAppMessageFactory
             $recipient = PhoneNumber::normalize((string) $phone);
         } catch (\InvalidArgumentException) {
             throw new NotificationNoLongerEligibleException('The WhatsApp recipient phone number is invalid.');
+        }
+
+        if ($event === NotificationEvent::CustomerCallLinkReady) {
+            return new WhatsAppTextMessage($recipient, (string) $callEvent->join_url, 'easyenglish-delivery-'.$delivery->id);
         }
 
         $template = config('services.whatsapp.templates.'.$key);

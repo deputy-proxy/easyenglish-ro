@@ -7,6 +7,7 @@ use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Models\Booking;
 use App\Models\BookingCallEvent;
 use App\Models\NotificationDelivery;
+use App\Services\Calendar\CalendarInvitationFactory;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\URL;
@@ -14,7 +15,7 @@ use RuntimeException;
 
 class NotificationMessageFactory
 {
-    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool} */
+    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool,calendarInvitation?:string} */
     public function make(NotificationDelivery $delivery): array
     {
         URL::forceRootUrl((string) config('app.url'));
@@ -44,6 +45,7 @@ class NotificationMessageFactory
         if (filter_var((string) $recipient, FILTER_VALIDATE_EMAIL) === false) {
             throw new RuntimeException('Notification has no valid customer email recipient.');
         }
+        $recipient = (string) $recipient;
 
         $metadata = $delivery->metadata ?? [];
         $snapshot = is_array($metadata['snapshot'] ?? null) ? $metadata['snapshot'] : [];
@@ -178,7 +180,7 @@ class NotificationMessageFactory
             $ctaLabel = $this->t($locale, 'actions.schedule_sessions');
         }
 
-        return [
+        $message = [
             'recipient' => $recipient,
             'locale' => $locale,
             'subject' => $this->t($locale, $prefix.'.subject', $replace),
@@ -191,9 +193,16 @@ class NotificationMessageFactory
             'footer' => $this->t($locale, 'footer'),
             'success' => in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BundlePurchaseConfirmed, NotificationEvent::RefundSucceeded, NotificationEvent::CustomerCallLinkReady], true),
         ];
+
+        if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)
+            && $booking !== null) {
+            $message['calendarInvitation'] = app(CalendarInvitationFactory::class)->make($booking, $recipient, $booking->customer_name);
+        }
+
+        return $message;
     }
 
-    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool} */
+    /** @return array{recipient:string,locale:string,subject:string,heading:string,greeting:string,intro:string,details:list<array{label:string,value:string}>,ctaUrl:?string,ctaLabel:?string,footer:string,success:bool,calendarInvitation?:string} */
     private function makeCallEventMessage(NotificationDelivery $delivery, NotificationEvent $event): array
     {
         $booking = $delivery->booking;
@@ -323,10 +332,11 @@ class NotificationMessageFactory
         if (filter_var((string) $recipient, FILTER_VALIDATE_EMAIL) === false) {
             throw new RuntimeException('Call-event email has no valid recipient.');
         }
+        $recipient = (string) $recipient;
 
         $prefix = 'events.'.$event->value;
 
-        return [
+        $message = [
             'recipient' => $recipient,
             'locale' => $locale,
             'subject' => $this->t($locale, $prefix.'.subject', $replace),
@@ -339,6 +349,12 @@ class NotificationMessageFactory
             'footer' => $this->t($locale, 'footer'),
             'success' => in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BundlePurchaseConfirmed, NotificationEvent::RefundSucceeded, NotificationEvent::CustomerCallLinkReady], true),
         ];
+
+        if (in_array($event, [NotificationEvent::IntroBookingConfirmed, NotificationEvent::AppointmentConfirmed, NotificationEvent::BookingRescheduled, NotificationEvent::TeacherBookingConfirmed, NotificationEvent::TeacherBookingRescheduled], true)) {
+            $message['calendarInvitation'] = app(CalendarInvitationFactory::class)->make($booking, $recipient, $delivery->recipient_type === 'teacher' ? (string) $teacher?->name : $booking->customer_name);
+        }
+
+        return $message;
     }
 
     private function isCurrentCallEvent(Booking $booking, ?BookingCallEvent $event): bool

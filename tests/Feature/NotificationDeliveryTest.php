@@ -195,9 +195,19 @@ test('booking confirmation queues the teacher assignment notice independently of
         ->where('event', 'teacher_booking_confirmed')
         ->firstOrFail();
 
+    $teacherMessage = app(NotificationMessageFactory::class)->make($teacherDelivery);
+    $customerDelivery = NotificationDelivery::query()
+        ->where('booking_id', $booking->id)
+        ->where('event', 'intro_booking_confirmed')
+        ->where('channel', 'email')
+        ->firstOrFail();
+    $customerMessage = app(NotificationMessageFactory::class)->make($customerDelivery);
+
     expect($teacherDelivery->recipient_type)->toBe('teacher')
         ->and($teacherDelivery->recipient_user_id)->toBe($teacher->id)
         ->and($teacherDelivery->channel)->toBe('email')
+        ->and(str_replace("\r\n ", '', $teacherMessage['calendarInvitation']))->toContain('mailto:'.$teacher->email)
+        ->and(str_replace("\r\n ", '', $customerMessage['calendarInvitation']))->toContain('mailto:'.$booking->customer_email)
         ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'teacher_booking_confirmed')->count())->toBe(1)
         ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('event', 'intro_booking_confirmed')->count())->toBe(1)
         ->and(BookingCallEvent::query()->where('booking_id', $booking->id)->count())->toBe(0);

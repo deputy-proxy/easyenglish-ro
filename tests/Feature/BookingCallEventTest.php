@@ -4,6 +4,7 @@ use App\Contracts\CallEvents\CallEventProvider;
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
 use App\Contracts\Notifications\WhatsAppVerificationGateway;
 use App\Data\CallEvents\CallEventResult;
+use App\Data\Notifications\WhatsAppTextMessage;
 use App\Exceptions\CallEvents\CallEventProviderException;
 use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Jobs\CallEvents\CancelBookingCallEvent;
@@ -656,11 +657,36 @@ test('WhatsApp call-link deliveries respect separate customer and teacher consen
         ->and($deliveries->first()->event)->toBe('customer_call_link_ready');
 
     $message = app(WhatsAppMessageFactory::class)->make($deliveries->first());
-    expect($message->recipient)->toBe($booking->customer_phone)
-        ->and($message->template)->toBe('customer_call_link_ready')
-        ->and($message->bodyParameters)->toHaveCount(7)
-        ->and($message->bodyParameters[5])->toBe($event->join_url)
-        ->and($message->bodyParameters[6])->not->toBeEmpty();
+    expect($message)->toBeInstanceOf(WhatsAppTextMessage::class)
+        ->and($message->recipient)->toBe($booking->customer_phone)
+        ->and($message->text)->toBe($event->join_url);
+});
+
+test('customer receives only the WhatsApp call URL when the call link becomes ready', function () {
+    $provider = new FakeCallEventProvider;
+    $booking = makeCallEventTestBooking();
+    WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
+    enableWhatsAppForCallEventTests();
+    $service = enableFakeCallEventProvider($provider);
+    $event = $service->createForBooking($booking->id, 1);
+    $delivery = NotificationDelivery::query()
+        ->where('booking_call_event_id', $event->id)
+        ->where('channel', 'whatsapp')
+        ->where('event', 'customer_call_link_ready')
+        ->firstOrFail();
+    $delivery->update(['status' => 'queued']);
+    $fakeGateway = new FakeWhatsAppGateway;
+
+    (new SendNotificationDelivery($delivery->id))->handle(
+        app(NotificationMessageFactory::class),
+        app(WhatsAppMessageFactory::class),
+        $fakeGateway,
+    );
+
+    expect($delivery->fresh()->status)->toBe('sent')
+        ->and($fakeGateway->sent)->toHaveCount(1)
+        ->and($fakeGateway->sent[0]['recipient'])->toBe($booking->customer_phone)
+        ->and($fakeGateway->sent[0]['text'])->toBe($event->join_url);
 });
 
 test('WhatsApp teacher call-link delivery uses the verified teacher number and teacher-only template', function () {
@@ -1064,7 +1090,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
     $secondTeacherDelivery->update(['status' => 'queued']);
 
     $customerFailure = Mockery::mock(WhatsAppNotificationGateway::class);
-    $customerFailure->shouldReceive('sendTemplate')->once()->andThrow(new RuntimeException('Temporary customer delivery failure'));
+    $customerFailure->shouldReceive('sendText')->once()->andThrow(new RuntimeException('Temporary customer delivery failure'));
     $secondTeacherGateway = new FakeWhatsAppGateway;
     (new SendNotificationDelivery($secondCustomerDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $customerFailure);
     (new SendNotificationDelivery($secondTeacherDelivery->id))->handle(app(NotificationMessageFactory::class), app(WhatsAppMessageFactory::class), $secondTeacherGateway);

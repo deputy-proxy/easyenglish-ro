@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Contracts\Notifications\WhatsAppNotificationGateway;
+use App\Data\Notifications\WhatsAppTextMessage;
 use App\Exceptions\NotificationNoLongerEligibleException;
 use App\Exceptions\WhatsAppDeliveryAmbiguousException;
 use App\Exceptions\WhatsAppDeliveryRejectedException;
@@ -94,7 +95,9 @@ class SendNotificationDelivery implements ShouldQueue
                 }
 
                 $messageData = $whatsappMessages->make($delivery);
-                $result = $whatsapp->sendTemplate($messageData);
+                $result = $messageData instanceof WhatsAppTextMessage
+                    ? $whatsapp->sendText($messageData)
+                    : $whatsapp->sendTemplate($messageData);
                 $current = NotificationDelivery::query()->findOrFail($this->deliveryId);
                 $providerAttempts = $this->providerAttemptsWithStatus($current, 'accepted', ['message_id' => $result['message_id']]);
                 try {
