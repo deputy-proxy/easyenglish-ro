@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('public.teacher_session_details') }} · EasyEnglish</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @fluxAppearance
 </head>
 <body class="min-h-screen bg-paper font-sans text-ink antialiased dark:bg-zinc-950 dark:text-zinc-100">
     @include('public.partials.dashboard-header', ['context' => 'teacher'])
