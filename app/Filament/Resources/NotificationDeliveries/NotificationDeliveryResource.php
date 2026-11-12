@@ -78,12 +78,21 @@ class NotificationDeliveryResource extends Resource
                 ->visible(fn (NotificationDelivery $record): bool => $record->channel === 'whatsapp' && $record->provider === 'openwa' && $record->status === 'ambiguous')
                 ->action(function (NotificationDelivery $record, OpenWaMessageReconciliationService $reconciler): void {
                     try {
-                        $status = $reconciler->reconcile($record->fresh());
+                        $result = $reconciler->reconcile($record->fresh());
+                        $status = $result['status'];
+                        $details = 'Provider status: '.$result['provider_status'].' · Provider attempts: '.$result['attempts'];
+                        if ($result['accepted_at'] !== null) {
+                            $details .= ' · Accepted at: '.$result['accepted_at'];
+                        } elseif ($result['updated_at'] !== null) {
+                            $details .= ' · Last updated: '.$result['updated_at'];
+                        } elseif ($result['created_at'] !== null) {
+                            $details .= ' · Created at: '.$result['created_at'];
+                        }
                         Notification::make()->title(match ($status) {
                             'sent' => 'OpenWA confirms the message was accepted.',
                             'failed' => 'OpenWA confirms the message was not accepted. A retry is now available.',
-                            default => 'The send outcome is still ambiguous. Do not retry yet.',
-                        })->{$status === 'sent' || $status === 'failed' ? 'success' : 'warning'}()->send();
+                            default => 'OpenWA has not confirmed the submission. Do not retry yet.',
+                        })->body($details)->{$status === 'sent' || $status === 'failed' ? 'success' : 'warning'}()->send();
                     } catch (\Throwable $exception) {
                         Notification::make()->title('Could not reconcile the OpenWA delivery.')->body($exception->getMessage())->danger()->send();
                     }

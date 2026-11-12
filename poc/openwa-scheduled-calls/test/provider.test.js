@@ -31,3 +31,15 @@ test('preserves an unknown OpenWA send outcome as uncertain', async () => {
     return true;
   });
 });
+
+
+test('keeps the observed WhatsApp Web isRegularUser runtime failure ambiguous', async () => {
+  const error = Object.assign(new Error('[puppeteer:evaluate] t.isRegularUser is not a function'), { name: 'SendTextError', code: 'SEND_FAILED', outcome: 'unknown' });
+  const provider = new OpenWaProvider({ async sendText() { throw error; } });
+  await assert.rejects(provider.sendText('+40712345678', 'Booking rescheduled'), (caught) => {
+    assert.equal(caught.code, 'SEND_FAILED');
+    assert.equal(caught.outcome, 'unknown');
+    assert.equal(caught.uncertain, true);
+    return true;
+  });
+});

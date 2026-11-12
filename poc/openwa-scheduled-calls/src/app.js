@@ -58,6 +58,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
         result = await withTimeout(state.provider.sendText(to, text), messageTimeoutMs, true);
       } catch (error) {
         record.status = error.uncertain ? 'submission_unconfirmed' : 'failed';
+        record.updatedAt = new Date().toISOString();
         await messageStore.upsert(record).catch(() => {});
         state.metrics.providerErrors += 1;
         log(logger, error.uncertain ? 'warn' : 'error', 'message.send.failed', { uncertain: Boolean(error.uncertain), errorType: error.name || 'Error', providerErrorCode: error.code || null, providerOutcome: error.outcome || (error.uncertain ? 'unknown' : 'not_sent'), providerError: safeProviderError(error, to, text), providerCause: safeProviderError(error.cause, to, text) });
@@ -66,7 +67,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
           ? res.status(202).json({ status: record.status, retryable: false })
           : res.status(502).json({ error: 'OpenWA could not send the message.', code: providerErrorCode, outcome: 'not_sent', retryable: false });
       }
-      record.status = 'accepted'; record.providerMessageId = result.providerMessageId; record.acceptedAt = new Date().toISOString();
+      record.status = 'accepted'; record.providerMessageId = result.providerMessageId; record.acceptedAt = new Date().toISOString(); record.updatedAt = record.acceptedAt;
       try {
         await messageStore.upsert(record);
       } catch {
@@ -84,7 +85,7 @@ export function createApp({ config, state, store, messageStore = null, resetSess
     if (!config.messagingEnabled || !messageStore) return res.status(503).json({ error: 'OpenWA messaging is disabled.', code: 'MESSAGING_DISABLED', outcome: 'not_sent', retryable: true });
     const record = messageStore.findByKey(req.params.idempotencyKey);
     if (!record || record.direction !== 'outbound') return res.status(404).json({ error: 'Message record not found.' });
-    return res.json({ status: record.status, providerMessageId: record.providerMessageId || null, attempts: record.attempts || 1, acceptedAt: record.acceptedAt || null });
+    return res.json({ status: record.status, providerMessageId: record.providerMessageId || null, attempts: record.attempts || 1, createdAt: record.createdAt || null, updatedAt: record.updatedAt || null, acceptedAt: record.acceptedAt || null });
   });
   app.post('/v1/call-events', async (req, res) => {
     const operation = async () => {

@@ -155,7 +155,7 @@ test('serializes concurrent duplicate message submissions and exposes safe recon
     assert.equal(calls.length, 1);
     const status = await fetch(base + '/v1/messages/' + encodeURIComponent('concurrent-message-key-01'), { headers: { Authorization: 'Bearer ' + config.serviceToken } });
     assert.equal(status.status, 200);
-    assert.deepEqual(await status.json(), { status: 'accepted', providerMessageId: 'wamid-concurrent-1', attempts: 1, acceptedAt: records[0].acceptedAt });
+    assert.deepEqual(await status.json(), { status: 'accepted', providerMessageId: 'wamid-concurrent-1', attempts: 1, createdAt: records[0].createdAt, updatedAt: records[0].updatedAt, acceptedAt: records[0].acceptedAt });
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 

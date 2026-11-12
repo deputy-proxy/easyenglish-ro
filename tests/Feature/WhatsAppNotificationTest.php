@@ -553,9 +553,10 @@ test('OpenWA ambiguous delivery can be reconciled as accepted or safely failed',
     ]);
     Http::fake(['openwa.example.com/v1/messages/*' => Http::sequence()
         ->push(['status' => 'accepted', 'providerMessageId' => 'wamid-openwa-accepted', 'attempts' => 1, 'acceptedAt' => now()->toIso8601String()], 200)
-        ->push(['status' => 'failed', 'providerMessageId' => null, 'attempts' => 1, 'acceptedAt' => null], 200)]);
+        ->push(['status' => 'failed', 'providerMessageId' => null, 'attempts' => 1, 'acceptedAt' => null], 200)
+        ->push(['status' => 'submission_unconfirmed', 'providerMessageId' => null, 'attempts' => 1, 'createdAt' => '2026-11-12T16:17:00.000Z', 'updatedAt' => '2026-11-12T16:17:02.000Z', 'acceptedAt' => null], 200)]);
 
-    expect(app(OpenWaMessageReconciliationService::class)->reconcile($delivery))->toBe('sent')
+    expect(app(OpenWaMessageReconciliationService::class)->reconcile($delivery))->toMatchArray(['status' => 'sent', 'provider_status' => 'accepted', 'attempts' => 1])
         ->and($delivery->fresh()->status)->toBe('sent')
         ->and($delivery->fresh()->provider_message_id)->toBe('wamid-openwa-accepted');
 
@@ -563,8 +564,17 @@ test('OpenWA ambiguous delivery can be reconciled as accepted or safely failed',
         'channel' => 'whatsapp', 'event' => 'appointment_confirmed', 'status' => 'ambiguous', 'attempts' => 1,
         'idempotency_key' => 'whatsapp:reconcile-test-2', 'provider' => 'openwa', 'next_attempt_at' => null,
     ]);
-    expect(app(OpenWaMessageReconciliationService::class)->reconcile($failed))->toBe('failed')
+    expect(app(OpenWaMessageReconciliationService::class)->reconcile($failed))->toMatchArray(['status' => 'failed', 'provider_status' => 'failed', 'attempts' => 1])
         ->and($failed->fresh()->status)->toBe('failed');
+
+    $ambiguous = NotificationDelivery::query()->create([
+        'channel' => 'whatsapp', 'event' => 'appointment_confirmed', 'status' => 'ambiguous', 'attempts' => 1,
+        'idempotency_key' => 'whatsapp:reconcile-test-3', 'provider' => 'openwa', 'next_attempt_at' => null,
+    ]);
+    expect(app(OpenWaMessageReconciliationService::class)->reconcile($ambiguous))->toMatchArray([
+        'status' => 'ambiguous', 'provider_status' => 'submission_unconfirmed', 'attempts' => 1,
+        'created_at' => '2026-11-12T16:17:00.000Z', 'updated_at' => '2026-11-12T16:17:02.000Z',
+    ])->and($ambiguous->fresh()->status)->toBe('ambiguous');
 });
 
 test('ordinary WhatsApp notifications never fall back to Meta when OpenWA is disabled', function (): void {
