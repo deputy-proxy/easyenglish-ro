@@ -334,9 +334,15 @@ The isolated OpenWA service is the selected primary Easy English outbound WhatsA
 - Set `OPENWA_MESSAGING_CALLBACK_URL=https://<easyenglish-host>/webhooks/openwa` and a high-entropy `OPENWA_MESSAGING_CALLBACK_SECRET` on Railway. Configure the same callback secret on Hostinger. The callback uses HMAC-SHA256 in `X-OpenWA-Signature`.
 - Laravel uses the existing `OPENWA_BASE_URL` and `OPENWA_SERVICE_TOKEN` for the authenticated `/v1/messages` API. The API requires an E.164 recipient, text body, and `Idempotency-Key`.
 - The Node service persists outbound idempotency records and inbound callback records in the encrypted message store on the existing persistent volume. It serializes outbound submissions, returns accepted/replayed/ambiguous states, and never blindly retries an uncertain submission.
-- `GET /v1/messages/{idempotencyKey}` exposes only the normalized state, provider message ID, attempt count, and acceptance timestamp for reconciliation. `GET /v1/capabilities` reports whether messaging is enabled and ready.
+- `GET /v1/messages/{idempotencyKey}` exposes only the normalized state, provider message ID, attempt count, and created/updated/acceptance timestamps for reconciliation. `GET /v1/capabilities` reports whether messaging is enabled and ready.
 - Inbound direct messages are normalized and forwarded to Laravel; group and messages sent by the business account are ignored. Message payloads are encrypted at rest and removed from the record after a successful callback; logs contain no phone number or message body.
 - Keep exactly one replica and the existing persistent volume. The message store is single-writer, just like the scheduled call-event store.
+
+#### Outbound message troubleshooting
+
+An OpenWA message record with `submission_unconfirmed` means the browser runtime could not prove whether WhatsApp accepted the message. Laravel intentionally keeps its delivery `ambiguous` and does not retry it automatically. Reconcile the same idempotency key; do not create a replacement key. The reconciliation response includes the provider status, attempt count, and timestamps so operators can distinguish an in-progress submission from a recovered/accepted one.
+
+A production log on 12 November 2026 recorded `SendTextError` / `SEND_FAILED` with the underlying WhatsApp Web error `t.isRegularUser is not a function` from `WAPI.sendMessage(to, content)`. This is a failure inside OpenWA's browser-side WhatsApp Web integration, not a Laravel queue or scheduler error. The application cannot safely infer that no message was sent from this exception. Check the recipient chat and OpenWA runtime logs before retrying. Do not downgrade the provider error to a definitive rejection or bypass the idempotency guard without evidence.
 
 Do not interpret OpenWA readiness as proof that the WhatsApp account is unrestricted. OpenWA is unofficial automation and remains subject to account restrictions and upstream web-client changes. See the [purpose-based WhatsApp operations runbook](../operations/whatsapp-provider-failover.md) for readiness and recovery procedures.
 ## Purpose-based production routing

@@ -8,7 +8,8 @@ use RuntimeException;
 
 class OpenWaMessageReconciliationService
 {
-    public function reconcile(NotificationDelivery $delivery): string
+    /** @return array{status:string,provider_status:string,attempts:int,accepted_at:?string,created_at:?string,updated_at:?string} */
+    public function reconcile(NotificationDelivery $delivery): array
     {
         if ($delivery->channel !== 'whatsapp' || $delivery->provider !== 'openwa' || $delivery->status !== 'ambiguous') {
             throw new RuntimeException('Only ambiguous OpenWA WhatsApp deliveries can be reconciled.');
@@ -25,7 +26,7 @@ class OpenWaMessageReconciliationService
         if ($response->status() === 404) {
             $delivery->update(['status' => 'failed', 'next_attempt_at' => null, 'last_error' => 'OpenWA has no submission record; a controlled retry is safe.', 'provider_attempts' => $this->updateLastAttempt($delivery, 'failed', ['reason' => 'not_found'])]);
 
-            return 'failed';
+            return $this->result('failed', 'not_found', ['attempts' => count($delivery->provider_attempts ?? [])]);
         }
         if (! $response->successful()) {
             throw new RuntimeException('OpenWA message status could not be retrieved (HTTP '.$response->status().').');
@@ -39,15 +40,31 @@ class OpenWaMessageReconciliationService
                 'provider_attempts' => $this->updateLastAttempt($delivery, 'accepted', ['message_id' => $response->json('providerMessageId')]),
             ]);
 
-            return 'sent';
+            return $this->result('sent', 'accepted', $response->json());
         }
         if ($status === 'failed') {
             $delivery->update(['status' => 'failed', 'next_attempt_at' => null, 'last_error' => 'OpenWA confirmed that the message was not accepted; a controlled retry is safe.', 'provider_attempts' => $this->updateLastAttempt($delivery, 'failed')]);
 
-            return 'failed';
+            return $this->result('failed', 'failed', $response->json());
         }
 
-        return 'ambiguous';
+        return $this->result('ambiguous', is_string($status) ? $status : 'unknown', $response->json());
+    }
+
+    /**
+     * @param  array<string, mixed>  $provider
+     * @return array{status:string,provider_status:string,attempts:int,accepted_at:?string,created_at:?string,updated_at:?string}
+     */
+    private function result(string $status, string $providerStatus, array $provider): array
+    {
+        return [
+            'status' => $status,
+            'provider_status' => $providerStatus,
+            'attempts' => max(0, (int) ($provider['attempts'] ?? 0)),
+            'accepted_at' => is_string($provider['acceptedAt'] ?? null) ? $provider['acceptedAt'] : null,
+            'created_at' => is_string($provider['createdAt'] ?? null) ? $provider['createdAt'] : null,
+            'updated_at' => is_string($provider['updatedAt'] ?? null) ? $provider['updatedAt'] : null,
+        ];
     }
 
     /**
