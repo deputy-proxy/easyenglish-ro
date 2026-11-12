@@ -35,7 +35,7 @@ class BookingCallEvent extends Model
     protected $fillable = [
         'booking_id', 'teacher_id', 'provider', 'revision', 'idempotency_key', 'provider_event_id', 'join_url', 'call_type',
         'scheduled_start_at', 'scheduled_end_at', 'status', 'attempts', 'last_attempt_at', 'next_attempt_at',
-        'provider_created_at', 'scheduled_at', 'cancelled_at', 'cancel_requested_at', 'last_error_category', 'last_error_message',
+        'provider_created_at', 'scheduled_at', 'cancelled_at', 'cancel_requested_at', 'last_error_category', 'last_error_message', 'admin_failure_alerted_at',
     ];
 
     protected $hidden = ['idempotency_key', 'provider_event_id', 'join_url'];
@@ -52,6 +52,7 @@ class BookingCallEvent extends Model
             'scheduled_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
             'cancel_requested_at' => 'immutable_datetime',
+            'admin_failure_alerted_at' => 'immutable_datetime',
         ];
     }
 

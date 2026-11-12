@@ -12,6 +12,7 @@ use App\Jobs\CallEvents\CancelBookingCallEvent;
 use App\Jobs\CallEvents\CreateBookingCallEvent;
 use App\Jobs\CallEvents\RetrieveBookingCallEvent;
 use App\Jobs\SendNotificationDelivery;
+use App\Mail\CallEventFailureAlert;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BookingCallEvent;
@@ -19,6 +20,7 @@ use App\Models\NotificationDelivery;
 use App\Models\SessionFeedback;
 use App\Models\User;
 use App\Models\WhatsAppContact;
+use App\Services\Booking\BookingService;
 use App\Services\CallEvents\BookingCallEventService;
 use App\Services\CallEvents\OpenWaConfig;
 use App\Services\CallEvents\OpenWaHttpClient;
@@ -30,6 +32,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Tests\Fakes\FakeCallEventProvider;
@@ -503,6 +506,7 @@ test('invalid booking phone numbers fail before contacting the provider', functi
     DB::table('bookings')->where('id', $booking->id)->update(['customer_phone' => 'not-a-phone']);
 
     $event = $service->createForBooking($booking->id, 1);
+    $service->createForBooking($booking->id, 1);
 
     expect($event->status)->toBe('failed')
         ->and($event->last_error_category)->toBe('invalid_destination')
@@ -615,6 +619,26 @@ test('teacher reassignment invalidates access to the previous call-event revisio
     $this->actingAs($previousTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertForbidden();
 });
 
+test('eligible booking confirmation waits for the call link before creating customer or teacher notifications', function () {
+    $booking = makeCallEventTestBooking([
+        'status' => 'pending',
+        'confirmed_at' => null,
+        'hold_expires_at' => now()->addMinutes(5),
+    ]);
+    config(['services.openwa' => [
+        'enabled' => true,
+        'apply_to_paid_sessions' => false,
+        'rollout_stage' => 'general',
+        'rollout_customer_emails' => [],
+    ]]);
+    Queue::fake();
+
+    app(BookingService::class)->confirm($booking->id);
+
+    expect($booking->fresh()->status)->toBe('confirmed')
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->count())->toBe(0);
+});
+
 test('scheduled call event creates independent customer and teacher email deliveries with the same private link', function () {
     $provider = new FakeCallEventProvider;
     $service = enableFakeCallEventProvider($provider);
@@ -635,6 +659,8 @@ test('scheduled call event creates independent customer and teacher email delive
         ->and($customerMessage['recipient'])->toBe($booking->customer_email)
         ->and($teacherMessage['recipient'])->toBe($booking->teacher->email)
         ->and($customerMessage['ctaUrl'])->toBe($event->join_url)
+        ->and($customerMessage['calendarInvitation'])->toContain('LOCATION:'.$event->join_url)
+        ->and($teacherMessage['calendarInvitation'])->toContain('LOCATION:'.$event->join_url)
         ->and(collect($customerMessage['details'])->firstWhere('label', 'How to join')['value'])->not->toBeEmpty()
         ->and(collect($teacherMessage['details'])->firstWhere('label', 'WhatsApp call link')['value'])->toBe($event->join_url)
         ->and($customerDelivery->metadata)->not->toHaveKey('join_url')
@@ -765,7 +791,9 @@ test('teacher booking page is restricted to the currently assigned teacher and a
         ->and(SessionFeedback::query()->where('booking_id', $booking->id)->where('metric_key', 'overall')->value('feedback'))->toBe('Good progress and clear pronunciation practice.');
 });
 
-test('terminal call setup failure creates an audit entry and a database alert for staff', function () {
+test('terminal call setup failure creates an audit entry, a database alert, and one administrator email', function () {
+    config(['easyenglish.admin_email' => 'admin@example.com']);
+    Mail::fake();
     $provider = new FakeCallEventProvider;
     $provider->nextCreateException = new CallEventProviderException('authentication', false, 'Provider token must not be exposed.');
     $service = enableFakeCallEventProvider($provider);
@@ -780,6 +808,30 @@ test('terminal call setup failure creates an audit entry and a database alert fo
         ->and(DB::table('notifications')->where('notifiable_id', $staff->id)->count())->toBe(1)
         ->and(DB::table('notifications')->where('notifiable_id', $staff->id)->value('data'))->toContain('WhatsApp call setup needs attention')
         ->and(BookingAudit::query()->where('booking_id', $booking->id)->where('action', 'call_event.failed')->exists())->toBeTrue();
+
+    Mail::assertQueued(CallEventFailureAlert::class, fn (CallEventFailureAlert $mail): bool => $mail->hasTo('admin@example.com')
+        && $mail->details['booking_reference'] === $booking->public_reference
+        && $mail->details['failure_category'] === 'authentication');
+});
+
+test('administrator call-link failure alerts are not repeated by automatic retries', function () {
+    Mail::fake();
+    config(['easyenglish.admin_email' => 'admin@example.com']);
+    $provider = new FakeCallEventProvider;
+    $provider->nextCreateException = new CallEventProviderException('timeout', true, 'Provider timed out.');
+    $service = enableFakeCallEventProvider($provider);
+    $booking = makeCallEventTestBooking();
+
+    $firstAttempt = $service->createForBooking($booking->id, 1);
+    $firstAttempt->update(['next_attempt_at' => now()->subSecond()]);
+    $provider->nextCreateException = new CallEventProviderException('timeout', true, 'Provider timed out again.');
+    $secondAttempt = $service->createForBooking($booking->id, 1);
+
+    expect($firstAttempt->status)->toBe('pending')
+        ->and($secondAttempt->attempts)->toBe(2)
+        ->and($secondAttempt->admin_failure_alerted_at)->not->toBeNull();
+
+    Mail::assertQueuedTimes(CallEventFailureAlert::class, 1);
 });
 
 test('staff can inspect call-event health while non-staff cannot access the operations page', function () {

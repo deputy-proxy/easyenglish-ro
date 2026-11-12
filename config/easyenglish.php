@@ -3,6 +3,7 @@
 return [
     'policy_version' => '2026-11-11',
     'contact_email' => (env('EASYENGLISH_CONTACT_EMAIL') ?: 'office@edventure.ro'),
+    'admin_email' => (env('EASYENGLISH_ADMIN_EMAIL') ?: env('EASYENGLISH_CONTACT_EMAIL') ?: 'office@edventure.ro'),
     'company' => [
         'name' => 'ROAD CENTRE SRL',
         'cui' => '17808982',
