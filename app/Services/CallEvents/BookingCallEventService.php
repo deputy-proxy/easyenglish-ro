@@ -27,7 +27,7 @@ class BookingCallEventService
 
     public function createForBooking(int $bookingId, int $revision): ?BookingCallEvent
     {
-        if (! $this->config->enabled || $this->config->rolloutStage === 'off') {
+        if (! $this->config->enabled) {
             return null;
         }
         if ($revision < 1 || $revision > 65535) {
