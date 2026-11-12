@@ -77,10 +77,12 @@ class NotificationOutboxService
             'email', NotificationEvent::TeacherBookingConfirmed, $booking, $teacher, null, $metadata,
             'email:teacher_booking_confirmed:booking:'.$booking->id.':teacher:'.$teacher->id,
         );
-        $this->enqueueTeacherWhatsApp(
-            NotificationEvent::TeacherBookingConfirmed, $booking, $teacher, $metadata,
-            'whatsapp:teacher_booking_confirmed:booking:'.$booking->id.':teacher:'.$teacher->id,
-        );
+        if ($booking->bundle_entitlement_id !== null) {
+            $this->enqueueTeacherWhatsApp(
+                NotificationEvent::TeacherBookingConfirmed, $booking, $teacher, $metadata,
+                'whatsapp:teacher_booking_confirmed:booking:'.$booking->id.':teacher:'.$teacher->id,
+            );
+        }
 
         return $delivery;
     }
@@ -131,10 +133,14 @@ class NotificationOutboxService
             'email', NotificationEvent::CustomerCallLinkReady, $booking, null, $event, $metadata,
             'email:customer_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision,
         );
-        $this->enqueueRecipientWhatsApp(
-            NotificationEvent::CustomerCallLinkReady, $booking, null, $event, $metadata,
-            'whatsapp:customer_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision,
-        );
+        // Free introductions use the call URL in email calendar invitations only.
+        // Creating a call event must not implicitly opt the customer or teacher into WhatsApp messaging.
+        if ($booking->bundle_entitlement_id !== null) {
+            $this->enqueueRecipientWhatsApp(
+                NotificationEvent::CustomerCallLinkReady, $booking, null, $event, $metadata,
+                'whatsapp:customer_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision,
+            );
+        }
 
         $teacher = User::query()->find($booking->teacher_id);
         if ($teacher === null || ! $teacher->isTeacher()) {
@@ -148,7 +154,7 @@ class NotificationOutboxService
 
         $customerPhone = $this->normalizedPhone($booking->customer_phone);
         $teacherPhone = $this->normalizedPhone($teacher->phone);
-        if ($teacher->phone_verified_at !== null && $teacherPhone !== null && $teacherPhone !== $customerPhone) {
+        if ($booking->bundle_entitlement_id !== null && $teacher->phone_verified_at !== null && $teacherPhone !== null && $teacherPhone !== $customerPhone) {
             $this->enqueueRecipientWhatsApp(
                 NotificationEvent::TeacherCallLinkReady, $booking, $teacher, $event, $metadata,
                 'whatsapp:teacher_call_link_ready:booking:'.$booking->id.':revision:'.$event->revision.':teacher:'.$teacher->id,

@@ -16,6 +16,7 @@ use App\Mail\CallEventFailureAlert;
 use App\Models\Booking;
 use App\Models\BookingAudit;
 use App\Models\BookingCallEvent;
+use App\Models\BundleDefinition;
 use App\Models\NotificationDelivery;
 use App\Models\SessionFeedback;
 use App\Models\User;
@@ -83,6 +84,37 @@ function makeCallEventTestBooking(array $overrides = [], bool $assignTeacher = t
         'locale' => 'en',
         'hold_expires_at' => null,
         'confirmed_at' => now(),
+    ], $overrides));
+}
+
+function makeCallEventTestBundleBooking(array $overrides = []): Booking
+{
+    $email = $overrides['customer_email'] ?? 'call-event-customer@example.com';
+    $phone = $overrides['customer_phone'] ?? '+40722123456';
+    $definition = BundleDefinition::query()->firstOrFail();
+    $entitlementId = DB::table('bundle_entitlements')->insertGetId([
+        'bundle_definition_id' => $definition->id,
+        'customer_name' => 'Call Event Customer',
+        'customer_email' => $email,
+        'customer_phone' => $phone,
+        'status' => 'active',
+        'paid_amount_ron' => 156,
+        'currency' => 'RON',
+        'paid_credits' => 4,
+        'free_credits_granted' => 1,
+        'credits_remaining' => 4,
+        'free_credits_remaining' => 1,
+        'activated_at' => now(),
+        'expires_at' => now()->addYear(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    return makeCallEventTestBooking(array_merge([
+        'bundle_entitlement_id' => $entitlementId,
+        'credit_type' => 'free',
+        'customer_email' => $email,
+        'customer_phone' => $phone,
     ], $overrides));
 }
 
@@ -619,7 +651,7 @@ test('teacher reassignment invalidates access to the previous call-event revisio
     $this->actingAs($previousTeacher)->getJson(route('booking.call-link', $booking->public_reference))->assertForbidden();
 });
 
-test('eligible booking confirmation waits for the call link before creating customer or teacher notifications', function () {
+test('free introduction confirmation waits for a call link even outside the WhatsApp messaging rollout', function () {
     $booking = makeCallEventTestBooking([
         'status' => 'pending',
         'confirmed_at' => null,
@@ -628,21 +660,27 @@ test('eligible booking confirmation waits for the call link before creating cust
     config(['services.openwa' => [
         'enabled' => true,
         'apply_to_paid_sessions' => false,
-        'rollout_stage' => 'general',
+        'rollout_stage' => 'off',
         'rollout_customer_emails' => [],
     ]]);
     Queue::fake();
 
     app(BookingService::class)->confirm($booking->id);
 
+    Queue::assertPushed(CreateBookingCallEvent::class, fn (CreateBookingCallEvent $job): bool => $job->bookingId === $booking->id && $job->revision === 1);
     expect($booking->fresh()->status)->toBe('confirmed')
         ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->count())->toBe(0);
 });
 
-test('scheduled call event creates independent customer and teacher email deliveries with the same private link', function () {
+test('free introduction call-link-ready notifications create two linked emails and no WhatsApp messages', function () {
     $provider = new FakeCallEventProvider;
-    $service = enableFakeCallEventProvider($provider);
     $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    $teacher->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
+    WhatsAppContact::recordConsent($booking->customer_phone, 'free_intro_customer_consent');
+    WhatsAppContact::recordConsent($teacher->phone, 'free_intro_teacher_consent');
+    enableWhatsAppForCallEventTests();
+    $service = enableFakeCallEventProvider($provider);
     $event = $service->createForBooking($booking->id, 1);
 
     $deliveries = NotificationDelivery::query()->where('booking_call_event_id', $event->id)->orderBy('event')->get();
@@ -653,6 +691,7 @@ test('scheduled call event creates independent customer and teacher email delive
     $teacherMessage = $messages->make($teacherDelivery);
 
     expect($deliveries)->toHaveCount(2)
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('channel', 'whatsapp')->count())->toBe(0)
         ->and($customerDelivery->recipient_type)->toBe('customer')
         ->and($teacherDelivery->recipient_type)->toBe('teacher')
         ->and($teacherDelivery->recipient_user_id)->toBe($booking->teacher_id)
@@ -675,7 +714,7 @@ test('WhatsApp call-link deliveries respect separate customer and teacher consen
         'phone' => '+40722123456',
         'phone_verified_at' => now(),
     ]);
-    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    $booking = makeCallEventTestBundleBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
     enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
@@ -695,7 +734,7 @@ test('WhatsApp call-link deliveries respect separate customer and teacher consen
 
 test('customer receives only the WhatsApp call URL when the call link becomes ready', function () {
     $provider = new FakeCallEventProvider;
-    $booking = makeCallEventTestBooking();
+    $booking = makeCallEventTestBundleBooking();
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
     enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
@@ -730,7 +769,7 @@ test('WhatsApp teacher call-link delivery uses the verified teacher number and t
         'phone' => '+40722987654',
         'phone_verified_at' => now(),
     ]);
-    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    $booking = makeCallEventTestBundleBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($booking->customer_phone, 'test_customer_consent');
     WhatsAppContact::recordConsent($teacher->phone, 'test_teacher_consent');
     enableWhatsAppForCallEventTests();
@@ -919,7 +958,7 @@ test('teacher WhatsApp delivery worker sends to the teacher contact and updates 
         'phone' => '+40722987654',
         'phone_verified_at' => now(),
     ]);
-    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    $booking = makeCallEventTestBundleBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_booking_consent');
     enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
@@ -985,7 +1024,7 @@ test('teacher booking page hides a call link immediately when the booking is can
 });
 
 test('teacher receives an independent booking confirmation even before OpenWA creates a call link', function () {
-    $booking = makeCallEventTestBooking();
+    $booking = makeCallEventTestBundleBooking();
     $teacher = $booking->teacher;
     DB::table('users')->where('id', $teacher->id)->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
     $teacher = User::query()->findOrFail($teacher->id);
@@ -1008,6 +1047,20 @@ test('teacher receives an independent booking confirmation even before OpenWA cr
         ->and($whatsappMessage->recipient)->toBe($teacher->phone)
         ->and($whatsappMessage->template)->toBe('teacher_booking_confirmed')
         ->and($whatsappMessage->bodyParameters)->toHaveCount(12);
+});
+
+test('free introduction teacher confirmation is email-only even with WhatsApp consent', function () {
+    $booking = makeCallEventTestBooking();
+    $teacher = $booking->teacher;
+    $teacher->update(['phone' => '+40722987654', 'phone_verified_at' => now()]);
+    WhatsAppContact::recordConsent($teacher->phone, 'free_intro_teacher_confirmation_consent');
+    enableWhatsAppForCallEventTests();
+
+    $delivery = app(NotificationOutboxService::class)->enqueueTeacherBookingConfirmed($booking);
+
+    expect($delivery)->not->toBeNull()
+        ->and($delivery->recipient_type)->toBe('teacher')
+        ->and(NotificationDelivery::query()->where('booking_id', $booking->id)->where('channel', 'whatsapp')->count())->toBe(0);
 });
 
 test('teacher receives the previous and new appointment time when a booking is rescheduled', function () {
@@ -1049,7 +1102,7 @@ test('a transient teacher WhatsApp failure retries only that recipient without c
         'phone' => '+40722987654',
         'phone_verified_at' => now(),
     ]);
-    $booking = makeCallEventTestBooking(['teacher_id' => $teacher->id]);
+    $booking = makeCallEventTestBundleBooking(['teacher_id' => $teacher->id]);
     WhatsAppContact::recordConsent($teacher->phone, 'teacher_delivery_retry_consent');
     enableWhatsAppForCallEventTests();
     $service = enableFakeCallEventProvider($provider);
@@ -1091,7 +1144,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
         'phone' => '+40722987654',
         'phone_verified_at' => now(),
     ]);
-    $booking = makeCallEventTestBooking([
+    $booking = makeCallEventTestBundleBooking([
         'teacher_id' => $teacher->id,
         'customer_phone' => '+40722123456',
     ]);
@@ -1131,7 +1184,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
         'phone' => '+40722987655',
         'phone_verified_at' => now(),
     ]);
-    $secondBooking = makeCallEventTestBooking([
+    $secondBooking = makeCallEventTestBundleBooking([
         'teacher_id' => $secondTeacher->id,
         'customer_email' => 'reverse-delivery@example.com',
         'customer_phone' => '+40722123457',
@@ -1166,7 +1219,7 @@ test('customer and teacher WhatsApp delivery failures remain independent in eith
         ->and(BookingCallEvent::query()->whereIn('booking_id', [$booking->id, $secondBooking->id])->count())->toBe(2);
 });
 
-test('internal-test and limited-customer rollout stages restrict call events to the explicit email allowlist', function () {
+test('free introduction call events bypass internal-test and limited-customer messaging rollout allowlists', function () {
     $provider = new FakeCallEventProvider;
     enableFakeCallEventProvider($provider);
     config(['services.openwa.rollout_stage' => 'internal_test', 'services.openwa.rollout_customer_emails' => ['pilot@example.test']]);
@@ -1176,7 +1229,7 @@ test('internal-test and limited-customer rollout stages restrict call events to 
     $blocked = makeCallEventTestBooking(['customer_email' => 'other@example.test']);
 
     expect($service->createForBooking($allowed->id, 1))->not->toBeNull()
-        ->and($service->createForBooking($blocked->id, 1))->toBeNull();
+        ->and($service->createForBooking($blocked->id, 1))->not->toBeNull();
 
     config(['services.openwa.rollout_stage' => 'limited_customer']);
     app()->forgetInstance(OpenWaConfig::class);
@@ -1185,10 +1238,23 @@ test('internal-test and limited-customer rollout stages restrict call events to 
     $limitedBlocked = makeCallEventTestBooking(['customer_email' => 'other@example.test']);
 
     expect($service->createForBooking($limitedAllowed->id, 1))->not->toBeNull()
-        ->and($service->createForBooking($limitedBlocked->id, 1))->toBeNull();
+        ->and($service->createForBooking($limitedBlocked->id, 1))->not->toBeNull();
 });
 
-test('staff pilot rollout only creates call events for bookings whose customer email belongs to a staff account', function () {
+test('bundle-credit call events continue to respect the configured rollout allowlist', function () {
+    $provider = new FakeCallEventProvider;
+    enableFakeCallEventProvider($provider);
+    config(['services.openwa.rollout_stage' => 'internal_test', 'services.openwa.rollout_customer_emails' => ['pilot@example.test']]);
+    app()->forgetInstance(OpenWaConfig::class);
+    $service = app(BookingCallEventService::class);
+    $allowed = makeCallEventTestBundleBooking(['customer_email' => 'pilot@example.test']);
+    $blocked = makeCallEventTestBundleBooking(['customer_email' => 'outside@example.test']);
+
+    expect($service->createForBooking($allowed->id, 1))->not->toBeNull()
+        ->and($service->createForBooking($blocked->id, 1))->toBeNull();
+});
+
+test('free introduction call events are created outside the staff pilot messaging cohort', function () {
     $provider = new FakeCallEventProvider;
     enableFakeCallEventProvider($provider);
     User::factory()->create(['is_staff' => true, 'email' => 'staff-pilot@example.test']);
@@ -1199,10 +1265,10 @@ test('staff pilot rollout only creates call events for bookings whose customer e
     $customerBooking = makeCallEventTestBooking(['customer_email' => 'customer@example.test']);
 
     expect($service->createForBooking($staffBooking->id, 1))->not->toBeNull()
-        ->and($service->createForBooking($customerBooking->id, 1))->toBeNull();
+        ->and($service->createForBooking($customerBooking->id, 1))->not->toBeNull();
 });
 
-test('turning rollout stage off stops new events but preserves existing bookings and issued links', function () {
+test('turning messaging rollout off does not block free introduction call links', function () {
     $provider = new FakeCallEventProvider;
     $service = enableFakeCallEventProvider($provider);
     $booking = makeCallEventTestBooking();
@@ -1213,7 +1279,10 @@ test('turning rollout stage off stops new events but preserves existing bookings
     app()->forgetInstance(OpenWaConfig::class);
     $service = app(BookingCallEventService::class);
 
-    expect($service->createForBooking($booking->id, 1))->toBeNull()
+    $newBooking = makeCallEventTestBooking(['customer_email' => 'outside-rollout@example.test']);
+
+    expect($service->createForBooking($booking->id, 1))->not->toBeNull()
+        ->and($service->createForBooking($newBooking->id, 1))->not->toBeNull()
         ->and($existingEvent->fresh()->status)->toBe('scheduled')
         ->and($existingEvent->fresh()->join_url)->not->toBeEmpty()
         ->and($booking->fresh()->status)->toBe('confirmed');
