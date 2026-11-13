@@ -304,8 +304,8 @@ test('admin teacher and staff accounts see disabled availability even with stude
     }
 
     $component = file_get_contents(resource_path('views/components/booking/availability-section.blade.php'));
-    expect($component)->toContain('button.disabled = true;')
-        ->and($component)->toContain("if (root.dataset.bookingEnabled === 'true') button.addEventListener('click'");
+    expect($component)->toContain('button.disabled = disabled;')
+        ->and($component)->toContain("button.addEventListener('click', () => selectSlot(day, slot, button))");
 });
 
 test('authenticated account without a student profile is not treated as a customer', function () {
@@ -352,6 +352,17 @@ test('customer with an empty display name falls back to generic booking copy', f
         ->assertOk()
         ->assertSee(__('public.availability_title'))
         ->assertDontSee('programează-ți sesiunea introductivă gratuită');
+});
+
+test('shared calendar disables time-ineligible slots and highlights the earliest bookable day', function () {
+    $component = file_get_contents(resource_path('views/components/booking/availability-section.blade.php'));
+
+    expect($component)
+        ->toContain('slot.bookable !== true')
+        ->toContain('days.find(day => day.slots.some(slot => slot.bookable === true))')
+        ->toContain('scheduleRefresh(data)')
+        ->toContain("cache: 'no-store'")
+        ->toContain('root.dataset.firstAvailableDate = firstAvailableDate ||');
 });
 
 test('public landing page exposes progressive enhancement hooks for its animation system', function () {
@@ -622,7 +633,7 @@ test('weekly availability empty and low-availability messages are localized', fu
         ->and(__('public.availability_low'))->toContain('Only a few times are available');
 });
 
-test('availability endpoint returns all seven days and only server-bookable times', function () {
+test('availability endpoint returns all seven days with server-calculated bookability', function () {
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addPublicAvailability($day);
 
@@ -632,7 +643,32 @@ test('availability endpoint returns all seven days and only server-bookable time
         ->assertJsonCount(7, 'days')
         ->assertJsonPath('days.1.date', '2026-10-27')
         ->assertJsonPath('days.1.slots.0.time', '09:00')
-        ->assertJsonPath('days.1.slots.1.time', '09:30');
+        ->assertJsonPath('days.1.slots.1.time', '09:30')
+        ->assertJsonPath('days.1.slots.0.bookable', true);
+});
+
+test('availability endpoint keeps past and short-notice slots visible with server-calculated disabled state', function () {
+    $today = CarbonImmutable::parse('2026-10-26', 'Europe/Bucharest');
+    AvailabilityRule::query()->create([
+        'weekday' => $today->dayOfWeekIso % 7,
+        'starts_at' => '07:00',
+        'ends_at' => '10:00',
+        'is_active' => true,
+    ]);
+    addPublicAvailability(CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest'));
+
+    $this->getJson('/availability?week=2026-10-26')
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'must-revalidate, no-cache, no-store, private')
+        ->assertJsonPath('timezone', AvailabilityService::TIMEZONE)
+        ->assertJsonPath('days.0.slots.0.time', '07:00')
+        ->assertJsonPath('days.0.slots.0.bookable', false)
+        ->assertJsonPath('days.0.slots.0.unavailable_reason', 'past')
+        ->assertJsonPath('days.0.slots.2.unavailable_reason', 'past')
+        ->assertJsonPath('days.0.slots.3.unavailable_reason', 'minimum_notice')
+        ->assertJsonPath('days.1.slots.0.time', '09:00')
+        ->assertJsonPath('days.1.slots.0.bookable', true)
+        ->assertJsonStructure(['server_now']);
 });
 
 test('public privacy and terms pages reuse the shared Romanian navigation and footer', function () {
@@ -1288,6 +1324,39 @@ test('booking submission rejects a slot that is no longer available on the serve
         ->assertSessionHasErrors(['starts_at']);
 
     expect(Booking::query()->count())->toBe(0);
+});
+
+test('booking submission rejects a valid slot with less than 24 hours notice before creating side effects', function () {
+    $user = createStudentUser([
+        'email' => 'short-notice-booking@example.com',
+        'phone' => '+40722123456',
+        'email_verified_at' => now(),
+        'phone_verified_at' => now(),
+    ]);
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    AvailabilityRule::query()->create([
+        'weekday' => $day->dayOfWeekIso % 7,
+        'starts_at' => '07:30',
+        'ends_at' => '09:30',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($user)->from('/')->post(route('booking.submit'), [
+        'type' => 'intro',
+        'starts_at' => '2026-10-27T07:30:00+02:00',
+        'name' => $user->name,
+        'email' => $user->email,
+        'phone' => $user->phone,
+        'english_level' => 'B1',
+        'session_goal' => 'Speak more confidently',
+        'accepted_policy' => '1',
+        'whatsapp_service_consent' => '1',
+    ])->assertRedirect('/')
+        ->assertSessionHasErrors(['starts_at']);
+
+    expect(Booking::query()->count())->toBe(0)
+        ->and(FreeSessionClaim::query()->count())->toBe(0)
+        ->and(NotificationDelivery::query()->count())->toBe(0);
 });
 
 test('final booking submission preserves policy acceptance recorded during registration', function () {
