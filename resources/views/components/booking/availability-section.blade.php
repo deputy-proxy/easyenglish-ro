@@ -186,6 +186,9 @@
             const status = root.querySelector('[data-week-status]');
             let week = root.dataset.week;
             let navigationDirection = 0;
+            let refreshTimer = null;
+            let requestVersion = 0;
+            let hasRenderedInitialWeek = false;
             const previous = root.querySelector('[data-prev]');
             const next = root.querySelector('[data-next]');
             const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Bucharest' });
@@ -197,6 +200,11 @@
             const moreTimesMessage = @json(__('public.availability_more_times'));
             const fewerTimesMessage = @json(__('public.availability_fewer_times'));
             const loadError = @json(__('public.availability_error'));
+            const internalDisabledMessage = @json(__('public.booking_internal_disabled'));
+            const pastUnavailableMessage = @json(__('public.slot_unavailable_past'));
+            const noticeUnavailableMessage = @json(__('public.slot_unavailable_notice'));
+            const firstAvailableDayMessage = @json(__('public.first_available_day'));
+            const minimumNoticeMilliseconds = 24 * 60 * 60 * 1000;
             const formatSlotDate = date => new Intl.DateTimeFormat('ro-RO', {
                 weekday: 'long',
                 day: 'numeric',
@@ -226,26 +234,42 @@
                 }));
             };
 
-            const createSlotButton = (day, slot) => {
+            const createSlotButton = (day, slot, compact = false) => {
                 const button = document.createElement('button');
                 button.type = 'button';
-                button.className = 'min-h-10 rounded-[7px] border-0 bg-primary-soft px-2 py-2 text-xs leading-none font-semibold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
+                button.className = compact
+                    ? 'min-h-10 rounded-[7px] border-0 bg-primary-soft px-0 py-2 text-[10px] leading-none font-semibold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus sm:text-xs'
+                    : 'min-h-10 rounded-[7px] border-0 bg-primary-soft px-2 py-2 text-xs leading-none font-semibold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus';
                 button.textContent = slot.time;
-                button.setAttribute('aria-label', day.date + ' ' + slot.time);
-                if (root.dataset.bookingEnabled !== 'true') {
-                    button.disabled = true;
-                    button.setAttribute('aria-disabled', 'true');
-                    button.title = @json(__('public.booking_internal_disabled'));
-                    button.classList.add('cursor-not-allowed', 'opacity-50');
-                    return button;
+
+                const unavailableMessage = root.dataset.bookingEnabled !== 'true'
+                    ? internalDisabledMessage
+                    : slot.unavailable_reason === 'past'
+                        ? pastUnavailableMessage
+                        : noticeUnavailableMessage;
+                const disabled = root.dataset.bookingEnabled !== 'true' || slot.bookable !== true;
+
+                button.setAttribute('aria-label', day.date + ' ' + slot.time + (disabled ? ', ' + unavailableMessage : ''));
+                button.disabled = disabled;
+                button.setAttribute('aria-disabled', String(disabled));
+
+                if (disabled) {
+                    button.title = unavailableMessage;
+                    button.classList.add('cursor-not-allowed', 'bg-surface-subtle', 'text-muted', 'opacity-70');
+                    button.classList.remove('hover:bg-primary', 'hover:text-white');
+                } else {
+                    button.addEventListener('click', () => selectSlot(day, slot, button));
                 }
-                button.addEventListener('click', () => selectSlot(day, slot, button));
+
                 return button;
             };
 
-            const renderMobileDay = day => {
+            const renderMobileDay = (day, firstAvailableDate) => {
                 const card = document.createElement('article');
+                card.dataset.calendarDate = day.date;
+                card.setAttribute('aria-label', day.date + (day.date === firstAvailableDate ? ', ' + firstAvailableDayMessage : ''));
                 card.className = 'rounded-[13px] border border-primary-border bg-white p-3';
+                if (day.date === firstAvailableDate) card.classList.add('border-primary', 'ring-2', 'ring-primary/15');
 
                 const heading = document.createElement('div');
                 heading.className = 'mb-2.5 flex items-center justify-between gap-3';
@@ -256,8 +280,9 @@
 
                 const count = document.createElement('span');
                 count.className = 'shrink-0 text-[11px] font-medium text-muted';
-                count.textContent = day.slots.length
-                    ? dayCountMessage.replace(':count', String(day.slots.length))
+                const availableCount = day.slots.filter(slot => slot.bookable === true).length;
+                count.textContent = availableCount
+                    ? dayCountMessage.replace(':count', String(availableCount))
                     : noTimesLabel;
                 heading.append(title, count);
                 card.append(heading);
@@ -299,12 +324,16 @@
             const render = days => {
                 grid.innerHTML = '';
                 mobileGrid.innerHTML = '';
-                const slotCount = days.reduce((total, day) => total + day.slots.length, 0);
+                const firstAvailableDay = days.find(day => day.slots.some(slot => slot.bookable === true));
+                const firstAvailableDate = firstAvailableDay?.date || null;
+                const availableSlotCount = days.reduce((total, day) => total + day.slots.filter(slot => slot.bookable === true).length, 0);
 
                 days.forEach(day => {
-                    renderMobileDay(day);
+                    renderMobileDay(day, firstAvailableDate);
                     const column = document.createElement('div');
                     column.className = 'min-w-0 rounded-[10px] border border-primary-border bg-surface p-1.5 sm:rounded-[13px] sm:p-3';
+                    column.setAttribute('aria-label', day.date + (day.date === firstAvailableDate ? ', ' + firstAvailableDayMessage : ''));
+                    if (day.date === firstAvailableDate) column.classList.add('border-primary', 'ring-2', 'ring-primary/15');
 
                     const heading = document.createElement('div');
                     heading.className = 'mb-2 flex min-h-9 flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-ink sm:mb-3 sm:min-h-0 sm:flex-row sm:justify-between sm:gap-1 sm:text-xs';
@@ -326,39 +355,58 @@
                         empty.setAttribute('aria-label', noTimesLabel);
                         slots.append(empty);
                     } else {
-                        day.slots.forEach(slot => {
-                            const button = document.createElement('button');
-                            button.type = 'button';
-                            button.className = 'min-h-10 rounded-[7px] border-0 bg-primary-soft px-0 py-2 text-[10px] leading-none font-semibold text-primary-strong transition hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus sm:text-xs';
-                            button.textContent = slot.time;
-                            button.setAttribute('aria-label', day.date + ' ' + slot.time);
-                            if (root.dataset.bookingEnabled !== 'true') {
-                                button.disabled = true;
-                                button.setAttribute('aria-disabled', 'true');
-                                button.title = @json(__('public.booking_internal_disabled'));
-                                button.classList.add('cursor-not-allowed', 'opacity-50');
-                            }
-                            if (root.dataset.bookingEnabled === 'true') button.addEventListener('click', () => selectSlot(day, slot, button));
-                            slots.append(button);
-                        });
+                        day.slots.forEach(slot => slots.append(createSlotButton(day, slot, true)));
                     }
 
                     column.append(heading, slots);
                     grid.append(column);
                 });
 
-                status.textContent = slotCount === 0
+                status.textContent = availableSlotCount === 0
                     ? emptyMessage
-                    : slotCount <= 3
+                    : availableSlotCount <= 3
                         ? lowMessage
-                        : countMessage.replace(':count', String(slotCount));
+                        : countMessage.replace(':count', String(availableSlotCount));
                 previous.disabled = week <= monday(today);
+                root.dataset.firstAvailableDate = firstAvailableDate || '';
+
+                if (!hasRenderedInitialWeek && firstAvailableDate) {
+                    const firstCard = mobileGrid.querySelector('[data-calendar-date="' + firstAvailableDate + '"]');
+                    if (firstCard && firstCard.getClientRects().length && firstCard.getBoundingClientRect().top > window.innerHeight) {
+                        firstCard.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                }
+                hasRenderedInitialWeek = true;
+
                 document.dispatchEvent(new CustomEvent('easyenglish:availability-rendered', {
                     detail: { root, direction: navigationDirection },
                 }));
                 navigationDirection = 0;
             };
+
+            const scheduleRefresh = data => {
+                if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+                refreshTimer = null;
+
+                const serverNow = Date.parse(data.server_now);
+                if (!Number.isFinite(serverNow)) return;
+
+                const nextCutoffDelay = data.days
+                    .flatMap(day => day.slots)
+                    .filter(slot => slot.bookable === true)
+                    .map(slot => Date.parse(slot.starts_at) - serverNow - minimumNoticeMilliseconds)
+                    .filter(delay => Number.isFinite(delay) && delay >= 0)
+                    .sort((a, b) => a - b)[0];
+
+                if (nextCutoffDelay !== undefined) {
+                    refreshTimer = window.setTimeout(load, Math.min(nextCutoffDelay + 1000, 2147480000));
+                }
+            };
+
             const load = () => {
+                const currentRequest = ++requestVersion;
+                if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+                refreshTimer = null;
                 document.dispatchEvent(new CustomEvent('easyenglish:availability-loading', {
                     detail: { root, direction: navigationDirection },
                 }));
@@ -366,6 +414,7 @@
                 grid.innerHTML = '<p class="col-span-7 text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
                 mobileGrid.innerHTML = '<p class="text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
                 fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), {
+                    cache: 'no-store',
                     headers: { Accept: 'application/json' },
                 })
                     .then(response => {
@@ -373,11 +422,13 @@
                         return response.json();
                     })
                     .then(data => {
+                        if (currentRequest !== requestVersion) return;
                         render(data.days);
+                        scheduleRefresh(data);
                         const initialSlot = root.dataset.initialSlot;
                         if (initialSlot && root.dataset.selectionMode !== 'navigate') {
                             const matchingDay = data.days.find(day => day.slots.some(slot => slot.starts_at === initialSlot));
-                            const matchingSlot = matchingDay?.slots.find(slot => slot.starts_at === initialSlot);
+                            const matchingSlot = matchingDay?.slots.find(slot => slot.starts_at === initialSlot && slot.bookable === true);
                             if (matchingSlot) {
                                 document.dispatchEvent(new CustomEvent('easyenglish:availability-slot-selected', {
                                     detail: { startsAt: matchingSlot.starts_at, label: formatSlotDate(matchingDay.date) + ' · ' + matchingSlot.time },
@@ -386,6 +437,7 @@
                         }
                     })
                     .catch(() => {
+                        if (currentRequest !== requestVersion) return;
                         status.textContent = loadError;
                         grid.innerHTML = '';
                         mobileGrid.innerHTML = '';
@@ -404,6 +456,10 @@
                 navigationDirection = 1;
                 load();
             });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) load();
+            });
+            window.addEventListener('focus', load);
             load();
         })();
     </script>

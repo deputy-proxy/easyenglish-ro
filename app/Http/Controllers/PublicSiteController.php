@@ -106,6 +106,7 @@ class PublicSiteController extends Controller
         }
 
         CarbonImmutable::setLocale(app()->getLocale());
+        $serverNow = CarbonImmutable::now('UTC');
         $days = [];
         for ($offset = 0; $offset < 7; $offset++) {
             $day = $week->addDays($offset);
@@ -116,11 +117,17 @@ class PublicSiteController extends Controller
                 'slots' => $availability->slotsForDate($day->format('Y-m-d'))->map(fn (array $slot): array => [
                     'starts_at' => $slot['starts_at']->toIso8601String(),
                     'time' => $slot['starts_at']->format('H:i'),
+                    ...$availability->bookingNoticeStatus($slot['starts_at'], $serverNow),
                 ])->values()->all(),
             ];
         }
 
-        return response()->json(['week_start' => $week->format('Y-m-d'), 'timezone' => $timezone, 'days' => $days]);
+        return response()->json([
+            'week_start' => $week->format('Y-m-d'),
+            'timezone' => $timezone,
+            'server_now' => $serverNow->toIso8601String(),
+            'days' => $days,
+        ])->header('Cache-Control', 'private, no-store, no-cache, must-revalidate');
     }
 
     public function bookingForm(Request $request, FreeSessionEligibilityService $eligibilityService, PublicBookingStateResolver $bookingStateResolver): View|RedirectResponse
@@ -755,6 +762,7 @@ class PublicSiteController extends Controller
         }
 
         $startsAt = CarbonImmutable::parse($validated['starts_at'])->setTimezone(AvailabilityService::TIMEZONE);
+        $availability->assertMinimumNotice($startsAt);
         $availability->assertBookable($startsAt);
 
         $verificationChallenge = null;

@@ -21,15 +21,14 @@ class AvailabilityService
 
     public const SLOT_OCCUPANCY_MINUTES = self::SESSION_MINUTES + self::BUFFER_MINUTES;
 
+    public const MINIMUM_BOOKING_NOTICE_HOURS = 24;
+
     /** @return Collection<int, array{starts_at: CarbonImmutable, ends_at: CarbonImmutable}> */
     public function slotsForDate(string $date, ?int $ignoreBookingId = null): Collection
     {
         $day = $this->parseDay($date);
 
-        if ($day->lessThan(CarbonImmutable::now(self::TIMEZONE)->startOfDay())) {
-            return collect();
-        }
-
+        // Keep elapsed slots in the current calendar week; bookingNoticeStatus marks them unavailable for display.
         $teachers = $this->eligibleTeachers();
         if ($teachers->isEmpty()) {
             return $this->legacySlotsForDate($day, $ignoreBookingId);
@@ -61,8 +60,36 @@ class AvailabilityService
         })->values();
     }
 
+    /** @return array{bookable: bool, unavailable_reason: 'past'|'minimum_notice'|null} */
+    public function bookingNoticeStatus(CarbonImmutable $startsAt, ?CarbonImmutable $now = null): array
+    {
+        $now = ($now ?? CarbonImmutable::now('UTC'))->utc();
+        $start = $startsAt->utc();
+
+        if ($start->lessThanOrEqualTo($now)) {
+            return ['bookable' => false, 'unavailable_reason' => 'past'];
+        }
+
+        if ($start->lessThan($now->addHours(self::MINIMUM_BOOKING_NOTICE_HOURS))) {
+            return ['bookable' => false, 'unavailable_reason' => 'minimum_notice'];
+        }
+
+        return ['bookable' => true, 'unavailable_reason' => null];
+    }
+
+    public function assertMinimumNotice(CarbonImmutable $startsAt): void
+    {
+        if (! $this->bookingNoticeStatus($startsAt)['bookable']) {
+            throw ValidationException::withMessages(['starts_at' => __('public.booking_minimum_notice')]);
+        }
+    }
+
     public function assertBookable(CarbonImmutable $startsAt, ?int $ignoreBookingId = null): void
     {
+        if ($this->bookingNoticeStatus($startsAt)['unavailable_reason'] === 'past') {
+            throw ValidationException::withMessages(['starts_at' => __('public.booking_minimum_notice')]);
+        }
+
         if ($this->eligibleTeachers()->isEmpty()) {
             $local = $startsAt->setTimezone(self::TIMEZONE);
             $slot = $this->legacySlotsForDate($local->startOfDay(), $ignoreBookingId)
@@ -142,7 +169,7 @@ class AvailabilityService
         foreach ($windows as $window) {
             for ($start = $window['start']; $start->addMinutes(self::SLOT_OCCUPANCY_MINUTES)->lessThanOrEqualTo($window['end']); $start = $start->addMinutes(self::SLOT_OCCUPANCY_MINUTES)) {
                 $end = $start->addMinutes(self::SESSION_MINUTES);
-                if ($start->format('Y-m-d') !== $day->format('Y-m-d') || $start->lessThanOrEqualTo(CarbonImmutable::now(self::TIMEZONE))) {
+                if ($start->format('Y-m-d') !== $day->format('Y-m-d')) {
                     continue;
                 }
                 $blocked = $exceptions->where('kind', 'blocked')->contains(function (AvailabilityException $exception) use ($start, $end): bool {
@@ -227,7 +254,7 @@ class AvailabilityService
         foreach ($windows as $window) {
             for ($start = $window['start']; $start->addMinutes(self::SLOT_OCCUPANCY_MINUTES)->lessThanOrEqualTo($window['end']); $start = $start->addMinutes(self::SLOT_OCCUPANCY_MINUTES)) {
                 $end = $start->addMinutes(self::SESSION_MINUTES);
-                if ($start->format('Y-m-d') !== $day->format('Y-m-d') || $start->lessThanOrEqualTo(CarbonImmutable::now(self::TIMEZONE))) {
+                if ($start->format('Y-m-d') !== $day->format('Y-m-d')) {
                     continue;
                 }
 
