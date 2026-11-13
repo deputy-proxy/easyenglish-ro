@@ -18,7 +18,7 @@ beforeEach(function () {
     ]);
 });
 
-test('security settings page renders the Romanian two-factor heading', function () {
+test('security settings page displays the Romanian two-factor heading', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)
