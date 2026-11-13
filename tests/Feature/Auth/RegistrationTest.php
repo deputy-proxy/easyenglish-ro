@@ -3,7 +3,11 @@
 use App\Models\User;
 
 test('customers can register and are returned to the selected customer journey', function () {
-    $this->get('/register')->assertOk()->assertSee('Create an account');
+    $this->get('/register')->assertOk()
+        ->assertSee('Creează un cont')
+        ->assertSee('auth-level-select')
+        ->assertSee('Alege nivelul')
+        ->assertSee('A1 · Începător');
 
     $this->from('/book?type=intro&slot=2026-10-29T09%3A00%3A00%2B02%3A00')->post('/register', [
         'name' => 'New Learner',
