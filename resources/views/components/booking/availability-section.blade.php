@@ -7,7 +7,7 @@
 
 @if($bookingState['show_calendar'])
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px] py-14 md:py-[82px]" id="availability" data-mobile-booking-cta-blocker>
-            <div class="mb-8 max-w-[650px]">
+            <div class="mb-8 max-w-[650px] {{ $compact ? 'mx-auto text-center' : '' }}">
                 <p class="mb-[18px] type-eyebrow" data-reveal>{{ __('public.availability_eyebrow') }}</p>
                 <h2 class="type-section-title mb-3.5" data-reveal>{{ $bookingState['state'] === 'customer_free_session_available' && $bookingState['display_name'] ? __('public.booking_personalized_title', ['name' => $bookingState['display_name']]) : ($compact ? __('public.booking_landing_title') : __('public.availability_title')) }}</h2>
                 <p class="type-section-copy" data-reveal>{{ $compact ? __('public.booking_landing_text') : __('public.availability_text') }}</p>
