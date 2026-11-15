@@ -6,3 +6,20 @@
         <a class="transition-colors hover:text-primary" href="{{ route('contact') }}">{{ __('public.footer_contact') }}</a>
     </nav>
 </footer>
+<div data-analytics-config data-gtm-id="{{ config('services.analytics.gtm_id') }}" hidden></div>
+@if (session()->has('analytics_booking_details_submitted'))
+    <div
+        data-analytics-event="booking_details_submit"
+        data-analytics-parameters="{{ json_encode(session('analytics_booking_details_submitted')) }}"
+        hidden
+    ></div>
+@endif
+@if (session()->has('analytics_booking_completed'))
+    <div
+        data-analytics-event="booking_completed"
+        data-analytics-parameters="{{ json_encode(session('analytics_booking_completed')) }}"
+        hidden
+    ></div>
+@endif
+<x-cookie-consent />
+@vite(['resources/js/analytics.js'])

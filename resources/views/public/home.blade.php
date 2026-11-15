@@ -29,7 +29,7 @@
                 <p class="type-hero-copy my-5 max-w-[38ch]" data-hero-description>
                     {{ __('public.hero_text') }}
                 </p>
-                <a class="type-action inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 !text-white transition-colors hover:bg-primary-hover md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px]" href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}" data-hero-cta>
+                <a class="type-action inline-flex min-h-[54px] w-full max-w-[360px] items-center justify-center rounded-full bg-primary px-5 py-4 !text-white transition-colors hover:bg-primary-hover md:min-h-0 md:w-auto md:max-w-none md:px-[34px] md:py-[18px]" href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}" data-hero-cta data-analytics-cta="hero">
                     {{ app()->getLocale() === 'ro' ? 'Programează prima sesiune gratuită' : 'Book your first free session' }}
                 </a>
             </div>
@@ -280,7 +280,7 @@
                                     <span><span class="mr-2 font-extrabold text-success">✓</span>{{ $bundle->localizedValue($feature['data'] ?? $feature) }}</span>
                                 @endforeach
                             </div>
-                            <a class="mt-auto inline-flex w-full items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:-translate-y-px hover:bg-primary-hover" href="{{ route('purchase', $bundle) }}">{{ __('public.package_cta') }}</a>
+                            <a class="mt-auto inline-flex w-full items-center justify-center rounded-full bg-primary px-[21px] py-3.5 font-bold text-white transition hover:-translate-y-px hover:bg-primary-hover" href="{{ route('purchase', $bundle) }}" data-package-id="{{ $bundle->id }}" data-package-name="{{ $bundle->localizedName() }}">{{ __('public.package_cta') }}</a>
                         </article>
                     @endforeach
                 </div>
@@ -354,7 +354,7 @@
         @endif
         <section class="mx-auto w-[calc(100%-2.5rem)] max-w-[1160px]" data-mobile-booking-cta-blocker>
             <div class="flex flex-col items-start justify-between gap-[30px] rounded-3xl bg-ink p-[30px] text-white md:flex-row md:items-center md:p-[46px]" data-reveal-stagger data-reveal-background>
-                <h2 class="type-section-title mb-0 max-w-[620px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="type-action inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}" data-reveal-item>{{
+                <h2 class="type-section-title mb-0 max-w-[620px]" data-reveal-item>{{ __('public.closing_title') }}</h2><a class="type-action inline-flex items-center justify-center rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full" href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}" data-reveal-item data-analytics-cta="final_cta">{{
                     __('public.closing_cta') }}</a>
             </div>
         </section>
@@ -362,6 +362,7 @@
             class="mobile-booking-cta type-action"
             href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}"
             data-mobile-booking-cta
+            data-analytics-cta="sticky"
             hidden
             inert
             aria-hidden="true"

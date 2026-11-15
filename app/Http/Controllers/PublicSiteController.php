@@ -809,7 +809,19 @@ class PublicSiteController extends Controller
             $request->session()->forget(['contact_verification_id', 'contact_verification_form_data']);
         }
 
-        return redirect()->route('dashboard')->with('status', __('public.booking_confirmed_dashboard'));
+        $bookingType = $validated['type'] === 'intro' ? 'free_introductory' : 'bundle_session';
+        $response = redirect()->route('dashboard')
+            ->with('status', __('public.booking_confirmed_dashboard'))
+            ->with('analytics_booking_details_submitted', ['booking_type' => $bookingType]);
+
+        if ($validated['type'] === 'intro') {
+            $response->with('analytics_booking_completed', [
+                'booking_type' => 'free_introductory',
+                'lead_type' => 'free_introductory',
+            ]);
+        }
+
+        return $response;
     }
 
     public function confirmed(Request $request, string $reference): View
