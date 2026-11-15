@@ -35,6 +35,10 @@ return [
         'api_base' => 'https://www.googleapis.com/calendar/v3',
     ],
 
+    'analytics' => [
+        'gtm_id' => env('GOOGLE_TAG_MANAGER_ID', ''),
+    ],
+
     'stripe' => [
         'key' => env('STRIPE_KEY'),
         'secret' => env('STRIPE_SECRET'),
