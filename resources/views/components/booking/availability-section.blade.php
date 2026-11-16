@@ -382,7 +382,7 @@
                     detail: {
                         root,
                         direction: navigationDirection,
-                        availableSlotsCount: data.days.reduce((total, day) => total + day.slots.filter(slot => slot.bookable === true).length, 0),
+                        availableSlotsCount: days.reduce((total, day) => total + day.slots.filter(slot => slot.bookable === true).length, 0),
                     },
                 }));
                 navigationDirection = 0;
@@ -417,12 +417,16 @@
                 status.textContent = @json(__('public.availability_loading'));
                 grid.innerHTML = '<p class="col-span-7 text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
                 mobileGrid.innerHTML = '<p class="text-xs text-muted">' + @json(__('public.availability_loading')) + '</p>';
-                fetch('{{ route('availability') }}?week=' + encodeURIComponent(week), {
+                const availabilityUrl = new URL('/availability', window.location.origin);
+                availabilityUrl.searchParams.set('week', week);
+                fetch(availabilityUrl, {
                     cache: 'no-store',
                     headers: { Accept: 'application/json' },
                 })
                     .then(response => {
-                        if (!response.ok) throw new Error('Availability request failed');
+                        if (!response.ok) {
+                            throw new Error(`Availability request failed with HTTP ${response.status}`);
+                        }
                         return response.json();
                     })
                     .then(data => {
@@ -440,8 +444,13 @@
                             }
                         }
                     })
-                    .catch(() => {
+                    .catch(error => {
                         if (currentRequest !== requestVersion) return;
+                        console.error('[EasyEnglish] Availability calendar request failed.', {
+                            url: availabilityUrl.href,
+                            week,
+                            error,
+                        });
                         status.textContent = loadError;
                         grid.innerHTML = '';
                         mobileGrid.innerHTML = '';
