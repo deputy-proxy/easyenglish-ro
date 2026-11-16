@@ -40,7 +40,7 @@ The cookie preference interface offers:
 - Analytics: disabled until explicit opt-in.
 - Advertising/marketing: disabled until explicit opt-in.
 
-Visitors can accept all optional categories, reject optional categories, or save individual preferences. They can reopen the preference panel at any time using the persistent cookie control anchored to the bottom-left edge of the viewport. Preferences expire after 180 days. When consent is withdrawn, the application updates Google Consent Mode, clears the corresponding Google analytics/advertising cookies where accessible, and removes disallowed campaign identifiers from first-party storage.
+Visitors can accept all optional categories, reject optional categories, or save individual preferences. Before the initial choice, the cookie preferences control stays fixed at the bottom center of the viewport. After a choice is saved, it moves into the normal page flow, centered at the bottom of the page; visitors can reopen the preference panel there at any time. Preferences expire after 180 days. When consent is withdrawn, the application updates Google Consent Mode, clears the corresponding Google analytics/advertising cookies where accessible, and removes disallowed campaign identifiers from first-party storage.
 
 Google Consent Mode v2 is initialized with denied defaults before GTM is inserted. The application then updates:
 - `analytics_storage` from analytics consent.
