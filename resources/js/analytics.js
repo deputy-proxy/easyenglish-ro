@@ -175,7 +175,6 @@ export function initializeAnalytics(windowRef = window, documentRef = document) 
 
     const setBannerVisibility = () => {
         if (banner) banner.hidden = consent !== null;
-        if (manageButton) manageButton.hidden = consent === null;
     };
 
     const updateGoogleConsent = () => {
