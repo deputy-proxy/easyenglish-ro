@@ -38,6 +38,15 @@ export function createAnalyticsEvent(event, parameters = {}) {
     };
 }
 
+export function setCookieManagePosition(container, hasConsent) {
+    if (!container) return;
+
+    ['fixed', 'inset-x-0', 'bottom-0', 'z-[110]'].forEach((className) => {
+        container.classList.toggle(className, !hasConsent);
+    });
+    container.classList.toggle('py-4', hasConsent);
+}
+
 export function isValidGtmContainerId(containerId) {
     return typeof containerId === 'string' && /^GTM-[A-Z0-9]+$/.test(containerId);
 }
@@ -166,12 +175,15 @@ export function initializeAnalytics(windowRef = window, documentRef = document) 
     const banner = documentRef.querySelector('[data-cookie-consent]');
     const preferences = documentRef.querySelector('[data-cookie-preferences]');
     const manageButton = documentRef.querySelector('[data-cookie-manage]');
+    const manageContainer = documentRef.querySelector('[data-cookie-manage-container]');
     const analyticsToggle = documentRef.querySelector('[data-consent-analytics]');
     const advertisingToggle = documentRef.querySelector('[data-consent-advertising]');
     const controller = new AbortController();
     const options = { signal: controller.signal };
     let consent = readConsent(windowRef);
     let gtmLoaded = false;
+
+    setCookieManagePosition(manageContainer, consent !== null);
 
     const setBannerVisibility = () => {
         if (banner) banner.hidden = consent !== null;
@@ -204,6 +216,7 @@ export function initializeAnalytics(windowRef = window, documentRef = document) 
             };
         }
         setBannerVisibility();
+        setCookieManagePosition(manageContainer, true);
         loadGtmIfAllowed();
         updateGoogleConsent();
 

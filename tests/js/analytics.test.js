@@ -11,6 +11,7 @@ import {
     normalizeCampaignParameters,
     normalizeConsent,
     saveConsent,
+    setCookieManagePosition,
 } from '../../resources/js/analytics.js';
 
 test('defaults to no optional consent when there is no saved preference', () => {
@@ -80,6 +81,27 @@ test('normalizes only explicitly enabled optional categories', () => {
         advertising: true,
         updatedAt: 1_800_000_000_000,
     });
+});
+
+test('keeps cookie preferences fixed before consent and moves them into the centered page footer afterwards', () => {
+    const classes = new Set();
+    const container = {
+        classList: {
+            toggle: (name, enabled) => {
+                if (enabled) classes.add(name);
+                else classes.delete(name);
+            },
+        },
+    };
+
+    setCookieManagePosition(container, false);
+    assert.deepEqual([...classes].sort(), ['bottom-0', 'fixed', 'inset-x-0', 'z-[110]'].sort());
+
+    setCookieManagePosition(container, true);
+    assert.deepEqual([...classes], ['py-4']);
+
+    setCookieManagePosition(container, true);
+    assert.deepEqual([...classes], ['py-4']);
 });
 
 test('creates a dataLayer event without adding personal information', () => {
