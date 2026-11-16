@@ -98,10 +98,10 @@ test('keeps cookie preferences fixed before consent and moves them into the cent
     assert.deepEqual([...classes].sort(), ['bottom-0', 'fixed', 'inset-x-0', 'z-[110]'].sort());
 
     setCookieManagePosition(container, true);
-    assert.deepEqual([...classes], ['py-4']);
+    assert.deepEqual([...classes], []);
 
     setCookieManagePosition(container, true);
-    assert.deepEqual([...classes], ['py-4']);
+    assert.deepEqual([...classes], []);
 });
 
 test('creates a dataLayer event without adding personal information', () => {

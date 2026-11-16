@@ -44,7 +44,6 @@ export function setCookieManagePosition(container, hasConsent) {
     ['fixed', 'inset-x-0', 'bottom-0', 'z-[110]'].forEach((className) => {
         container.classList.toggle(className, !hasConsent);
     });
-    container.classList.toggle('py-4', hasConsent);
 }
 
 export function isValidGtmContainerId(containerId) {
