@@ -15,3 +15,8 @@ test('availability request failures retain safe user messaging and expose action
     assert.match(template, /console\.error\('\[EasyEnglish\] Availability calendar request failed\.'/);
     assert.match(template, /status\.textContent = loadError/);
 });
+
+test('availability rendering uses its days argument when reporting rendered slots', () => {
+    assert.match(template, /const render = days => \{[\s\S]*availableSlotsCount: days\.reduce\(/);
+    assert.doesNotMatch(template, /availableSlotsCount: data\.days\.reduce\(/);
+});

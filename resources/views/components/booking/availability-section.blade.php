@@ -382,7 +382,7 @@
                     detail: {
                         root,
                         direction: navigationDirection,
-                        availableSlotsCount: data.days.reduce((total, day) => total + day.slots.filter(slot => slot.bookable === true).length, 0),
+                        availableSlotsCount: days.reduce((total, day) => total + day.slots.filter(slot => slot.bookable === true).length, 0),
                     },
                 }));
                 navigationDirection = 0;
