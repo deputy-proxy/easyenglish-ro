@@ -45,10 +45,9 @@
 </div>
 
 <button
-    class="fixed bottom-20 left-3 z-[90] rounded-full border border-line bg-white px-4 py-2 text-xs font-semibold text-muted shadow-md transition hover:text-primary sm:bottom-6 sm:left-6"
+    class="fixed bottom-0 left-0 z-[110] rounded-tr-lg border border-b-0 border-l-0 border-line bg-white/95 px-3 py-2 text-xs font-semibold text-muted shadow-sm transition hover:text-primary sm:px-4"
     type="button"
     data-cookie-manage
-    hidden
 >
     {{ __('cookies.manage') }}
 </button>
