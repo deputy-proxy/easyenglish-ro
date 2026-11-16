@@ -419,6 +419,7 @@ test('pain-point situations render as full-width stack cards in Romanian', funct
         $response->assertOk()
             ->assertSee('data-pain-point-stack', false)
             ->assertSee('data-pain-point-card', false)
+            ->assertDontSee('rounded-[24px] border border-line bg-white', false)
             ->assertSee('data-pain-point-title', false)
             ->assertSee('data-pain-point-description', false)
             ->assertSee(__('public.motivation_eyebrow', [], $locale))
@@ -437,6 +438,7 @@ test('pain-point situations render as full-width stack cards in Romanian', funct
             ->and(substr_count($matches[1], 'data-pain-point-card'))->toBe(7)
             ->and(substr_count($matches[1], 'data-pain-point-title'))->toBe(7)
             ->and(substr_count($matches[1], 'data-pain-point-description'))->toBe(7);
+        expect(file_get_contents(resource_path('css/app.css')))->toContain('[data-pain-point-stack].is-stacking-enabled [data-pain-point-card]:last-child');
 
         $positions = array_map(fn (string $situation): int|false => strpos($matches[1], $situation), $copy);
         $sortedPositions = $positions;
