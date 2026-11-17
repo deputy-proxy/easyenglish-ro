@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Don't interrupt a production release. PR and non-main runs remain cancelable.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
 
 jobs:
   php:
@@ -134,3 +135,119 @@ jobs:
       - name: Build OpenWA production image
         working-directory: poc/openwa-scheduled-calls
         run: docker build --file Dockerfile --tag easyenglish-openwa-poc:${{ github.sha }} .
+
+  deploy-hostinger:
+    name: Deploy to Hostinger production
+    runs-on: ubuntu-latest
+    needs:
+      - php
+      - frontend
+      - openwa-poc
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.HOSTINGER_DEPLOY_ENABLED == 'true'
+    environment:
+      name: production
+      url: https://easyenglish.ro
+    concurrency:
+      group: easyenglish-hostinger-production
+      cancel-in-progress: false
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: '8.4'
+          extensions: curl, intl, mbstring, pdo_mysql, zip, bcmath
+          tools: composer:v2
+          coverage: none
+
+      - name: Cache production Composer dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-8.4-composer-production-${{ hashFiles('composer.lock') }}
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Verify PHP platform requirements
+        run: composer check-platform-reqs --no-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build production frontend assets
+        run: npm run build
+
+      - name: Package production release
+        run: ./scripts/deploy/package-hostinger-release.sh "$RUNNER_TEMP/easyenglish-release-${GITHUB_SHA}.tar.gz"
+
+      - name: Configure Hostinger SSH access
+        shell: bash
+        env:
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          HOSTINGER_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          HOSTINGER_SSH_PRIVATE_KEY: ${{ secrets.HOSTINGER_SSH_PRIVATE_KEY }}
+          HOSTINGER_SSH_KNOWN_HOSTS: ${{ secrets.HOSTINGER_SSH_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          for variable in HOSTINGER_SSH_HOST HOSTINGER_SSH_PORT HOSTINGER_SSH_USER HOSTINGER_SSH_PRIVATE_KEY HOSTINGER_SSH_KNOWN_HOSTS; do
+            if [[ -z "${!variable}" ]]; then
+              echo "Required production environment secret is missing: ${variable}" >&2
+              exit 1
+            fi
+          done
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$HOSTINGER_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$HOSTINGER_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" > /dev/null
+
+      - name: Transfer release and deploy over SSH
+        shell: bash
+        env:
+          HOSTINGER_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          HOSTINGER_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          HOSTINGER_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          HOSTINGER_PHP_BIN: ${{ vars.HOSTINGER_PHP_BIN }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$HOSTINGER_SSH_HOST" =~ ^[A-Za-z0-9.-]+$ ]]
+          [[ "$HOSTINGER_SSH_PORT" =~ ^[0-9]{1,5}$ ]]
+          PORT_NUMBER=$((10#$HOSTINGER_SSH_PORT))
+          (( PORT_NUMBER >= 1 && PORT_NUMBER <= 65535 ))
+          [[ "$HOSTINGER_SSH_USER" =~ ^[A-Za-z0-9_.-]+$ ]]
+          [[ -z "$HOSTINGER_PHP_BIN" || "$HOSTINGER_PHP_BIN" =~ ^[A-Za-z0-9_./-]+$ ]]
+
+          SSH_OPTIONS=(-p "$HOSTINGER_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -i "$HOME/.ssh/id_ed25519" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ServerAliveInterval=30)
+          SCP_OPTIONS=(-P "$HOSTINGER_SSH_PORT" -o BatchMode=yes -o IdentitiesOnly=yes -i "$HOME/.ssh/id_ed25519" -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts")
+          REMOTE="${HOSTINGER_SSH_USER}@${HOSTINGER_SSH_HOST}"
+          REMOTE_HOME="$(ssh "${SSH_OPTIONS[@]}" "$REMOTE" 'printf %s "$HOME"')"
+          [[ "$REMOTE_HOME" =~ ^/home/[A-Za-z0-9._/-]+$ ]]
+
+          ARCHIVE_NAME="easyenglish-release-${GITHUB_SHA}.tar.gz"
+          SCRIPT_NAME="hostinger-deploy-${GITHUB_SHA}.sh"
+          REMOTE_ARCHIVE="${REMOTE_HOME}/.cache/${ARCHIVE_NAME}"
+          REMOTE_SCRIPT="${REMOTE_HOME}/.cache/${SCRIPT_NAME}"
+          ssh "${SSH_OPTIONS[@]}" "$REMOTE" 'mkdir -p "$HOME/.cache" && chmod 700 "$HOME/.cache"'
+          scp "${SCP_OPTIONS[@]}" "$RUNNER_TEMP/${ARCHIVE_NAME}" "$REMOTE:${REMOTE_ARCHIVE}"
+          scp "${SCP_OPTIONS[@]}" scripts/deploy/hostinger-deploy.sh "$REMOTE:${REMOTE_SCRIPT}"
+          ssh "${SSH_OPTIONS[@]}" "$REMOTE" "HOSTINGER_PHP_BIN='${HOSTINGER_PHP_BIN}' bash '${REMOTE_SCRIPT}' '${REMOTE_ARCHIVE}' '${GITHUB_SHA}'"
+          ssh "${SSH_OPTIONS[@]}" "$REMOTE" "rm -f '${REMOTE_SCRIPT}'"
+
+      - name: Verify production health endpoint
+        run: curl --fail --silent --show-error --retry 8 --retry-delay 5 --retry-all-errors https://easyenglish.ro/up

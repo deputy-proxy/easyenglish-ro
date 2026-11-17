@@ -35,7 +35,7 @@ Create the production `.env` on the server or through the hosting control panel.
 APP_NAME="Easy English"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://your-production-domain.example
+APP_URL=https://easyenglish.ro
 APP_KEY=base64:GENERATE_A_UNIQUE_KEY
 # The public web middleware fixes the website locale to Romanian.
 # These defaults remain English for CLI and internal operations.
@@ -43,10 +43,10 @@ APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 
 DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
+DB_HOST=srv1713.hstgr.io
 DB_PORT=3306
-DB_DATABASE=your_database
-DB_USERNAME=your_database_user
+DB_DATABASE=u583712040_easyenglish_ro
+DB_USERNAME=u583712040_easyenglish_ro
 DB_PASSWORD=your_database_password
 
 SESSION_DRIVER=database
@@ -75,25 +75,104 @@ Stripe Checkout uses server-side `STRIPE_KEY`, `STRIPE_SECRET`, and `STRIPE_WEBH
 ## Deployment procedure
 
 1. Take a database backup and confirm a recent backup can be restored.
-2. Deploy the reviewed release to the application directory. Keep `.env`, user uploads, and other runtime data outside any release replacement operation.
-3. Install the locked PHP dependencies with `composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction`. Build frontend assets using Node 22 and `npm ci && npm run build` in the release/build environment, then deploy `public/build` with the release.
-4. Confirm the web root points to Laravel's `public/` directory. Do not expose `.env`, `vendor/`, or the repository root through the web server.
-5. Confirm production environment values, HTTPS, writable directories, and the configured database connection.
-6. Run `php artisan migrate --force` after reviewing the migration set and backup. Do not use `migrate:fresh` on production.
-7. Run `php artisan optimize` after configuration is correct. If deployment changes routes/config/views, use `php artisan optimize:clear` before rebuilding caches as needed.
-8. Verify `/up`, login/admin access, logs, database connectivity, asset loading, scheduled task execution, and queue processing.
-9. Keep the previous known-good release available for rollback. For rollback, restore the code release and follow the migration's documented rollback/forward-fix strategy; a code rollback does not automatically reverse database changes.
+2. Complete the first-time production .env configuration on Hostinger. Keep .env, user uploads, and other runtime data on the server and outside every release archive.
+3. Confirm the GitHub production environment SSH secrets are configured. Keep HOSTINGER_DEPLOY_ENABLED unset/false until .env, SSH access, and database connectivity are verified.
+4. Merge the reviewed release to main. PHP, frontend, and OpenWA checks must all pass before deployment becomes eligible to run. Set HOSTINGER_DEPLOY_ENABLED=true only after production is approved.
+5. Keep the Laravel application in /home/u583712040/domains/easyenglish.ro/easyenglish-app and the Hostinger document root at /home/u583712040/domains/easyenglish.ro/public_html. The document root must contain only Laravel public/ contents. Its index.php must load ../easyenglish-app/vendor/autoload.php, ../easyenglish-app/bootstrap/app.php, and the maintenance file under ../easyenglish-app/storage/. Never expose .env, vendor/, or the repository root through the web server.
+6. The deployment job builds locked PHP dependencies using PHP 8.4 and frontend assets using Node.js 22. The remote script preserves .env and storage/, backs up the previous code/public tree, publishes assets, and runs php artisan migrate --force. Do not run composer update or migrate:fresh on production.
+7. Verify /up, login/admin access, logs, database connectivity, asset loading, scheduled task execution, and queue processing after deployment.
+8. Keep the previous code/public backup available for rollback. A code rollback does not automatically reverse database changes.
+
+## GitHub Actions deployment to Hostinger
+
+Hostinger's built-in Git auto-deployment must remain disabled. It publishes repository contents under the website document root, which would put private Laravel application files back inside public_html.
+
+The repository tests workflow includes a deploy-hostinger job. It depends on all three existing CI jobs (PHP, frontend, and OpenWA PoC) and is eligible only after a successful push to main. Pull requests and non-main branches never deploy. Main deployments are serialized and are not canceled midway through a release. Deployment is disabled by default until the repository Actions variable HOSTINGER_DEPLOY_ENABLED is set to the literal value true.
+
+### Server directory layout
+
+The Hostinger account uses this layout:
+
+~~~text
+/home/u583712040/domains/easyenglish.ro/
+  easyenglish-app/       # Private Laravel app, vendor, .env, and storage
+  public_html/           # Only the contents of easyenglish-app/public/
+~~~
+
+The deploy script preserves the server-owned easyenglish-app/.env and easyenglish-app/storage/, publishes public assets into public_html, and rewrites the deployed front controller to load Laravel from ../easyenglish-app. It also preserves public_html/.well-known and .user.ini. If public_html/storage is a symlink, it is retargeted to ../easyenglish-app/storage/app/public because its relative target changes when copied; an existing real storage directory is left untouched.
+
+Before enabling deployment, complete the first production setup on Hostinger. The server .env must set APP_ENV=production, APP_DEBUG=false, APP_URL=https://easyenglish.ro, a generated APP_KEY, and DB_CONNECTION=mysql. The app directory must already contain .env, artisan, and vendor/autoload.php. Verify that the PHP CLI is version 8.4 or newer and that storage/ and bootstrap/cache/ are writable. The deploy workflow remains disabled until this has been verified. Never put the database password, APP_KEY, .env, or provider credentials into GitHub Actions or source control.
+
+### Configure SSH deployment access
+
+1. In Hostinger hPanel, open SSH Access for easyenglish.ro and record the SSH hostname, port, and account username. Do not assume the MySQL host is also the SSH host.
+2. Generate a dedicated Ed25519 key pair on a trusted workstation:
+
+~~~sh
+ssh-keygen -t ed25519 -C "github-actions-easyenglish-ro" -f ~/.ssh/easyenglish-hostinger-deploy -N ""
+~~~
+
+3. Add the public key from ~/.ssh/easyenglish-hostinger-deploy.pub to the Hostinger account's authorized SSH keys. Keep the private key local; never commit it.
+4. Connect interactively once and verify the server host-key fingerprint against Hostinger's trusted account/server information. Then capture the known-hosts entry:
+
+~~~sh
+ssh-keyscan -p SSH_PORT SSH_HOST > easyenglish-hostinger-known-hosts
+ssh-keygen -lf easyenglish-hostinger-known-hosts
+~~~
+
+Replace the placeholders with the values shown in hPanel. Do not treat ssh-keyscan alone as proof of server identity.
+5. In GitHub repository Settings → Environments, create an environment named production. Add these environment secrets:
+
+| Secret | Value |
+| --- | --- |
+| HOSTINGER_SSH_HOST | SSH hostname from Hostinger hPanel |
+| HOSTINGER_SSH_PORT | SSH port from Hostinger hPanel |
+| HOSTINGER_SSH_USER | Hostinger SSH username |
+| HOSTINGER_SSH_PRIVATE_KEY | Full private key contents, including BEGIN/END lines |
+| HOSTINGER_SSH_KNOWN_HOSTS | Verified known-hosts entry |
+
+6. In GitHub repository Settings → Secrets and variables → Actions → Variables, add HOSTINGER_DEPLOY_ENABLED with value true only after the production .env, SSH access, database connectivity, and backup readiness have been verified.
+7. If the Hostinger shell's default php executable is not PHP 8.4, add the optional environment variable HOSTINGER_PHP_BIN with the absolute path to the PHP 8.4 CLI executable. Confirm the path in SSH using php -v and command -v php, or the provider's version-specific CLI command.
+
+Do not reuse the Hostinger Git deploy key as the GitHub Actions SSH key. The former authorizes Hostinger to pull from GitHub; the latter authorizes GitHub Actions to connect to the Hostinger account.
+
+### Deployment behavior and recovery
+
+The deployment job builds locked production Composer dependencies with PHP 8.4, verifies platform requirements, builds Vite assets with Node.js 22, and packages a release without .env, storage/, node_modules, tests, or development documentation. It transfers the archive over SCP, then runs the remote deploy script over SSH.
+
+The remote script verifies the PHP CLI version and required production environment flags, rejects release archives containing environment or persistent runtime data, and checks for the Laravel entry point and Vite manifest. It creates a code/public backup under $HOME/.easyenglish-deploy-backups outside the web root, excluding .env and storage/. It then enters maintenance mode, updates app code while preserving .env and storage/, publishes the public files, retargets the storage symlink when needed, rewrites the Hostinger-specific front-controller paths, runs optimize:clear, migrate --force, and optimize, then exits maintenance mode. The GitHub runner finally checks https://easyenglish.ro/up.
+
+If deployment fails after maintenance mode is enabled, the script deliberately leaves the site in maintenance mode rather than exposing a partially updated application. Identify the failure before restoring the previous code/public backup. A code rollback does not reverse database migrations; prefer a forward fix unless the incident recovery plan explicitly requires a database restore.
+
+To restore an earlier backup from SSH, replace BACKUP_FILENAME with the actual archive name:
+
+~~~sh
+BASE="$HOME/domains/easyenglish.ro"
+APP="$BASE/easyenglish-app"
+PUBLIC="$BASE/public_html"
+
+find "$APP" -mindepth 1 -maxdepth 1 ! -name ".env" ! -name "storage" ! -name ".git" -exec rm -rf -- {} +
+find "$PUBLIC" -mindepth 1 -maxdepth 1 ! -name ".well-known" ! -name "storage" ! -name ".user.ini" -exec rm -rf -- {} +
+tar -xzf "$HOME/.easyenglish-deploy-backups/BACKUP_FILENAME" -C "$BASE"
+
+cd "$APP"
+php artisan optimize:clear
+php artisan optimize
+php artisan up
+~~~
+
+The backup contains the previous application code and public tree, not production .env, persistent storage, or a database backup. Do not reverse migrations or restore a database backup unless the incident recovery plan explicitly requires it.
 
 ## Scheduler and database queue on shared hosting
 
 The app uses Laravel's scheduler and a database-backed queue. A database queue does **not** run jobs by itself: a worker must consume the `jobs` table. Do not rely on a permanently running process on shared hosting.
 
-Configure two cron entries in Hostinger, using the absolute path to the deployed release and the PHP binary selected for the hosting account. The following are templates; replace paths and validate the plan's limits.
+Configure two cron entries in Hostinger, using the application directory shown below and the PHP 8.4 CLI executable selected for the hosting account. Verify the CLI version and executable path over SSH before saving the entries; validate the plan's execution limits.
 
 Run the scheduler every minute if the plan permits:
 
 ```sh
-* * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/u583712040/domains/easyenglish.ro/easyenglish-app && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 The scheduler includes `notifications:dispatch` every minute to generate reminders and queue due transactional emails, plus `teachers:sync-calendars` every five minutes to queue a full Google Calendar reconciliation for each connected teacher, and `bookings:reconcile-calendar-events` every five minutes to recover missing or failed booking-event writes. The reconciliation jobs and confirmed-booking event writes require the database queue worker below; a stopped worker means calendars become stale and those teachers are safely removed from public availability after ten minutes. Review [the email integration runbook](../integrations/email.md) for outbox states, retry policy, SMTP configuration, and delivery troubleshooting.
@@ -101,7 +180,7 @@ The scheduler includes `notifications:dispatch` every minute to generate reminde
 Run a bounded queue worker periodically, for example every five minutes:
 
 ```sh
-*/5 * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> storage/logs/queue-cron.log 2>&1
+*/5 * * * * cd /home/u583712040/domains/easyenglish.ro/easyenglish-app && php artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> storage/logs/queue-cron.log 2>&1
 ```
 
 The exact cadence and limits are operational defaults, not verified limits for every Hostinger plan. Test them on the target account and record the measured cadence, execution limits, and safe batch sizes in the [launch checklist](../operations/launch-checklist.md). Keep each worker invocation shorter than the hosting execution limit. Ensure the queue connection's `retry_after` (currently 90 seconds) is greater than the worker timeout, and adjust the worker timeout/limits if observed job runtimes require it. Use idempotent jobs because failed or interrupted work can be retried. If cron cadence is too slow for a job's deadline, choose an appropriate hosting plan or an external worker rather than assuming the queue is real-time.
