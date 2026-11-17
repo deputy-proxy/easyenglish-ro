@@ -81,11 +81,11 @@ test('the four-step learner journey renders the approved Romanian process and re
         'ro' => [
             'Alege intervalul',
             'Alegi intervalul și durata sesiunii care ți se potrivesc. Fără program fix sau angajamente pe termen lung.',
-            'Primeste invitatia',
+            'Primește invitația',
             'Primești linkul pentru apelul tău pe WhatsApp și îl folosești pentru a intra în sesiune la ora stabilită.',
-            'Incepe sa vorbesti',
+            'Începe să vorbești',
             'Discuți cu profesorul tău și exersezi engleza prin conversații relaxate, individuale, despre situații reale.',
-            'Urmareste progresul',
+            'Urmărește progresul',
             'După sesiuni, profesorul îți poate oferi feedback personalizat, poate evidenția ce ai făcut bine și îți poate recomanda ce să exersezi în continuare.',
         ],
         'en' => [
