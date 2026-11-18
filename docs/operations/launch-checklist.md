@@ -1,108 +1,194 @@
-# Production launch checklist
+# EasyEnglish production launch checklist
 
-**Release gate:** do not enable public paid sales until every required item is checked or the owner has explicitly documented an accepted risk. A green CI run verifies code paths with test configuration; it does not prove live provider accounts, production credentials, legal approval, backups, or Hostinger runtime limits.
+**Audit basis:** repository main at 797034ed013bfa7cc4b22182140df510f8aa1555 and read-only Hostinger inspection on 2026-11-18.
 
-## 1. Product and customer disclosures
+**Release gate:** do not enable public paid sales until every required item is checked or an explicit, documented risk is accepted. Green CI proves the tested code paths; it does not prove production database contents, provider credentials, legal approval, delivery, backups, or Hostinger runtime behavior.
 
-- [ ] Confirm the public Romanian and English landing pages, booking form, bundle purchase page, privacy notice, and terms against the approved copy.
-- [ ] Verify only 15-minute sessions are offered and the 15-minute inter-session buffer is respected.
-- [ ] Verify the standalone free introduction requires no purchase and is limited to one per person using verified email and phone; a no-show forfeits the offer. Test expired/reused email links, expired/reused OTPs, five incorrect OTP attempts, resend cooldown, and mismatched contact details.
-- [ ] Verify the three tax-inclusive bundles: 156 RON for 1 free + 4 paid; 390 RON for 1 free + 10 paid; 780 RON for 1 free + 20 paid.
-- [ ] Verify bundle activation only after confirmed payment and expiry three calendar months from activation in Europe/Bucharest.
-- [ ] Configure Google Calendar OAuth and the exact production callback URL; verify teachers can connect, complete an initial sync, and are excluded when sync becomes stale.
-- [ ] Backfill the legacy central availability to teacher schedules, activate the teacher roster, and enable `TEACHER_AVAILABILITY_ENABLED` only after the public union calendar and assignment checks pass.
-- [ ] Update and obtain Meta approval for the fourth teacher-contact placeholder in appointment confirmation, reminder, and reschedule templates.
-- [ ] Verify appointment start must precede bundle expiry, including a booking submitted before expiry for a post-expiry appointment.
-- [ ] Verify cancellation/rescheduling terms and policy-version recording: at least 24 hours restores credit; 12 to under 24 hours allows one reschedule; under 12 hours and no-shows forfeit credit, subject to mandatory law.
-- [ ] Verify refund disclosures and approved exception process; no statement should imply software rules override statutory rights.
+## Verified production snapshot
 
-## 2. Legal, privacy, and finance gates
+These are observations, not launch approvals:
 
-- [ ] Fill in and verify controller legal name, address, privacy contact, and any DPO details that apply in `docs/legal/privacy-notice.md`.
-- [ ] Obtain privacy/legal review of notice, legal bases, processors, transfers, rights-handling, cookie/session behavior, customer terms, withdrawal rights, cancellation/refund policy, and statutory exceptions.
-- [ ] Approve retention periods for each category in `docs/legal/retention-policy.md`, including backups, logs, notification records, financial records, and audit evidence.
-- [ ] Keep `DATA_RETENTION_ENABLED=false` until the schedule and lawful bases are approved; test dry-run output before any authorized write run.
-- [ ] Have the Romanian accountant confirm actual tax/VAT status, prepaid-bundle accounting, free-session treatment, invoice/receipt requirements, RO e-Factura scope, refund/correction documents, and statutory financial-record retention.
-- [ ] Test and document the approved invoice/receipt process against a real test transaction and refund; store document references against the purchase/payment, not each credit-funded appointment.
-- [ ] Record reviewer, role, date, approved document versions, and unresolved blockers in the release record.
+- Hostinger website: easyenglish.ro is enabled; document root is /home/u583712040/domains/easyenglish.ro/public_html.
+- The existing layout is intentional and must remain: the Laravel application, .env, vendor, artisan, and public/ are currently inside public_html. The root .htaccess routes requests to public/. Do not move the application to an easyenglish-app sibling directory.
+- PHP web runtime: 8.4.27. Required MySQL, mbstring, intl, zip, and other Laravel extensions are available/enabled.
+- SSL is active, HTTPS redirect is enabled, CDN is enabled, and Hostinger server cache is disabled.
+- Dedicated MySQL database: u583712040_easyenglish_ro, approximately 6 MB, created 2026-11-16. Hostinger reports no remote database-access rules.
+- Hostinger's Git repository list for easyenglish.ro is empty. The GitHub Actions deployment workflow is the intended automated route, but its current deployment script still expects an easyenglish-app directory and is incompatible with the observed live layout.
+- No EasyEnglish scheduler or queue cron jobs are configured. The account's existing EasyEnglish-looking jobs target the legacy scl.ro/ee application, not easyenglish.ro.
+- PHP settings currently include log_errors=Off and expose_php=On. PHP's native session cookie defaults are also insecure; verify Laravel's actual Set-Cookie headers separately because Laravel can override them.
+- Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. It does not expose live database rows or the migration table through the available read-only database operations.
 
-## 3. Production infrastructure and access
+## 1. Product and public website
 
-- [ ] Confirm production HTTPS, correct Hostinger web root pointing to Laravel `public/`, writable `storage/` and `bootstrap/cache/`, `APP_ENV=production`, `APP_DEBUG=false`, and a unique `APP_KEY`.
-- [ ] Verify database credentials and least-privilege grants; run migrations only after backup and review.
-- [ ] Verify `/up`, public assets, Romanian default locale, English switching, and `/admin` authorization with a provisioned staff account and an ordinary account/guest.
-- [ ] Confirm `/register` is unavailable and provision the first staff account through `php artisan staff:provision EMAIL --name="Name"` from a trusted shell; no default password or public staff registration may exist.
-- [ ] Verify HTTPS secure cookies, session configuration, CSRF, password reset, and enabled Fortify two-factor/passkey features.
-- [ ] Verify secrets are configured outside source control, absent from logs, and rotated/revoked if exposed. Confirm `APP_DEBUG=false`, `.env` and repository metadata are not web-accessible, and the document root is `public/`.
+- [ ] Confirm the production homepage matches the current Romanian-only product and approved copy. Do not require a separate English landing page or a public language switcher.
+- [ ] Verify the public pages: homepage, contact, privacy notice, and terms/cancellations.
+- [ ] Verify public teacher cards use the intended active teacher profiles, photos, and public details.
+- [ ] Verify active FAQs and testimonials are accurate and approved.
+- [ ] Test the contact form, spam controls, enquiry storage, and staff review workflow.
+- [ ] Verify the customer journey reflects the current account-based flow: select a slot, register or log in, return to the dashboard, verify required contact channels, then explicitly complete the booking.
+- [ ] Confirm the selected slot survives login, registration, and the Fortify two-factor challenge without being reserved prematurely.
+- [ ] Verify the public site does not imply that a slot is reserved merely because a learner selected it.
+- [ ] Review mobile, tablet, and desktop layouts, including calendar, teacher cards, bundle cards, forms, dashboard entry, and all error/empty/loading states.
 
-## 4. Payments and booking integrity
+## 2. Production database and operational data
 
-- [ ] Configure Stripe live/test keys in the matching mode and the exact HTTPS webhook URL/signing secret; keep `STRIPE_CHECKOUT_ENABLED=false` until test-mode validation passes.
-- [ ] Test each bundle checkout's authoritative amount/currency and metadata; confirm success redirect alone never activates credits.
-- [ ] Test valid/invalid webhook signatures, duplicate event IDs, out-of-order events, asynchronous payment success/failure, checkout expiry, late success reconciliation, and amount mismatch.
-- [ ] Test simultaneous booking attempts for overlapping slots and the 15-minute buffer, plus competing requests for the final credit.
-- [ ] Test hold expiry racing with payment confirmation and verify no confirmed booking is accidentally released.
-- [ ] Test customer cancellation at exact 24-hour and 12-hour boundaries, one-time reschedule, teacher cancellation/expiry extension, no-show, refund success/failure/ambiguous state, and repeated staff action.
-- [ ] Confirm refund provider state and reconciliation before telling a customer a refund is complete; do not manually alter credit/payment rows to force a result.
+- [ ] Inspect the live migrations table and confirm every migration present in the deployed release has been applied successfully. The current repository contains 39 migration files; file presence alone does not prove they ran.
+- [ ] Inspect the live bundle_definitions rows in the production database. Record active status, regular price, paid credits, included free credits, sort order, featured status, and discount configuration. Do not assume historical bundle names, quantities, or prices.
+- [ ] Confirm the standalone free introduction is separate from paid bundle credits. The current migration history changes the original included-free-credit model; production rows must be checked before relying on that history.
+- [ ] Verify production teacher accounts, active flags, teacher profiles, weekly availability rules, exceptions, and Google Calendar connection records.
+- [ ] Verify the production FAQ and testimonial records are the intended public content.
+- [ ] Verify there is no unintended test account or test data, including the example test user defined by the default seeder.
+- [ ] Verify the application connects to the intended EasyEnglish database and that all customer, payment, booking, and entitlement records belong to this application.
+- [ ] Confirm the database user is scoped to the EasyEnglish database and review whether the application's runtime credentials need fewer privileges than migration credentials.
+- [ ] Take a fresh database backup before any production migration or data correction.
+- [ ] Restore a backup to a separate target and verify tables, indexes, and representative records.
 
-## 5. Email and WhatsApp
+**Database inspection limitation:** the connected Hostinger API exposes database metadata and a phpMyAdmin sign-on link, but no read-only SQL/query operation. The live rows and migration status therefore remain unverified until inspected through phpMyAdmin or a safe database export. Do not mark the database tasks complete based only on the 6 MB database listing.
 
-- [ ] Configure SMTP host, port, encryption, credentials, verified sender, and SPF/DKIM/DMARC; test delivery to representative inbox providers. Do not use `MAIL_MAILER=log` for verification because the email link would be exposed in logs.
-- [ ] Confirm transactional email locale persists from the booking/purchase and outbox retries are visible in Filament.
-- [ ] Configure Meta business assets, production system-user token and minimum permissions, phone number, the approved easyenglish_activation authentication template, signed webhook, and status subscriptions. Meta is used for contact-verification OTPs only.
-- [ ] Verify separate explicit WhatsApp service-message consent, `STOP` opt-out, and that marketing consent is neither assumed nor requested by this service flow.
-- [ ] Test live Meta OTP delivery and phone verification on real devices. Separately test OpenWA delivery for purchase, free intro, appointment confirmation, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund success/failure, and 14-day/3-day expiry reminders, including a first-time recipient.
-- [ ] Test Meta OTP rejection, OpenWA timeout/ambiguous reconciliation, duplicate/out-of-order status webhooks, retries, unconfigured credentials, and opt-out while customer and teacher messages are queued.
-- [ ] Keep META_WHATSAPP_VERIFICATION_ENABLED=false until Meta OTP template/webhook and live delivery checks pass. Verify OpenWA transactional notifications and first-time-recipient licensing separately; CI must continue to use fakes/mocks.
+## 3. Booking rules and free introduction
 
-## 6. OpenWA scheduled-call service
+- [ ] Verify the current session duration is 15 minutes and the 15-minute inter-session buffer is enforced server-side.
+- [ ] Verify the minimum booking notice is 24 hours, including the exact 24-hour boundary.
+- [ ] Verify all scheduling calculations and displayed times use Europe/Bucharest.
+- [ ] Test the seven-day availability grid, refresh behavior, disabled past/near-term slots, and empty availability state.
+- [ ] Test the application-level five-minute slot hold, expiry, and recovery when a learner abandons the flow.
+- [ ] Verify the learner must be authenticated to complete a booking.
+- [ ] Verify the standalone free introduction requires the contact channels configured for the active verification mode. The documented default is email plus WhatsApp; email-only mode is a separate supported configuration.
+- [ ] Verify email and phone verification are bound to the current contact values; test expired, reused, locked, throttled, mismatched, and delivery-failure challenges.
+- [ ] Verify the one-free-introduction-per-person rule using normalized email OR phone, including concurrent attempts and previously used claims.
+- [ ] Verify a free-session eligibility check does not itself create a booking, hold, claim, or teacher assignment.
+- [ ] Test free-session booking, cancellation, teacher cancellation, and no-show outcomes.
+- [ ] Verify the accepted policy version is stored against each booking.
 
-- [ ] Confirm the dedicated Railway `openwa-poc` service is healthy on its latest deployment, with `/health/live` returning `200` and one replica only. The 5 GB `openwa-session-data` volume is mounted at `/data` in `europe-west4-drams3a`.
-- [ ] Confirm the Docker entrypoint executes preflight once and then starts `node src/server.js`; deploy logs must include the listener-started line and no repeated preflight loop.
-- [ ] Configure Railway volume backups: daily (6-day retention), weekly (27-day retention), and monthly (89-day retention). Confirm AES-256 at-rest encryption, understand that restores are limited to the same project/environment, preserve the matching session encryption key secret, and test a non-production restore. Add an independent encrypted copy if cross-project disaster recovery is required.
-- [ ] Configure `OPENWA_SERVICE_TOKEN` as a Railway secret and the matching value as a Hostinger application secret. Verify missing/invalid token returns `503`/`401` and valid Bearer authentication works; never place the token in browser code or logs.
-- [ ] Use the Railway public HTTPS domain from Hostinger. Do not use `*.railway.internal` from Hostinger; Railway private networking is scoped to services in the same Railway project/environment.
-- [ ] Verify `/health/ready` returns `503` when unpaired/disconnected and `200` only after the dedicated account is authenticated. Verify `/health/live` remains `200` while safely unpaired.
-- [ ] Keep `OPENWA_ENABLED=false`, `OPENWA_ALLOW_LIVE_TEST=false`, and `OPENWA_PAIRING_ENABLED=false` until #220 passes and explicit product/operations approval is recorded. Pairing UI must return `404` while disabled.
-- [ ] During the approved #220 test only, enable pairing temporarily with Basic authentication, use the dedicated non-production account, then disable pairing UI and verify QR/status routes return `404`. Never pair a personal or primary business account.
-- [ ] Verify `openwa:monitor` runs every minute through the Hostinger scheduler and alerts/recovery notifications reach staff for readiness loss, elevated provider-error rates, stale call-event operations, failed notification deliveries, and queue backlog. Verify terminal call-event failures produce staff alerts and booking audit records.
-- [ ] Test restart/reconnect, logout/re-authentication, backup restore, emergency disconnect, and queue recovery with the dedicated test account as part of #220.
-- [ ] Exercise rollout stages in order: internal test allowlist, staff-only pilot, limited-customer allowlist, then general. Verify `OPENWA_ROLLOUT_STAGE=off` stops new events while preserving existing links and allowing cancellation/reconciliation.
-- [ ] Confirm customer and assigned teacher receive the same current join link only after provider readiness; confirm teacher-only details are never included in customer messages.
-- [ ] Exercise the documented manual-call fallback when a link is unavailable 30 minutes before a session; record the outcome and ensure the booking remains valid.
-- [ ] Approve retention/deletion rules for encrypted join links and provider event metadata. Verify cancellation clears join URLs and original destination payloads from the Node event store; do not enable automatic retention writes before legal/accounting approval.
-- [ ] Record provider terms/compatibility review, risk acceptance, technical owner, operational owner, backup/restore evidence, and explicit GO/NO-GO approval.
+## 4. Bundle catalog, discounts, vouchers, and credits
 
-## 7. Scheduler, queue, monitoring, and recovery
+- [ ] Treat Filament → Payments → Lesson bundles and the production database as the source of truth for the current catalog. Do not copy old fixed bundle prices into this checklist or customer-facing documentation without checking the active rows.
+- [ ] Verify every active bundle's displayed price, regular price, paid credits, and availability against its production record.
+- [ ] Verify inactive bundles are not publicly purchasable.
+- [ ] Verify only one catalog discount can be active at a time and discount date ranges are inclusive and non-overlapping.
+- [ ] Test both percentage and fixed-RON discounts, including rounding, invalid values, start/end dates, and expiry.
+- [ ] Test campaign vouchers, bundle restrictions, voucher reservations/redemptions, and the rule that a voucher overrides rather than stacks with a scheduled catalog discount.
+- [ ] Verify the public homepage, inline bundle selection, purchase summary, and Stripe Checkout all show/use the same authoritative effective price.
+- [ ] Verify stale displayed-price submissions are rejected and require the learner to review the current price.
+- [ ] Verify purchase attempts preserve immutable price, regular-price, and discount snapshots; retries and webhook reconciliation must not recalculate an existing purchase from the current catalog.
+- [ ] Verify a bundle purchase does not reserve an appointment slot or create a booking.
+- [ ] Verify bundle validity and appointment-before-expiry rules against the current product policy and production configuration.
+- [ ] Test credit reservation, consumption, restoration, forfeiture, expiry, and refund adjustments through the credit ledger. Do not repair balances by directly editing entitlement rows.
 
-- [ ] Add the Hostinger scheduler cron using the actual account's absolute paths and PHP binary; confirm `php artisan schedule:list` matches expectations.
-- [ ] Verify actual cron cadence and execution/time limits on the target Hostinger plan. Record date, measured cadence, timeout limits, command output, and safe worker batch sizes below. **Not yet verified by CI or local testing.**
-- [ ] Verify `notifications:dispatch`, `bookings:expire-holds`, and `stripe:reconcile` execute at expected cadence and are safe to run more than once.
-- [ ] Verify the bounded database queue worker consumes jobs, processes retries, and exits inside Hostinger's actual execution limit. Confirm `retry_after` exceeds worker timeout.
-- [ ] Trigger and recover a failed email, failed WhatsApp delivery, stuck pending payment, ambiguous refund, failed queue job, and overdue scheduler run; ensure alerts/logs identify the issue without exposing secrets or unnecessary personal data.
-- [ ] Take a database backup and perform a restore to a separate target; record recovery time and integrity checks.
-- [ ] Confirm rollback steps, current known-good release, migration forward-fix strategy, and owner/operator access.
+## 5. Payments, refunds, and accounting integration
 
-### Hostinger runtime verification record
+- [ ] Verify the production Stripe account, mode, API credentials, and webhook signing secret without exposing secrets in logs or tickets.
+- [ ] Confirm the exact production webhook URL and required event subscriptions.
+- [ ] Keep checkout disabled until test-mode checkout, webhook signature verification, reconciliation, and legal/accounting approval pass.
+- [ ] Test successful, failed, expired, asynchronous, duplicate, delayed, out-of-order, and amount-mismatched Stripe events.
+- [ ] Verify a browser success redirect never activates an entitlement without authoritative server-side payment confirmation.
+- [ ] Test payment reconciliation and recovery of stuck or ambiguous payments.
+- [ ] Test full and partial refunds, failed refunds, ambiguous provider state, chargebacks/disputes, and repeated staff actions.
+- [ ] Verify a refund is not reported as complete until Stripe confirms it.
+- [ ] Confirm the invoice/receipt process for the actual live catalog and commercial model with the Romanian accountant.
+- [ ] Confirm tax/VAT treatment, prepaid entitlement accounting, free-introduction treatment, statutory withdrawal rights, RO e-Factura scope, refund/correction documents, and record retention.
+- [ ] Update README and tax/invoicing documentation after the live catalog has been verified; remove obsolete bundle descriptions and amounts.
 
-- Date and operator: **pending**
-- Hosting plan and PHP binary/path: **pending**
-- Observed scheduler cadence: **pending**
-- Observed maximum safe execution time: **pending**
-- Queue-worker command and safe limits: **pending**
-- Backup restore test date/result: **pending**
-- Rollback test date/result: **pending**
+## 6. Teacher scheduling and Google Calendar
 
-## 8. Accessibility and content review
+- [ ] Verify the production value of TEACHER_AVAILABILITY_ENABLED. The example/default configuration is false; when disabled, the legacy central schedule remains the fallback.
+- [ ] If teacher-based availability is the intended launch mode, verify the teacher roster and recurring schedules have been backfilled and reviewed before enabling it.
+- [ ] Verify each launch teacher is active, has a valid schedule, and has completed an initial successful Google Calendar sync.
+- [ ] Verify the exact production Google OAuth callback URL, consent configuration, credentials, and required Calendar API scope.
+- [ ] Verify calendars with failed, revoked, or stale syncs are excluded from availability.
+- [ ] Test Busy/Free event handling, recurring events, all-day events, timezones, edits, deletions, and partial-sync failures.
+- [ ] Test booking event creation, rescheduling, teacher reassignment, and cancellation in the assigned teacher's calendar.
+- [ ] Verify customers cannot choose or browse internal teacher allocation and teachers can access only their own workspace, availability, and assigned bookings.
+- [ ] Test concurrent bookings and fair teacher assignment.
 
-- [ ] Test keyboard-only navigation, visible focus, form labels, required-field/error announcements, contrast, reduced-motion behavior if applicable, and responsive layout at narrow mobile/tablet/desktop widths.
-- [ ] Review the entire public journey in Romanian and English, including loading, empty availability, expired slot, validation, checkout failure, payment pending, and confirmation states.
-- [ ] Confirm all displayed dates/times state or clearly imply Europe/Bucharest and avoid misleading availability claims.
+## 7. Email, Meta WhatsApp, and OpenWA
 
-## 9. CI and release record
+- [ ] Verify production SMTP configuration and sender identity. Confirm SPF, DKIM, and DMARC, then test delivery to representative inbox providers.
+- [ ] Test all current transactional email types in Romanian, including booking, purchase, reminders, cancellation, rescheduling, teacher cancellation, no-show, refund, and expiry notifications.
+- [ ] Verify email outbox retries, failure visibility, and duplicate prevention.
+- [ ] Verify Meta production assets, phone number, system-user token, app secret, webhook verification token, signed callbacks, and approved templates.
+- [ ] Verify META_WHATSAPP_VERIFICATION_ENABLED and test Meta OTP delivery on real devices. Confirm template code-expiry wording matches the application's challenge lifetime.
+- [ ] Verify META_WHATSAPP_TRANSACTIONAL_ENABLED separately if Meta call-link-ready templates are used.
+- [ ] Verify OPENWA_MESSAGING_ENABLED separately for ordinary customer/teacher transactional notifications.
+- [ ] Verify OPENWA_ENABLED separately for scheduled call-event creation and reconciliation. Do not treat OpenWA messaging and call events as one feature flag.
+- [ ] Verify explicit service-message consent, opt-out/STOP handling, and that marketing consent is not inferred.
+- [ ] Test provider-specific routing, first-time recipients, timeouts, ambiguous outcomes, retries, duplicate/out-of-order callbacks, and opt-out while messages are queued.
+- [ ] Verify no provider token or private message payload is exposed in browser code or logs.
 
-- [ ] `composer ci:check` passes locally on the release commit.
-- [ ] `npm ci && npm run build` passes locally on the release commit.
-- [ ] GitHub Actions PHP and frontend jobs are green for the PR and resulting main commit.
-- [ ] Release SHA, deployment time, operator, smoke-test results, and rollback reference are recorded.
-- [ ] Every unchecked item is either completed or remains an explicit launch blocker. Do not declare production launch-ready solely because CI is green.
+## 8. OpenWA Railway service and call-event rollout
+
+- [ ] Verify the current Railway service and latest deployment are healthy; test /health/live and /health/ready.
+- [ ] Verify exactly one production replica and persistent session volume mounted at the documented path.
+- [ ] Verify encrypted session storage, backup retention, session-key preservation, and a non-production restore test.
+- [ ] Verify the Hostinger-to-Railway HTTPS URL and matching Bearer token; do not use Railway private DNS from Hostinger.
+- [ ] Verify the pairing interface remains disabled outside an approved pairing window and that no personal/primary WhatsApp account is paired.
+- [ ] Verify OPENWA_ROLLOUT_STAGE and the customer allowlist before any live call-event rollout.
+- [ ] Test event creation, retrieval, cancellation, rescheduling, stale events, and idempotent recovery with the dedicated test account.
+- [ ] Verify customer and assigned teacher receive the correct current join link only after provider readiness.
+- [ ] Test the manual-call fallback and record how staff handle an unavailable call link.
+- [ ] Verify monitoring alerts for disconnection, provider errors, stale events, failed notifications, and queue backlog.
+
+## 9. Hosting, deployment, and application security
+
+- [ ] Preserve the current Hostinger folder structure. Do not move the Laravel application out of public_html or create an easyenglish-app sibling directory as part of launch preparation.
+- [ ] Verify the root .htaccess rewrite to public/ and test that .env, .git, artisan, composer files, vendor/, app/, bootstrap/, config/, database/, storage/, and logs cannot be retrieved over HTTP.
+- [ ] Verify HTTPS redirect, active SSL, and canonical host behavior. These Hostinger settings were observed enabled during this audit.
+- [ ] Verify APP_ENV=production, APP_DEBUG=false, a valid APP_KEY, the intended MySQL connection, and production-only provider credentials without displaying secret values.
+- [ ] Verify Laravel session response headers: Secure, HttpOnly, and SameSite=Lax (or the explicitly approved alternative). PHP's native session cookie defaults are not proof of Laravel's actual cookie headers.
+- [ ] Set PHP log_errors=On and configure safe log retention. Review the need to set expose_php=Off.
+- [ ] Verify production error pages do not reveal stack traces, SQL, filesystem paths, or secrets.
+- [ ] Verify writable storage/ and bootstrap/cache/ permissions and the public/storage symlink.
+- [ ] Verify /up, public assets, admin authorization, teacher authorization, password reset, two-factor/passkey behavior, CSRF, and rate limits.
+- [ ] Verify secrets are absent from Git, deployment archives, public responses, and logs.
+- [ ] Reconcile scripts/deploy/hostinger-deploy.sh and its tests with the live public_html-root layout before enabling the GitHub Actions deploy job. The current script expects APP_DIR=.../easyenglish-app and will not deploy safely to the observed layout.
+- [ ] Keep Hostinger built-in Git deployment disabled; no repository is currently configured there.
+- [ ] Verify the GitHub Actions production deployment variable and secrets are configured correctly, but do not enable automated deployment until the script/layout mismatch is fixed and tested.
+- [ ] Verify the deployed commit SHA matches the intended release commit. Hostinger's Git repository list is empty, so use a deployment marker or release record rather than assuming a Git checkout exists on the server.
+
+## 10. Scheduler, queues, logs, and backups
+
+- [ ] Add the EasyEnglish scheduler cron using the actual absolute paths and a CLI PHP binary verified as PHP 8.4.
+- [ ] Add the bounded database queue worker cron using the current deployment path and the supported Hostinger execution limits.
+- [ ] Verify scheduler cadence and queue-worker runtime limits on the actual hosting plan.
+- [ ] Verify the scheduled commands in routes/console.php: booking hold expiry, Stripe reconciliation, notification dispatch, call-event dispatch, OpenWA monitoring, teacher calendar sync, calendar-event reconciliation, and verification challenge pruning.
+- [ ] Verify queue retry settings and ensure the database queue retry_after exceeds the worker timeout.
+- [ ] Verify each scheduled command is safe to run repeatedly and uses without-overlapping locks as intended.
+- [ ] Test failed email, failed WhatsApp delivery, stuck payment, ambiguous refund, failed job, stale calendar, OpenWA disconnect, and overdue scheduler recovery.
+- [ ] Enable and verify Laravel/PHP error logging with retention and alerting that do not expose secrets or unnecessary personal data.
+- [ ] Confirm database and required storage backups run on a documented schedule.
+- [ ] Perform and record a restore to a separate target; confirm the recovery process and recovery time.
+- [ ] Document rollback steps, the known-good release, migration forward-fix strategy, and the responsible operator.
+
+## 11. Privacy, terms, and retention
+
+- [ ] Complete the controller legal identity, registered address, privacy contact, and any applicable DPO details in the public privacy notice. The current privacy notice is explicitly a draft with placeholders and is not approved for publication.
+- [ ] Reconcile the company identity/address in config/easyenglish.php with the registered legal details and the published notice/terms.
+- [ ] Obtain Romanian legal/privacy review of purposes, legal bases, processors, transfers, rights handling, cookies, account data, booking terms, withdrawal rights, cancellation, rescheduling, and refund disclosures.
+- [ ] Approve category-specific retention periods for enquiries, account data, booking records, session notes, payment/refund records, notification records, logs, backups, and audit evidence.
+- [ ] Keep DATA_RETENTION_ENABLED=false until the policy and legal basis are approved; test dry-run output before any authorized write run.
+- [ ] Test data-subject request handling and the distinction between personal-data deletion/anonymization and statutory accounting retention.
+- [ ] Record the approved document versions, reviewer, role, date, and unresolved legal/accounting blockers.
+
+## 12. Analytics and consent
+
+- [ ] Verify the actual production GTM container ID and that the deployed site loads the intended container.
+- [ ] Verify the GA4 production property/web stream and that no development/test stream receives production traffic.
+- [ ] Verify consent defaults and consent updates before Google tags fire; reject must prevent non-essential analytics/advertising tags from loading.
+- [ ] Keep analytics and advertising consent separate and verify the consent UI persists the user's choice.
+- [ ] Test lead/booking and purchase events using the current product flow.
+- [ ] Verify purchase value and currency come from the authoritative server-side purchase data, use a stable transaction ID, and are not duplicated by redirects/webhook retries.
+- [ ] Verify campaign/voucher attribution does not leak personal data into analytics.
+- [ ] Document the actual GTM/GA4 configuration and remove stale statements that the tools are not configured.
+
+## 13. Final release validation
+
+- [ ] Run composer ci:check on the release commit.
+- [ ] Run npm ci, npm test, and npm run build on the release commit.
+- [ ] Confirm PHP, frontend, and OpenWA GitHub Actions jobs are green.
+- [ ] Complete the production smoke test on desktop and mobile using the real Romanian customer journey.
+- [ ] Complete a low-value live payment only after legal/accounting approval; verify Stripe, entitlement activation, invoice/receipt, notifications, and dashboard state end to end.
+- [ ] Verify a standalone free introduction end to end without Stripe.
+- [ ] Test a paid bundle booking using an existing entitlement, cancellation, rescheduling, teacher cancellation, no-show, and refund handling.
+- [ ] Verify no critical production exceptions, failed jobs, or unhandled provider events remain.
+- [ ] Record release SHA, deployment time, operator, smoke-test evidence, backup reference, rollback reference, and explicit GO/NO-GO approval.
+- [ ] Every unchecked item is either completed or explicitly accepted as a documented risk. Do not treat unknown production state as passed.
