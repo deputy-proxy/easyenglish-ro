@@ -23,3 +23,14 @@
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^ index.php [L]
 </IfModule>
+
+<IfModule mod_setenvif.c>
+    SetEnvIf Request_URI "\.(?:css|js|mjs|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|otf|eot|map)$" easyenglish_static_asset
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff" env=easyenglish_static_asset
+    Header always set Referrer-Policy "strict-origin-when-cross-origin" env=easyenglish_static_asset
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()" env=easyenglish_static_asset
+    Header always set X-Frame-Options "SAMEORIGIN" env=easyenglish_static_asset
+</IfModule>

@@ -1,6 +1,6 @@
 # EasyEnglish production launch checklist
 
-**Audit basis:** repository main at 797034ed013bfa7cc4b22182140df510f8aa1555 and read-only Hostinger inspection on 2026-11-18.
+**Audit basis:** repository main at db69abdab3cd53dea344d852a4d2456b1f6328f8 and Hostinger inspection/configuration changes on 2026-11-18.
 
 **Release gate:** do not enable public paid sales until every required item is checked or an explicit, documented risk is accepted. Green CI proves the tested code paths; it does not prove production database contents, provider credentials, legal approval, delivery, backups, or Hostinger runtime behavior.
 
@@ -16,8 +16,10 @@ These are observations, not launch approvals:
 - Hostinger auto-deployment has been re-enabled (operator-confirmed on 2026-11-18) and is the production deployment mechanism. The existing public_html-root layout remains unchanged; the repository's hostinger-deploy.sh script is not required or part of this path.
 - EasyEnglish scheduler and database queue cron jobs were created on Hostinger on 2026-11-18. Both run every minute from /home/u583712040/domains/easyenglish.ro/public_html using /usr/bin/php. Successful execution and application-level processing still need runtime verification.
 - The production database was confirmed fine by the operator; the initial database-inspection concern is no longer an outstanding blocker.
-- PHP settings currently include log_errors=Off and expose_php=On. PHP's native session cookie defaults are also insecure; verify Laravel's actual Set-Cookie headers separately because Laravel can override them.
+- [x] Hostinger PHP hardening applied and read back on 2026-11-18: expose_php=Off, log_errors=On, display_errors=Off, strict session mode=On, native session cookies Secure/HttpOnly/SameSite=Lax, memory_limit=512M, upload_max_filesize=32M, post_max_size=40M, max_execution_time=120, max_input_time=120. Laravel Set-Cookie headers were verified separately against the live login response.
 - Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. The operator has separately confirmed that the production database is fine.
+- Live HTTP probes on 2026-11-18 returned 403/404 for `.env`, `.env.example`, `.git/config`, `.htaccess`, `.mcp.json`, `artisan`, Composer files, `phpunit.xml`, application/bootstrap/config/database/resources/routes/scripts/tests/vendor files, private storage paths, logs, and OpenWA PoC files. `/up` returned 200. Repeat after the hardening release.
+- Live login response on 2026-11-18 set the Laravel session cookie with `Secure`, `HttpOnly`, and `SameSite=Lax`; the XSRF cookie was `Secure` and `SameSite=Lax` (not HttpOnly, as expected for the CSRF cookie).
 
 ## 1. Product and public website
 
@@ -126,13 +128,16 @@ Continue to protect the database through routine operational controls:
 ## 9. Hosting, deployment, and application security
 
 - [ ] Preserve the current Hostinger folder structure. Do not move the Laravel application out of public_html or create an easyenglish-app sibling directory as part of launch preparation.
-- [ ] Verify the root .htaccess rewrite to public/ and test that .env, .git, artisan, composer files, vendor/, app/, bootstrap/, config/, database/, storage/, and logs cannot be retrieved over HTTP.
+- [ ] Verify the hardened root .htaccess rewrite to public/ and test that .env, .git, artisan, Composer files, vendor/, app/, bootstrap/, config/, database/, private storage, and logs cannot be retrieved over HTTP. Preserve root .well-known ACME challenges and public /storage/ assets.
 - [ ] Verify HTTPS redirect, active SSL, and canonical host behavior. These Hostinger settings were observed enabled during this audit.
 - [ ] Verify APP_ENV=production, APP_DEBUG=false, a valid APP_KEY, the intended MySQL connection, and production-only provider credentials without displaying secret values.
-- [ ] Verify Laravel session response headers: Secure, HttpOnly, and SameSite=Lax (or the explicitly approved alternative). PHP's native session cookie defaults are not proof of Laravel's actual cookie headers.
-- [ ] Set PHP log_errors=On and configure safe log retention. Review the need to set expose_php=Off.
+- [x] Verify Laravel session response headers in production: the session cookie has Secure, HttpOnly, and SameSite=Lax. The XSRF cookie has Secure and SameSite=Lax; it is intentionally not HttpOnly. Repeat after the hardening release.
+- [x] Set PHP log_errors=On and expose_php=Off; read back both values on Hostinger.
+- [x] Set PHP strict session mode and native session cookie defaults to Secure/HttpOnly/SameSite=Lax.
+- [ ] Set server-owned production .env values LOG_STACK=daily and LOG_DAILY_DAYS=14; verify daily log rotation and retention after deployment.
 - [ ] Verify production error pages do not reveal stack traces, SQL, filesystem paths, or secrets.
-- [ ] Verify writable storage/ and bootstrap/cache/ permissions and the public/storage symlink.
+- [ ] Verify the security headers on production HTML and static asset responses, including HSTS on HTTPS. CSP remains deferred until report-only browser validation covers GTM, Stripe, Filament, and Livewire.
+- [ ] Verify writable storage/ and bootstrap/cache/ permissions and the public/storage symlink; Hostinger file listing confirms the public/storage symlink exists, but permissions/ownership remain unverified.
 - [ ] Verify /up, public assets, admin authorization, teacher authorization, password reset, two-factor/passkey behavior, CSRF, and rate limits.
 - [ ] Verify secrets are absent from Git, deployment archives, public responses, and logs.
 - [ ] Verify Hostinger auto-deployment is connected to the intended repository and production branch, with the target root set to the existing public_html application layout.
@@ -149,7 +154,7 @@ Continue to protect the database through routine operational controls:
 - [ ] Verify worker runtime remains within Hostinger limits and that no queue backlog accumulates.
 - [ ] Verify each scheduled command is safe to run repeatedly and uses without-overlapping locks as intended.
 - [ ] Test failed email, failed WhatsApp delivery, stuck payment, ambiguous refund, failed job, stale calendar, OpenWA disconnect, and overdue scheduler recovery.
-- [ ] Enable and verify Laravel/PHP error logging with retention and alerting that do not expose secrets or unnecessary personal data.
+- [ ] Verify Laravel daily log rotation, PHP error-log destination, retention, and alerting without exposing secrets or unnecessary personal data.
 - [ ] Confirm database and required storage backups run on a documented schedule.
 - [ ] Perform and record a restore to a separate target; confirm the recovery process and recovery time.
 - [ ] Document rollback steps, the known-good release, migration forward-fix strategy, and the responsible operator.
