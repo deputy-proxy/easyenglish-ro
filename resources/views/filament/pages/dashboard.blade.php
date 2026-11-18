@@ -12,11 +12,7 @@
 
 <x-filament-panels::page>
     <div class="space-y-6">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-            <div>
-                <h1 class="text-3xl font-semibold tracking-tight text-white">Dashboard</h1>
-                <p class="mt-1 text-sm text-gray-400">Your EasyEnglish overview for today.</p>
-            </div>
+        <div class="flex flex-wrap items-center justify-end gap-4">
             <div class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-2 text-sm text-gray-200">
                 <x-filament::icon icon="heroicon-o-calendar-days" class="h-5 w-5 text-amber-400" />
                 {{ now('Europe/Bucharest')->translatedFormat('D, j M Y') }}
