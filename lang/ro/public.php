@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'meta_title' => 'EasyEnglish – Învață să vorbești engleza cu încredere',
     'hero_visual_alt' => 'Două persoane vorbesc la telefon, ilustrând o conversație individuală în engleză.',
     'motivation_eyebrow' => 'PENTRU MOMENTELE CARE CONTEAZĂ',
     'motivation_title' => '„Aș putea. Dacă m-aș descurca mai bine în engleză.”',
