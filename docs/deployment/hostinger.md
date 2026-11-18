@@ -99,64 +99,59 @@ Because .env, vendor/, storage/, app/, config/, database/, and other private app
 
 ### Deployment status and automation gate
 
-The Hostinger inspection on 2026-11-18 confirmed the layout above, PHP 8.4.27, an active SSL certificate, HTTPS redirect, CDN enabled, and no Hostinger built-in Git repository configured for this website.
+Hostinger auto-deployment has been re-enabled, as confirmed by the site operator on 2026-11-18. It is the production deployment mechanism for this website. The current Laravel application root and Hostinger document root are both `/home/u583712040/domains/easyenglish.ro/public_html`; this layout must remain unchanged.
 
-**Important: the repository's current GitHub Actions deploy script is not compatible with the live layout.** scripts/deploy/hostinger-deploy.sh currently expects the application and .env under /home/u583712040/domains/easyenglish.ro/easyenglish-app and publishes a separate public_html tree. The live application instead resides directly in public_html. Do not enable HOSTINGER_DEPLOY_ENABLED or run that script until the script, packaging assumptions, rollback behavior, and tests have been updated and verified against the current layout.
+The repository's `scripts/deploy/hostinger-deploy.sh` is not part of this deployment path and is not required. Do not use it or make its expected `easyenglish-app` sibling directory a release prerequisite. Likewise, do not treat a GitHub Actions deployment-script gate as the Hostinger auto-deployment mechanism. GitHub Actions CI remains responsible for validating code; Hostinger auto-deployment publishes the configured repository/branch to the existing website root.
 
-The deployment workflow is gated by the repository Actions variable HOSTINGER_DEPLOY_ENABLED and runs only after the PHP, frontend, and OpenWA CI jobs pass on a push to main. Hostinger's own Git auto-deployment is not configured and should remain disabled.
+Before relying on an auto-deployed release, verify in Hostinger that the connected repository and branch are the intended production source and that deployment preserves server-owned `.env`, `storage/`, the root `.htaccess`, the `public/storage` link, Hostinger ACME files, and other server-owned runtime data. Do not expose or overwrite production secrets or user uploads during deployment. Record the deployed commit/revision and run the production smoke checks after each release.
 
-Before any production deployment:
+For any production deployment or migration:
 
 1. Take a fresh database backup and confirm the restore procedure.
-2. Confirm the current production .env is present and protected. Never print or copy its contents into logs, GitHub Actions, tickets, or chat.
-3. Confirm the CLI PHP executable is PHP 8.4 or newer. The web runtime is PHP 8.4.27, but the CLI binary must be checked independently.
-4. Update the deploy script to deploy in place under public_html while preserving the server-owned .env, storage/, root .htaccess, public/storage link, Hostinger ACME files, and other server-owned configuration.
-5. Ensure the release archive does not contain .env, storage/, local database files, or other production runtime data.
-6. Back up the current application tree and public assets outside the web root before replacing code.
-7. Enter maintenance mode, publish the reviewed release, run migrations only after backup and review, clear/rebuild caches, and restore normal service.
-8. Verify /up, public assets, login/dashboard, admin and teacher authorization, database connectivity, logs, scheduler, and queue processing.
-9. Record the deployed commit SHA, deployment time, operator, backup reference, and smoke-test results.
+2. Confirm the production `.env` is present and protected. Never print or copy its contents into logs, tickets, or chat.
+3. Keep the application root and document root at the current `public_html` path.
+4. Confirm the auto-deployment release does not overwrite `.env`, `storage/`, local database files, or other production runtime data.
+5. Back up the current application tree and public assets outside the web root before a risky release.
+6. Run production migrations only after backup and review; clear/rebuild caches if the deployment process does not already do so.
+7. Verify `/up`, public assets, login/dashboard, admin and teacher authorization, database connectivity, logs, scheduler, and queue processing.
+8. Record the deployed revision, deployment time, operator, backup reference, and smoke-test results.
 
-Do not run composer update or migrate:fresh on production. A code rollback does not automatically reverse database migrations; prefer a reviewed forward fix unless the incident plan explicitly requires a database restore.
+Do not run `composer update` or `migrate:fresh` on production. A code rollback does not automatically reverse database migrations; prefer a reviewed forward fix unless the incident plan explicitly requires a database restore.
 
 ### Scheduler and database queue on shared hosting
 
-The app uses Laravel's scheduler and a database-backed queue. A database queue does not run jobs by itself: a worker must consume the jobs table. Do not rely on a permanently running process on shared hosting.
+The app uses Laravel's scheduler and a database-backed queue. The queue worker is required to consume the `jobs` table; a database queue does not process itself. On shared hosting, use short-lived cron-invoked workers rather than a permanently running process.
 
-The current production account has no cron entries for easyenglish.ro. Existing jobs pointing to scl.ro/ee are for the legacy application and must not be treated as EasyEnglish production workers.
+**Configured on Hostinger on 2026-11-18.** Both EasyEnglish cron entries were created for account `u583712040`, using the existing application root and the same `/usr/bin/php` CLI path used by other account cron jobs:
 
-After verifying the CLI PHP binary and Hostinger execution limits, configure two cron entries using the current application root:
-
-Run the scheduler every minute if the plan permits:
+Scheduler, every minute:
 
 ~~~sh
-* * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /path/to/php84 artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
 ~~~
 
-Run a bounded database queue worker periodically, for example every five minutes:
+Database queue worker, every minute:
 
 ~~~sh
-*/5 * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /path/to/php84 artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> storage/logs/queue-cron.log 2>&1
+* * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /usr/bin/php artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> /dev/null 2>&1
 ~~~
 
-Replace /path/to/php84 with the verified absolute PHP 8.4 CLI path. Do not copy the example path literally.
+The website is configured for PHP 8.4.27. The `/usr/bin/php` path is used by existing account cron jobs; verify its CLI version during the next shell/runtime check. The queue configuration currently sets `retry_after=90` seconds, which is greater than the worker's 30-second timeout. Each worker invocation is bounded to 50 seconds and 100 jobs, then exits when the queue is empty.
 
-The scheduler in routes/console.php currently includes:
+The scheduler in `routes/console.php` currently includes:
 
-- bookings:expire-holds every minute;
-- stripe:reconcile every five minutes;
-- notifications:dispatch every minute;
-- call-events:dispatch every minute;
-- openwa:monitor every minute;
-- teachers:sync-calendars every five minutes;
-- bookings:reconcile-calendar-events every five minutes;
-- verification:prune daily.
+- `bookings:expire-holds` every minute;
+- `stripe:reconcile` every five minutes;
+- `notifications:dispatch` every minute;
+- `call-events:dispatch` every minute;
+- `openwa:monitor` every minute;
+- `teachers:sync-calendars` every five minutes;
+- `bookings:reconcile-calendar-events` every five minutes;
+- `verification:prune` daily.
 
 The calendar and notification jobs, plus confirmed-booking event writes, require the database queue worker. A stopped worker means jobs accumulate and calendar state may become stale. Review the email, Stripe, Google Calendar, and OpenWA runbooks for each integration's recovery behavior.
 
-The exact cadence and worker limits are operational defaults, not verified limits for every Hostinger plan. Test them on this account and record measured cadence, execution limits, and safe batch sizes in the launch checklist. Keep each worker invocation shorter than the hosting execution limit. Ensure the queue connection's retry_after is greater than the worker timeout. Use idempotent jobs because interrupted work can be retried.
-
-Check schedule registration with php artisan schedule:list. Check failed jobs with php artisan queue:failed and retry only after identifying and correcting the cause.
+**Runtime verification still required:** confirm both cron entries execute successfully after their next scheduled run; inspect the Laravel log for scheduler/worker errors, monitor queue backlog and failed jobs, and confirm scheduled commands execute at their expected cadence. Use `php artisan schedule:list`, `php artisan queue:failed`, and the Hostinger cron-job list/output for diagnosis. The cron definitions are configured, but creation alone does not prove successful application-level processing.
 
 ## Database, backups, and recovery
 
