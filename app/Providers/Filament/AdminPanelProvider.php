@@ -29,8 +29,6 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->brandName('EasyEnglish')
-            ->brandLogo(asset('images/logo-white.svg'))
-            ->brandLogoHeight('2rem')
             ->favicon(asset('favicon.svg'))
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
