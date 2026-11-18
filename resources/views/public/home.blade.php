@@ -7,7 +7,7 @@
     <meta name="theme-color" content="#ffffff">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="{{ __('public.hero_text') }}">
-    <title>Easy English · {{ __('public.hero_title') }}</title>
+    <title>{{ __('public.meta_title') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
 </head>
