@@ -915,6 +915,8 @@ details[open] [data-faq-chevron] {
 .teacher-card {
     flex: 0 0 min(300px, calc((100% - 60px) / 4));
     min-width: 0;
+    border: 0;
+    outline: none;
     scroll-snap-align: start;
 }
 .teacher-card__more {
