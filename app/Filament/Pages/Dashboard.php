@@ -10,7 +10,6 @@ use App\Filament\Resources\Refunds\RefundResource;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Models\PaymentRefund;
-use App\Models\ProgressReport;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -121,5 +120,10 @@ class Dashboard extends BaseDashboard
     public function getTitle(): string
     {
         return 'Dashboard';
+    }
+
+    public function getSubheading(): string
+    {
+        return 'Your EasyEnglish overview for today.';
     }
 }
