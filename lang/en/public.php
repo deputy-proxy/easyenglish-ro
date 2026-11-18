@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'meta_title' => 'EasyEnglish – Speak English with Confidence',
     'hero_visual_alt' => 'Two people speaking on their phones, illustrating a one-to-one English conversation.',
     'motivation_eyebrow' => 'FOR THE MOMENTS THAT MATTER',
     'motivation_title' => '“I could do it. If only I felt more confident in English.”',
