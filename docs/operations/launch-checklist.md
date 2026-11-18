@@ -17,7 +17,7 @@ These are observations, not launch approvals:
 - EasyEnglish scheduler and database queue cron jobs were created on Hostinger on 2026-11-18. Both run every minute from /home/u583712040/domains/easyenglish.ro/public_html using /usr/bin/php. Successful execution and application-level processing still need runtime verification.
 - The production database was confirmed fine by the operator; the initial database-inspection concern is no longer an outstanding blocker.
 - PHP settings currently include log_errors=Off and expose_php=On. PHP's native session cookie defaults are also insecure; verify Laravel's actual Set-Cookie headers separately because Laravel can override them.
-- Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. It does not expose live database rows or the migration table through the available read-only database operations.
+- Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. The operator has separately confirmed that the production database is fine.
 
 ## 1. Product and public website
 
