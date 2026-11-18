@@ -53,3 +53,12 @@ Authenticated bookings and bundle entitlements are associated with a customer ac
 ## Customer support contact
 
 Customers may initiate contact with EasyEnglish using the official support email and/or shared business WhatsApp number configured for the dashboard. A WhatsApp link opens a prefilled message but does not send it automatically. Initiating a support conversation is separate from consent to receive WhatsApp service notifications and does not alter an existing opt-out.
+
+
+## 9. Analytics and advertising measurement — implementation draft
+
+EasyEnglish plans to use Google Tag Manager and Google Analytics 4 to measure website usage, booking funnel interactions, and confirmed purchases. Google Ads may be connected in a later phase for campaign measurement. These services are not active until the relevant Google accounts/properties are configured and the visitor has explicitly enabled the corresponding optional category in the cookie preference interface.
+
+The application separates analytics consent from advertising consent. Analytics storage is disabled by default and is enabled only after an explicit analytics choice. Advertising storage and advertising user data are disabled by default and are enabled only after an explicit marketing choice. Advertising personalization remains denied because the current interface does not request separate consent for personalized advertising. Google Consent Mode v2 receives these consent states. Under the current basic-mode implementation, Google Tag Manager is not loaded until at least one optional category is accepted.
+
+The preference interface stores the visitor's selected categories in first-party browser storage for up to 180 days and allows the visitor to change the choice later. If analytics consent is granted, limited UTM campaign source, medium, and campaign values may be retained in first-party browser storage for up to 30 days. The final notice must identify the actual Google services and account configuration, explain the purposes and legal bases, confirm applicable international transfer safeguards and processor terms, and specify retention and rights information. Complete and approve this section with qualified Romanian privacy/legal review before production analytics or advertising measurement is enabled.

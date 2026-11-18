@@ -6,7 +6,6 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('public.dashboard_overview') }} · EasyEnglish</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @fluxAppearance
 </head>
 <body class="min-h-screen bg-paper font-sans text-ink antialiased dark:bg-zinc-950 dark:text-zinc-100">
     @include('public.partials.dashboard-header', ['context' => 'customer'])

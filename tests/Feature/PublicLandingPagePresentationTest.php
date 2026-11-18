@@ -28,6 +28,20 @@ test('returns a successful response', function () {
     $response->assertSee('rounded-3xl bg-primary px-[21px] py-3.5 font-bold text-white transition hover:bg-primary-hover md:rounded-full', false);
 });
 
+test('public teacher cards have no border or outline while retaining their layered shadow', function () {
+    $view = file_get_contents(resource_path('views/public/home.blade.php'));
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($view)
+        ->toContain('rounded-[28px] border-0 outline-none bg-primary-strong')
+        ->toContain('shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]');
+
+    expect($styles)
+        ->toContain(".teacher-card {\n    flex: 0 0 min(300px, calc((100% - 60px) / 4));\n    min-width: 0;\n    border: 0;\n    outline: none;")
+        ->toContain('.teacher-card__more {')
+        ->toContain('border: 1px solid rgb(255 255 255 / 75%);');
+});
+
 test('mobile booking CTA always uses Romanian copy even with a legacy English session', function () {
     foreach (['ro' => 'Programează gratuit'] as $locale => $label) {
         $response = $this->withSession(['locale' => 'en'])->get(route('home'));
@@ -81,11 +95,11 @@ test('the four-step learner journey renders the approved Romanian process and re
         'ro' => [
             'Alege intervalul',
             'Alegi intervalul și durata sesiunii care ți se potrivesc. Fără program fix sau angajamente pe termen lung.',
-            'Primeste invitatia',
+            'Primește invitația',
             'Primești linkul pentru apelul tău pe WhatsApp și îl folosești pentru a intra în sesiune la ora stabilită.',
-            'Incepe sa vorbesti',
+            'Începe să vorbești',
             'Discuți cu profesorul tău și exersezi engleza prin conversații relaxate, individuale, despre situații reale.',
-            'Urmareste progresul',
+            'Urmărește progresul',
             'După sesiuni, profesorul îți poate oferi feedback personalizat, poate evidenția ce ai făcut bine și îți poate recomanda ce să exersezi în continuare.',
         ],
         'en' => [

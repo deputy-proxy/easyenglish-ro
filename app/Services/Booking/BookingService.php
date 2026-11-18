@@ -52,6 +52,7 @@ class BookingService
         return DB::transaction(function () use ($customer, $startsAt, $entitlementId, $freeIntroduction, $emailVerified, $phoneVerified, $customerUserId): Booking {
             // A singleton row serializes booking mutations even when the requested slot has no existing row to lock.
             DB::table('booking_mutexes')->where('id', 1)->lockForUpdate()->first();
+            $this->availability->assertMinimumNotice($startsAt);
             $eligibleTeachers = $this->availability->eligibleTeachersForSlot($startsAt);
             $assignedTeacher = $eligibleTeachers->first();
             if ($assignedTeacher === null) {

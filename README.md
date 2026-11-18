@@ -41,6 +41,7 @@ The database is authoritative for availability and booking state. A browser redi
 | --- | --- |
 | Teacher model | Internal teacher accounts and fair assignment; no public teacher marketplace or customer teacher selection |
 | Availability | Union of active teachers' recurring schedules minus Busy Google Calendar events, date exceptions, and EasyEnglish bookings; legacy central schedule remains the disabled-feature fallback |
+| Minimum booking notice | At least 24 hours before the slot start; exactly 24 hours is bookable |
 | Session duration | 15 minutes only |
 | Buffer | 15 minutes between sessions |
 | Appointment-slot hold | 5-minute application-level hold for a pending slot reservation; separate from bundle validity |

@@ -86,6 +86,78 @@ test('weekly availability returns 15-minute sessions with a 15-minute buffer in 
         ->and($slots->first()['ends_at']->diffInMinutes($slots->first()['starts_at']))->toBe(-15.0);
 });
 
+test('minimum booking notice accepts exactly 24 hours and rejects shorter and past times', function () {
+    $service = app(AvailabilityService::class);
+    $now = CarbonImmutable::now('UTC');
+
+    expect($service->bookingNoticeStatus($now->addHours(24)))
+        ->toBe(['bookable' => true, 'unavailable_reason' => null])
+        ->and($service->bookingNoticeStatus($now->addHours(23)->addMinutes(59)))
+        ->toBe(['bookable' => false, 'unavailable_reason' => 'minimum_notice'])
+        ->and($service->bookingNoticeStatus($now))
+        ->toBe(['bookable' => false, 'unavailable_reason' => 'past'])
+        ->and($service->bookingNoticeStatus($now->subSecond()))
+        ->toBe(['bookable' => false, 'unavailable_reason' => 'past']);
+});
+
+test('24-hour booking notice uses elapsed time across Bucharest daylight-saving transitions', function () {
+    $service = app(AvailabilityService::class);
+    $springNow = CarbonImmutable::parse('2027-03-27 01:30:00', 'UTC');
+    $springStart = $springNow->addHours(24)->setTimezone(AvailabilityService::TIMEZONE);
+    $autumnNow = CarbonImmutable::parse('2026-10-24 01:30:00', 'UTC');
+    $autumnStart = $autumnNow->addHours(24)->setTimezone(AvailabilityService::TIMEZONE);
+
+    expect($springStart->format('Y-m-d H:i'))->toBe('2027-03-28 04:30')
+        ->and($service->bookingNoticeStatus($springStart, $springNow)['bookable'])->toBeTrue()
+        ->and($service->bookingNoticeStatus($springStart->subSecond(), $springNow)['unavailable_reason'])->toBe('minimum_notice')
+        ->and($autumnStart->format('Y-m-d H:i'))->toBe('2026-10-25 03:30')
+        ->and($service->bookingNoticeStatus($autumnStart, $autumnNow)['bookable'])->toBeTrue()
+        ->and($service->bookingNoticeStatus($autumnStart->subSecond(), $autumnNow)['unavailable_reason'])->toBe('minimum_notice');
+});
+
+test('availability retains past and short-notice slots for disabled calendar display', function () {
+    $day = CarbonImmutable::parse('2026-10-26', 'Europe/Bucharest');
+    addAvailabilityWindow($day, '07:00', '10:00');
+
+    $slots = app(AvailabilityService::class)->slotsForDate('2026-10-26');
+
+    expect($slots->map(fn (array $slot) => $slot['starts_at']->format('H:i'))->all())
+        ->toBe(['07:00', '07:30', '08:00', '08:30', '09:00', '09:30'])
+        ->and(app(AvailabilityService::class)->bookingNoticeStatus($slots->first()['starts_at'])['unavailable_reason'])
+        ->toBe('past');
+});
+
+test('booking holds accept the exact 24-hour boundary and reject shorter notice without side effects', function () {
+    $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
+    addAvailabilityWindow($day, '07:30', '10:00');
+    $entitlement = makeBundleEntitlement();
+    $service = app(BookingService::class);
+
+    $booking = $service->holdSlot(
+        bookingCustomer(),
+        CarbonImmutable::parse('2026-10-27 08:00:00', 'Europe/Bucharest'),
+        $entitlement->id,
+    );
+
+    expect($booking->status)->toBe('pending')
+        ->and($entitlement->fresh()->credits_remaining)->toBe(3);
+
+    $shortNoticeEntitlement = makeBundleEntitlement([
+        'customer_email' => 'short-notice@example.com',
+        'credits_remaining' => 2,
+    ]);
+
+    expect(fn () => $service->holdSlot(
+        bookingCustomer(['email' => 'short-notice@example.com']),
+        CarbonImmutable::parse('2026-10-27 07:30:00', 'Europe/Bucharest'),
+        $shortNoticeEntitlement->id,
+    ))->toThrow(ValidationException::class);
+
+    expect(Booking::query()->where('customer_email', 'short-notice@example.com')->count())->toBe(0)
+        ->and($shortNoticeEntitlement->fresh()->credits_remaining)->toBe(2)
+        ->and(CreditTransaction::query()->where('bundle_entitlement_id', $shortNoticeEntitlement->id)->count())->toBe(0);
+});
+
 test('blocked periods remove slots and active weekly windows cannot overlap', function () {
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addAvailabilityWindow($day, '09:00', '11:00');
@@ -463,8 +535,10 @@ test('customer cancellation under 24 hours forfeits the reserved credit without 
     $day = CarbonImmutable::parse('2026-10-27', 'Europe/Bucharest');
     addAvailabilityWindow($day, '07:00', '08:00');
     $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-26 06:00', 'Europe/Bucharest'));
     $booking = app(BookingService::class)->holdSlot(bookingCustomer(), CarbonImmutable::parse('2026-10-27 07:00', 'Europe/Bucharest'), $entitlement->id);
     app(BookingService::class)->confirm($booking->id);
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-26 20:00', 'Europe/Bucharest'));
 
     app(BookingService::class)->cancelByCustomer($booking->id, 'Plans changed.');
 
@@ -480,10 +554,12 @@ test('customer can reschedule once at the exact 12-hour boundary without reservi
     addAvailabilityWindow($tomorrow, '09:00', '11:00');
     Queue::fake();
     $entitlement = makeBundleEntitlement(['credits_remaining' => 3]);
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-25 20:00', 'Europe/Bucharest'));
     $booking = app(BookingService::class)->holdSlot(bookingCustomer(), $today->setTime(20, 0), $entitlement->id);
     $teacher = User::factory()->create(['is_teacher' => true, 'teacher_active' => true]);
     $booking->update(['teacher_id' => $teacher->id, 'teacher_assigned_at' => now()]);
     app(BookingService::class)->confirm($booking->id);
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-10-26 08:00', 'Europe/Bucharest'));
 
     $newStart = $tomorrow->setTime(9, 0);
     $service = app(BookingService::class);

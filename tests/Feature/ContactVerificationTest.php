@@ -350,7 +350,7 @@ test('phone verification limits incorrect code attempts', function () {
 test('free introduction is created only when both contact channels are verified', function () {
     $this->actingAs(makeBookingCustomer(['email' => 'learner@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    $this->travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHours(25));
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge(['email_verified_at' => now(), 'phone_verified_at' => now()]);
 
@@ -374,7 +374,7 @@ test('email-only mode permits a free introduction after email verification witho
     $this->actingAs(makeBookingCustomer(['email' => 'email-only-booking@example.com', 'phone' => '+40722123459']));
     config(['services.contact_verification.mode' => 'email_only']);
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    $this->travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHours(25));
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge([
         'customer_email' => 'email-only-booking@example.com',
@@ -433,7 +433,7 @@ test('verified contacts are persisted on bundle checkout without adding a free s
 test('verified challenge cannot be reused with a different email or phone', function () {
     $this->actingAs(makeBookingCustomer(['email' => 'attacker@example.com', 'phone' => '+40722123456']));
     $day = Carbon::parse('2026-10-27 09:00:00', AvailabilityService::TIMEZONE);
-    $this->travelTo($day->copy()->subHour());
+    $this->travelTo($day->copy()->subHours(25));
     addVerificationAvailability($day);
     $challenge = makeVerificationChallenge(['email_verified_at' => now(), 'phone_verified_at' => now()]);
 

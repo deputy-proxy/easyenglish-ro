@@ -114,6 +114,10 @@ test('fully overlaps every card at the same sticky position so each new card cov
     fixture.triggers[0].onLeaveBack();
     assert.equal(fixture.cards[6].style.getPropertyValue('--stack-order'), '7');
     assert.equal(fixture.cards[0].classList.contains('has-stack-shadow'), true);
+
+    fixture.triggers.at(-1).onEnter();
+    assert.equal(fixture.cards[6].classList.contains('has-stack-shadow'), true);
+    assert.equal(fixture.cards.slice(0, -1).some((card) => card.classList.contains('has-stack-shadow')), false);
     assert.equal(fixture.section.classList.contains('is-stacking-enabled'), true);
 
     cleanup();

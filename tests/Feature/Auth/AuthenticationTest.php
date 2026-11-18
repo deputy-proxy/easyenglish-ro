@@ -10,6 +10,8 @@ test('login screen can be rendered', function () {
         ->assertOk()
         ->assertSee('auth-pattern__row')
         ->assertSee('auth-card')
+        ->assertSee('Intră în contul tău')
+        ->assertSee('Autentifică-te cu o cheie de acces')
         ->assertSee('images/easyenglish-symbol-blue.svg');
 });
 

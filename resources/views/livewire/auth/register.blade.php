@@ -40,12 +40,18 @@
                 placeholder="+40 722 123 456"
             />
 
-            <flux:select name="english_level" :label="__('public.field_level')" required>
-                <option value="">{{ __('public.field_level_placeholder') }}</option>
-                @foreach (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as $level)
-                    <option value="{{ $level }}" @selected(old('english_level') === $level)>{{ __('public.level_'.strtolower($level)) }}</option>
-                @endforeach
-            </flux:select>
+            <div class="auth-level-field">
+                <label for="english_level">{{ __('public.field_level') }}</label>
+                <select id="english_level" name="english_level" class="auth-level-select" required autocomplete="off">
+                    <option value="">{{ __('public.field_level_placeholder') }}</option>
+                    @foreach (['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as $level)
+                        <option value="{{ $level }}" @selected(old('english_level') === $level)>{{ __('public.level_'.strtolower($level)) }}</option>
+                    @endforeach
+                </select>
+                @error('english_level')
+                    <p class="auth-level-error" role="alert">{{ $message }}</p>
+                @enderror
+            </div>
 
             <flux:input
                 name="session_goal"

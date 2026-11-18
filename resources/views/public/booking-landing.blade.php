@@ -11,7 +11,6 @@
         <a class="shrink-0" href="{{ route('home') }}" aria-label="Easy English home">
             <img class="block w-[130px] [filter:brightness(0)_saturate(1)_invert(12%)_sepia(28%)_saturate(2554%)_hue-rotate(195deg)_brightness(91%)_contrast(96%)]" src="{{ \App\Support\VersionedAsset::url('images/logo-white.svg') }}" alt="EasyEnglish" width="192" height="40">
         </a>
-        <a class="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-hover" href="{{ $bookingState['show_calendar'] ? '#availability' : '#bundles' }}">{{ $bookingState['show_calendar'] ? __('public.booking_header_cta') : __('public.booking_header_bundles_cta') }}</a>
     </header>
     <main class="py-6 md:py-10">
         @include('components.booking.availability-section', ['compact' => true] + compact('bookingState', 'weekStart', 'contactsVerified', 'verification', 'eligibility', 'phoneAlreadyVerified', 'whatsappConsent', 'bookingFormData', 'bundles'))

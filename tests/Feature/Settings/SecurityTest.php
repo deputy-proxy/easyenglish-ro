@@ -18,7 +18,7 @@ beforeEach(function () {
     ]);
 });
 
-test('security settings page can be rendered', function () {
+test('security settings page displays the Romanian two-factor heading', function () {
     $user = User::factory()->create();
 
     $response = $this->actingAs($user)
@@ -29,7 +29,7 @@ test('security settings page can be rendered', function () {
 
     $response->assertSee('Passkeys');
     $response->assertSee('No passkeys yet');
-    $response->assertSee('Two-factor authentication');
+    $response->assertSee('Autentificare în doi pași');
     $response->assertSee('Enable 2FA');
 });
 

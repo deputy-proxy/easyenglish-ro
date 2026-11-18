@@ -35,7 +35,7 @@ Create the production `.env` on the server or through the hosting control panel.
 APP_NAME="Easy English"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://your-production-domain.example
+APP_URL=https://easyenglish.ro
 APP_KEY=base64:GENERATE_A_UNIQUE_KEY
 # The public web middleware fixes the website locale to Romanian.
 # These defaults remain English for CLI and internal operations.
@@ -43,10 +43,10 @@ APP_LOCALE=en
 APP_FALLBACK_LOCALE=en
 
 DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
+DB_HOST=srv1713.hstgr.io
 DB_PORT=3306
-DB_DATABASE=your_database
-DB_USERNAME=your_database_user
+DB_DATABASE=u583712040_easyenglish_ro
+DB_USERNAME=u583712040_easyenglish_ro
 DB_PASSWORD=your_database_password
 
 SESSION_DRIVER=database
@@ -74,39 +74,84 @@ Stripe Checkout uses server-side `STRIPE_KEY`, `STRIPE_SECRET`, and `STRIPE_WEBH
 
 ## Deployment procedure
 
-1. Take a database backup and confirm a recent backup can be restored.
-2. Deploy the reviewed release to the application directory. Keep `.env`, user uploads, and other runtime data outside any release replacement operation.
-3. Install the locked PHP dependencies with `composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction`. Build frontend assets using Node 22 and `npm ci && npm run build` in the release/build environment, then deploy `public/build` with the release.
-4. Confirm the web root points to Laravel's `public/` directory. Do not expose `.env`, `vendor/`, or the repository root through the web server.
-5. Confirm production environment values, HTTPS, writable directories, and the configured database connection.
-6. Run `php artisan migrate --force` after reviewing the migration set and backup. Do not use `migrate:fresh` on production.
-7. Run `php artisan optimize` after configuration is correct. If deployment changes routes/config/views, use `php artisan optimize:clear` before rebuilding caches as needed.
-8. Verify `/up`, login/admin access, logs, database connectivity, asset loading, scheduled task execution, and queue processing.
-9. Keep the previous known-good release available for rollback. For rollback, restore the code release and follow the migration's documented rollback/forward-fix strategy; a code rollback does not automatically reverse database changes.
+### Current production layout
 
-## Scheduler and database queue on shared hosting
+The existing Hostinger layout is intentional and must remain unchanged:
 
-The app uses Laravel's scheduler and a database-backed queue. A database queue does **not** run jobs by itself: a worker must consume the `jobs` table. Do not rely on a permanently running process on shared hosting.
+~~~text
+/home/u583712040/domains/easyenglish.ro/
+  public_html/             # Hostinger document root and Laravel application root
+    .env                   # Server-owned secret configuration
+    artisan
+    app/
+    bootstrap/
+    config/
+    database/
+    vendor/
+    storage/
+    public/                # Laravel's actual public web assets and front controller
+    .htaccess              # Root rewrite into public/
+~~~
 
-Configure two cron entries in Hostinger, using the absolute path to the deployed release and the PHP binary selected for the hosting account. The following are templates; replace paths and validate the plan's limits.
+The Hostinger document root is /home/u583712040/domains/easyenglish.ro/public_html. The Laravel application files remain inside that directory. The root .htaccess rewrites web requests into public/; do not move the application to a sibling easyenglish-app directory and do not replace this layout with the alternative layout described in older deployment notes.
 
-Run the scheduler every minute if the plan permits:
+Because .env, vendor/, storage/, app/, config/, database/, and other private application files are physically inside the document root, the root rewrite and access-denial rules are security-critical. Verify direct HTTP requests to sensitive paths are denied before launch. Do not rely on the fact that the homepage works as proof that private files are protected.
 
-```sh
-* * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
-```
+### Deployment status and automation gate
 
-The scheduler includes `notifications:dispatch` every minute to generate reminders and queue due transactional emails, plus `teachers:sync-calendars` every five minutes to queue a full Google Calendar reconciliation for each connected teacher, and `bookings:reconcile-calendar-events` every five minutes to recover missing or failed booking-event writes. The reconciliation jobs and confirmed-booking event writes require the database queue worker below; a stopped worker means calendars become stale and those teachers are safely removed from public availability after ten minutes. Review [the email integration runbook](../integrations/email.md) for outbox states, retry policy, SMTP configuration, and delivery troubleshooting.
+Hostinger auto-deployment has been re-enabled, as confirmed by the site operator on 2026-11-18. It is the production deployment mechanism for this website. The current Laravel application root and Hostinger document root are both `/home/u583712040/domains/easyenglish.ro/public_html`; this layout must remain unchanged.
 
-Run a bounded queue worker periodically, for example every five minutes:
+The repository's `scripts/deploy/hostinger-deploy.sh` is not part of this deployment path and is not required. Do not use it or make its expected `easyenglish-app` sibling directory a release prerequisite. Likewise, do not treat a GitHub Actions deployment-script gate as the Hostinger auto-deployment mechanism. GitHub Actions CI remains responsible for validating code; Hostinger auto-deployment publishes the configured repository/branch to the existing website root.
 
-```sh
-*/5 * * * * cd /home/ACCOUNT/domains/DOMAIN/public_html/app && /usr/bin/php artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> storage/logs/queue-cron.log 2>&1
-```
+Before relying on an auto-deployed release, verify in Hostinger that the connected repository and branch are the intended production source and that deployment preserves server-owned `.env`, `storage/`, the root `.htaccess`, the `public/storage` link, Hostinger ACME files, and other server-owned runtime data. Do not expose or overwrite production secrets or user uploads during deployment. Record the deployed commit/revision and run the production smoke checks after each release.
 
-The exact cadence and limits are operational defaults, not verified limits for every Hostinger plan. Test them on the target account and record the measured cadence, execution limits, and safe batch sizes in the [launch checklist](../operations/launch-checklist.md). Keep each worker invocation shorter than the hosting execution limit. Ensure the queue connection's `retry_after` (currently 90 seconds) is greater than the worker timeout, and adjust the worker timeout/limits if observed job runtimes require it. Use idempotent jobs because failed or interrupted work can be retried. If cron cadence is too slow for a job's deadline, choose an appropriate hosting plan or an external worker rather than assuming the queue is real-time.
+For any production deployment or migration:
 
-Check `php artisan schedule:list` after deploying scheduled tasks. Confirm cron runs by inspecting application logs and a harmless scheduled operation. Check `php artisan queue:failed` for failed jobs and use `php artisan queue:retry ID` only after identifying and correcting the failure. Do not repeatedly retry a deterministic failure without fixing its cause.
+1. Take a fresh database backup and confirm the restore procedure.
+2. Confirm the production `.env` is present and protected. Never print or copy its contents into logs, tickets, or chat.
+3. Keep the application root and document root at the current `public_html` path.
+4. Confirm the auto-deployment release does not overwrite `.env`, `storage/`, local database files, or other production runtime data.
+5. Back up the current application tree and public assets outside the web root before a risky release.
+6. Run production migrations only after backup and review; clear/rebuild caches if the deployment process does not already do so.
+7. Verify `/up`, public assets, login/dashboard, admin and teacher authorization, database connectivity, logs, scheduler, and queue processing.
+8. Record the deployed revision, deployment time, operator, backup reference, and smoke-test results.
+
+Do not run `composer update` or `migrate:fresh` on production. A code rollback does not automatically reverse database migrations; prefer a reviewed forward fix unless the incident plan explicitly requires a database restore.
+
+### Scheduler and database queue on shared hosting
+
+The app uses Laravel's scheduler and a database-backed queue. The queue worker is required to consume the `jobs` table; a database queue does not process itself. On shared hosting, use short-lived cron-invoked workers rather than a permanently running process.
+
+**Configured on Hostinger on 2026-11-18.** Both EasyEnglish cron entries were created for account `u583712040`, using the existing application root and the same `/usr/bin/php` CLI path used by other account cron jobs:
+
+Scheduler, every minute:
+
+~~~sh
+* * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+~~~
+
+Database queue worker, every minute:
+
+~~~sh
+* * * * * cd /home/u583712040/domains/easyenglish.ro/public_html && /usr/bin/php artisan queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30 >> /dev/null 2>&1
+~~~
+
+The website is configured for PHP 8.4.27. The `/usr/bin/php` path is used by existing account cron jobs; verify its CLI version during the next shell/runtime check. The queue configuration currently sets `retry_after=90` seconds, which is greater than the worker's 30-second timeout. Each worker invocation is bounded to 50 seconds and 100 jobs, then exits when the queue is empty.
+
+The scheduler in `routes/console.php` currently includes:
+
+- `bookings:expire-holds` every minute;
+- `stripe:reconcile` every five minutes;
+- `notifications:dispatch` every minute;
+- `call-events:dispatch` every minute;
+- `openwa:monitor` every minute;
+- `teachers:sync-calendars` every five minutes;
+- `bookings:reconcile-calendar-events` every five minutes;
+- `verification:prune` daily.
+
+The calendar and notification jobs, plus confirmed-booking event writes, require the database queue worker. A stopped worker means jobs accumulate and calendar state may become stale. Review the email, Stripe, Google Calendar, and OpenWA runbooks for each integration's recovery behavior.
+
+**Runtime verification still required:** confirm both cron entries execute successfully after their next scheduled run; inspect the Laravel log for scheduler/worker errors, monitor queue backlog and failed jobs, and confirm scheduled commands execute at their expected cadence. Use `php artisan schedule:list`, `php artisan queue:failed`, and the Hostinger cron-job list/output for diagnosis. The cron definitions are configured, but creation alone does not prove successful application-level processing.
 
 ## Database, backups, and recovery
 
@@ -151,7 +196,7 @@ See [the WhatsApp integration runbook](../integrations/whatsapp.md) before confi
 
 ## Security and access-control baseline
 
-- Set `APP_ENV=production` and `APP_DEBUG=false`; never expose `.env`, application logs, database files, backups, or source-control metadata from the web root. The document root must be Laravel's `public/` directory.
+- Set `APP_ENV=production` and `APP_DEBUG=false`; never expose `.env`, application logs, database files, backups, or source-control metadata from the web root. For this Hostinger account, keep the document root at `public_html` and preserve the root `.htaccess` rules that route requests into Laravel's `public/` directory. Do not change the approved folder layout.
 - Keep `APP_KEY`, database credentials, Stripe secrets, SMTP credentials, Meta access token, Meta app secret, and webhook verification token in the Hostinger environment/secret store. Never put them in source, public assets, command arguments, screenshots, or logs. Rotate credentials if exposure is suspected.
 - Public account registration is disabled. Filament's `canAccessPanel` gate checks the explicit `is_staff` flag; authentication alone is not sufficient. Provision staff only through the controlled `php artisan staff:provision EMAIL --name="Name"` process from a trusted shell, with a unique password and MFA/passkey enrollment. No default staff credentials exist.
 - Public booking submission and checkout creation are throttled; availability, signed booking-management links, and provider webhook endpoints have explicit request limits. Stripe and WhatsApp webhooks bypass browser CSRF only at their respective endpoints and must validate provider signatures before trusting payloads. Do not remove signature verification to troubleshoot webhook delivery.

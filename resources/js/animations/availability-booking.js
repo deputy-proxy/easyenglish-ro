@@ -267,6 +267,9 @@ export function initializeAvailabilityBookingTransition(gsap) {
                 }
             },
             onError: (result) => {
+                document.dispatchEvent(new CustomEvent('easyenglish:booking-error', {
+                    detail: { errorType: typeof result.status === 'string' ? result.status : 'submission_failed' },
+                }));
                 const validationMessages = Object.values(result.errors ?? {}).flat().filter((message) => typeof message === 'string');
                 const message = validationMessages.join(' ') || result.message || ({
                     network_error: formPanel.dataset.bookingNetworkError,
