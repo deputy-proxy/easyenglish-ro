@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY .npmrc package.json package-lock.json ./
 COPY scripts/patch-openwa-session-recovery.js ./scripts/patch-openwa-session-recovery.js
 RUN npm ci --omit=dev --ignore-scripts \
     && node scripts/patch-openwa-session-recovery.js \
