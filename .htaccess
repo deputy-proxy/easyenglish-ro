@@ -1,3 +1,13 @@
 RewriteEngine On
+
+# Hostinger may place ACME challenge files directly in the document root.
+RewriteRule ^\.well-known/ - [L]
+
+# Deny hidden files and directories, except the ACME challenge directory.
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
+
+# Deny application source, configuration, tooling, and private runtime paths.
+RewriteRule ^(?:artisan|composer\.(?:json|lock)|phpunit\.xml|app(?:/|$)|bootstrap(?:/|$)|config(?:/|$)|database(?:/|$)|docs(?:/|$)|lang(?:/|$)|poc(?:/|$)|resources(?:/|$)|routes(?:/|$)|scripts(?:/|$)|tests(?:/|$)|vendor(?:/|$)|storage/(?:app/private|framework|logs)(?:/|$)) - [F,L,NC]
+
 RewriteRule ^$ public/ [L]
 RewriteRule ^(.*)$ public/$1 [L]

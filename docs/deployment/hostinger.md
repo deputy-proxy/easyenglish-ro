@@ -55,6 +55,8 @@ CACHE_STORE=database
 QUEUE_CONNECTION=database
 
 LOG_CHANNEL=stack
+LOG_STACK=daily
+LOG_DAILY_DAYS=14
 LOG_LEVEL=info
 
 MAIL_MAILER=smtp
@@ -195,6 +197,29 @@ The proposed 12-month session-goal/notes anonymization command is `php artisan b
 See [the WhatsApp integration runbook](../integrations/whatsapp.md) before configuring Meta credentials. The OpenWA scheduled-call service is hosted separately on Railway. Hostinger cannot resolve Railway private `*.railway.internal` DNS because Railway private networking is scoped to a project/environment. Configure Laravel with the OpenWA public HTTPS domain and a high-entropy Bearer service token in Hostinger environment variables; never put the token in source control or browser code. The Node API returns `503` when its service token is absent, and all `/v1/*` routes require Bearer authentication. Pairing UI routes are disabled by default and require a separate temporary feature flag plus Basic authentication. Keep `OPENWA_ENABLED=false` and `OPENWA_ROLLOUT_STAGE=off` until #220 and explicit rollout approval. See the [OpenWA operations decision record](../decisions/openwa-production-operations.md). See the [staff runbook](../operations/staff-runbook.md) for routine operations and the [launch checklist](../operations/launch-checklist.md) for release gates. Keep `META_WHATSAPP_VERIFICATION_ENABLED=false` until the approved authentication template, webhook signatures, and live OTP delivery are verified. Ordinary WhatsApp notifications use the separate OpenWA messaging capability and are not routed through Meta.
 
 ## Security and access-control baseline
+
+The production PHP settings were hardened on Hostinger on 2026-11-18 and read back successfully:
+
+| Directive | Production value |
+| --- | --- |
+| `expose_php` | `Off` |
+| `log_errors` | `On` |
+| `display_errors` | `Off` |
+| `session.use_strict_mode` | `On` |
+| `session.cookie_secure` | `On` |
+| `session.cookie_httponly` | `On` |
+| `session.cookie_samesite` | `Lax` |
+| `memory_limit` | `512M` |
+| `upload_max_filesize` | `32M` |
+| `post_max_size` | `40M` |
+| `max_execution_time` | `120` seconds |
+| `max_input_time` | `120` seconds |
+
+The application currently limits teacher profile image uploads to 5 MB, so the 32 MB PHP upload ceiling leaves headroom without retaining the previous multi-gigabyte request limits. Laravel session cookies must still be checked in the actual production `Set-Cookie` response; PHP's native session defaults do not prove Laravel's cookie attributes.
+
+The root `.htaccess` denies dotfiles and private application paths before rewriting requests into `public/`, while preserving the root `.well-known/` ACME challenge path and the public `/storage/` asset path. Laravel's global security-header middleware adds HSTS only on secure requests and adds `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options` to application responses. Production HTTP probes remain required to confirm Hostinger's Apache/CDN behavior and ensure no private paths are retrievable.
+
+Set `LOG_CHANNEL=stack`, `LOG_STACK=daily`, `LOG_DAILY_DAYS=14`, and `LOG_LEVEL=info` in the production `.env`. The application defaults the stack to daily rotation, but an existing explicit `LOG_STACK=single` in the server-owned `.env` takes precedence. Never replace the production `.env` during auto-deployment; update only these logging values through the hosting file manager or trusted shell.
 
 - Set `APP_ENV=production` and `APP_DEBUG=false`; never expose `.env`, application logs, database files, backups, or source-control metadata from the web root. For this Hostinger account, keep the document root at `public_html` and preserve the root `.htaccess` rules that route requests into Laravel's `public/` directory. Do not change the approved folder layout.
 - Keep `APP_KEY`, database credentials, Stripe secrets, SMTP credentials, Meta access token, Meta app secret, and webhook verification token in the Hostinger environment/secret store. Never put them in source, public assets, command arguments, screenshots, or logs. Rotate credentials if exposure is suspected.
