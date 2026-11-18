@@ -160,7 +160,7 @@
                     </div>
                     <div class="teacher-carousel" data-teacher-carousel>
                         @foreach ($teachers as $teacher)
-                            <article class="teacher-card relative aspect-[3/4] w-full overflow-hidden rounded-[28px] bg-primary-strong shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-teacher-card>
+                            <article class="teacher-card relative aspect-[3/4] w-full overflow-hidden rounded-[28px] border-0 outline-none bg-primary-strong shadow-[0_1px_2px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.07),0_4px_8px_rgba(0,0,0,0.07),0_8px_16px_rgba(0,0,0,0.07),0_16px_32px_rgba(0,0,0,0.07),0_32px_64px_rgba(0,0,0,0.07)]" data-teacher-card>
                                 @if ($teacher->teacherProfile?->photo_path)
                                     <img class="absolute inset-0 size-full object-cover" src="{{ '/storage/'.ltrim($teacher->teacherProfile?->photo_path, '/') }}" alt="{{ Illuminate\Support\Str::of($teacher->name)->before(' ') }}" loading="lazy">
                                 @else
