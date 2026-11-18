@@ -1,0 +1,83 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+/* Keep the compact radius scale used by the CR8OR admin. */
+@theme {
+    --radius-md: 0.15rem;
+    --radius-lg: 0.275rem;
+}
+
+@source '../../../../app/Filament/**/*.php';
+@source '../../../../resources/views/filament/**/*.blade.php';
+@source '../../../../app/Providers/Filament/**/*.php';
+
+/*
+ * Match CR8OR's dark, near-black admin canvas while keeping the
+ * individual component states and controls styled by Filament.
+ */
+.fi-body {
+    @apply dark:bg-black dark:text-gray-100;
+    color-scheme: dark;
+}
+
+.fi-sidebar,
+.fi-sidebar-header,
+.fi-topbar,
+.fi-main-ctn,
+.fi-main {
+    @apply dark:bg-black;
+}
+
+.fi-section,
+.fi-ta-ctn,
+.fi-modal-window,
+.fi-dropdown-panel {
+    @apply dark:bg-black dark:text-gray-100;
+}
+
+.fi-sidebar-item-label,
+.fi-topbar-item-label,
+.fi-breadcrumbs-item-label,
+.fi-section-header-heading,
+.fi-fo-field-wrp-label,
+.fi-ta-header-cell,
+.fi-ta-cell {
+    @apply dark:text-gray-100;
+}
+
+.fi-body input::placeholder,
+.fi-body textarea::placeholder {
+    @apply dark:text-gray-400;
+}
+
+.fi-body :disabled {
+    @apply dark:text-gray-400;
+}
+
+.fi-body :focus-visible {
+    @apply dark:outline-gray-800 dark:outline-none;
+}
+
+.fi-ta-text {
+    @apply p-2;
+}
+
+.fi-logo {
+    @apply pt-[3px];
+}
+
+.fi-main-ctn-sidebar-open .fi-main {
+    @apply w-full! mx-0! px-2!;
+}
+
+#fi-main-content {
+    @apply w-full! mx-0! px-2!;
+}
+
+.fi-width-7xl {
+    @apply max-w-full!;
+}
+
+.fi-sidebar-item .fi-active {
+    @apply border! border-white/10! bg-white/[0.02]!;
+}
