@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class Dashboard extends BaseDashboard
 {
-    protected static string $view = 'filament.pages.dashboard';
+    protected string $view = 'filament.pages.dashboard';
 
     /**
      * @return array<string, mixed>
