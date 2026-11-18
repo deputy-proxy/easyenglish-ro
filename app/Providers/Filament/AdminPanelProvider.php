@@ -2,8 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use App\Http\Middleware\SetAdminLocale;
 use App\Filament\Pages\Dashboard;
+use App\Http\Middleware\SetAdminLocale;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
