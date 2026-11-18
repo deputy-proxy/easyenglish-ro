@@ -1,5 +1,8 @@
 RewriteEngine On
 
+# Block temporary operational helper scripts; none are part of the public application.
+RewriteRule ^__ops_ - [F,L,NC]
+
 # Hostinger may place ACME challenge files directly in the document root.
 RewriteRule ^\.well-known/ - [L]
 

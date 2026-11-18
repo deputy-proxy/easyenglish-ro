@@ -1,6 +1,6 @@
 # EasyEnglish production launch checklist
 
-**Audit basis:** repository main at db69abdab3cd53dea344d852a4d2456b1f6328f8 and Hostinger inspection/configuration changes on 2026-11-18.
+**Audit basis:** production hardening commit fbf2d8070f7079e3e131a16ea5d15e5322c4fee6 and live Hostinger verification on 2026-11-18.
 
 **Release gate:** do not enable public paid sales until every required item is checked or an explicit, documented risk is accepted. Green CI proves the tested code paths; it does not prove production database contents, provider credentials, legal approval, delivery, backups, or Hostinger runtime behavior.
 
@@ -13,13 +13,13 @@ These are observations, not launch approvals:
 - PHP web runtime: 8.4.27. Required MySQL, mbstring, intl, zip, and other Laravel extensions are available/enabled.
 - SSL is active, HTTPS redirect is enabled, CDN is enabled, and Hostinger server cache is disabled.
 - Dedicated MySQL database: u583712040_easyenglish_ro, approximately 6 MB, created 2026-11-16. Hostinger reports no remote database-access rules.
-- Hostinger auto-deployment has been re-enabled (operator-confirmed on 2026-11-18) and is the production deployment mechanism. The existing public_html-root layout remains unchanged; the repository's hostinger-deploy.sh script is not required or part of this path.
+- Hostinger auto-deployment is operator-confirmed and successfully published commit `fbf2d8070f7079e3e131a16ea5d15e5322c4fee6` to the existing `public_html` application root on 2026-11-18. The root layout remains unchanged; `hostinger-deploy.sh` is not part of this path.
 - EasyEnglish scheduler and database queue cron jobs were created on Hostinger on 2026-11-18. Both run every minute from /home/u583712040/domains/easyenglish.ro/public_html using /usr/bin/php. Successful execution and application-level processing still need runtime verification.
 - The production database was confirmed fine by the operator; the initial database-inspection concern is no longer an outstanding blocker.
-- [x] Hostinger PHP hardening applied and read back on 2026-11-18: expose_php=Off, log_errors=On, display_errors=Off, strict session mode=On, native session cookies Secure/HttpOnly/SameSite=Lax, memory_limit=512M, upload_max_filesize=32M, post_max_size=40M, max_execution_time=120, max_input_time=120. Laravel Set-Cookie headers were verified separately against the live login response.
+- [x] Hostinger PHP hardening applied and read back on 2026-11-18: expose_php=Off, log_errors=On, display_errors=Off, strict session mode=On, native session cookies Secure/HttpOnly/SameSite=Lax, memory_limit=512M, upload_max_filesize=32M, post_max_size=40M, max_execution_time=120, max_input_time=120. Laravel Set-Cookie headers were verified after deployment.
 - Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. The operator has separately confirmed that the production database is fine.
-- Live HTTP probes on 2026-11-18 returned 403/404 for `.env`, `.env.example`, `.git/config`, `.htaccess`, `.mcp.json`, `artisan`, Composer files, `phpunit.xml`, application/bootstrap/config/database/resources/routes/scripts/tests/vendor files, private storage paths, logs, and OpenWA PoC files. `/up` returned 200. Repeat after the hardening release.
-- Live login response on 2026-11-18 set the Laravel session cookie with `Secure`, `HttpOnly`, and `SameSite=Lax`; the XSRF cookie was `Secure` and `SameSite=Lax` (not HttpOnly, as expected for the CSRF cookie).
+- [x] Live HTTP probes after deployment returned 403/404 for `.env`, `.env.example`, `.git/config`, `.htaccess`, `.mcp.json`, `artisan`, Composer files, `phpunit.xml`, application/bootstrap/config/database/resources/routes/scripts/tests/vendor files, private storage paths, logs, and OpenWA PoC files. `/up`, homepage, contact, login, and a public teacher image returned 200.
+- [x] Live login response after deployment set the Laravel session cookie with `Secure`, `HttpOnly`, and `SameSite=Lax`; the XSRF cookie was `Secure` and `SameSite=Lax` (not HttpOnly, as expected for the CSRF cookie).
 
 ## 1. Product and public website
 
@@ -128,21 +128,23 @@ Continue to protect the database through routine operational controls:
 ## 9. Hosting, deployment, and application security
 
 - [ ] Preserve the current Hostinger folder structure. Do not move the Laravel application out of public_html or create an easyenglish-app sibling directory as part of launch preparation.
-- [ ] Verify the hardened root .htaccess rewrite to public/ and test that .env, .git, artisan, Composer files, vendor/, app/, bootstrap/, config/, database/, private storage, and logs cannot be retrieved over HTTP. Preserve root .well-known ACME challenges and public /storage/ assets.
-- [ ] Verify HTTPS redirect, active SSL, and canonical host behavior. These Hostinger settings were observed enabled during this audit.
+- [x] Verify the hardened root .htaccess rewrite to public/ and test that .env, .git, artisan, Composer files, vendor/, app/, bootstrap/, config/, database/, private storage, and logs cannot be retrieved over HTTP. Public `/storage/` assets remain accessible; root `.well-known/` ACME pass-through was validated with a local Apache 2.4 integration test.
+- [x] Verify active SSL and HTTP-to-HTTPS redirect: `http://easyenglish.ro/` returns 301 to `https://easyenglish.ro/`.
+- [ ] Decide whether `www.easyenglish.ro` should redirect to the apex host; it currently serves HTTP 200 rather than redirecting.
 - [ ] Verify APP_ENV=production, APP_DEBUG=false, a valid APP_KEY, the intended MySQL connection, and production-only provider credentials without displaying secret values.
-- [x] Verify Laravel session response headers in production: the session cookie has Secure, HttpOnly, and SameSite=Lax. The XSRF cookie has Secure and SameSite=Lax; it is intentionally not HttpOnly. Repeat after the hardening release.
+- [x] Verify Laravel session response headers in production: the session cookie has Secure, HttpOnly, and SameSite=Lax. The XSRF cookie has Secure and SameSite=Lax; it is intentionally not HttpOnly.
 - [x] Set PHP log_errors=On and expose_php=Off; read back both values on Hostinger.
 - [x] Set PHP strict session mode and native session cookie defaults to Secure/HttpOnly/SameSite=Lax.
-- [ ] Set server-owned production .env values LOG_STACK=daily and LOG_DAILY_DAYS=14; verify daily log rotation and retention after deployment.
+- [x] Set server-owned production `.env` values `LOG_STACK=daily`, `LOG_DAILY_DAYS=14`, and `LOG_LEVEL=info`; a live application log event created `storage/logs/laravel-2026-11-18.log`. Verify old-file pruning after the 14-day retention window.
 - [ ] Verify production error pages do not reveal stack traces, SQL, filesystem paths, or secrets.
-- [ ] Verify the security headers on production HTML and static asset responses, including HSTS on HTTPS. CSP remains deferred until report-only browser validation covers GTM, Stripe, Filament, and Livewire.
-- [ ] Verify writable storage/ and bootstrap/cache/ permissions and the public/storage symlink; Hostinger file listing confirms the public/storage symlink exists, but permissions/ownership remain unverified.
+- [x] Verify production HTML and static asset headers: HSTS on secure HTML responses and `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options` on dynamic responses and static CSS/JS/public-storage assets. CSP remains deferred until report-only browser validation covers GTM, Stripe, Filament, and Livewire.
+- [ ] Verify writable `storage/` and `bootstrap/cache/` permissions and file ownership. Hostinger confirms the `public/storage` symlink exists and its target serves public teacher images; ownership and mode bits remain unverified.
 - [ ] Verify /up, public assets, admin authorization, teacher authorization, password reset, two-factor/passkey behavior, CSRF, and rate limits.
 - [ ] Verify secrets are absent from Git, deployment archives, public responses, and logs.
-- [ ] Verify Hostinger auto-deployment is connected to the intended repository and production branch, with the target root set to the existing public_html application layout.
-- [ ] Verify auto-deployment preserves the server-owned .env, storage/, root .htaccess, public/storage link, Hostinger ACME files, and other runtime data.
-- [ ] Verify one successful auto-deployment and record its deployed commit/revision, timestamp, and smoke-test results. The hostinger-deploy.sh script is not required for this deployment path.
+- [x] Verify Hostinger auto-deployment publishes the intended `main` release into the existing `public_html` root; the hardening commit and its new middleware/headers were confirmed live.
+- [x] Verify the latest auto-deployment preserved the server-owned `.env`, `storage/`, root `.htaccess`, and `public/storage` symlink. Root ACME challenge pass-through was validated in local Apache; no live challenge file was present to test.
+- [ ] Confirm Hostinger ACME challenge files are preserved by future auto-deployments when present.
+- [x] Record successful auto-deployment of `fbf2d8070f7079e3e131a16ea5d15e5322c4fee6` on 2026-11-18 and the post-deployment HTTP smoke tests. The `hostinger-deploy.sh` script is not required.
 
 ## 10. Scheduler, queues, logs, and backups
 
@@ -154,7 +156,8 @@ Continue to protect the database through routine operational controls:
 - [ ] Verify worker runtime remains within Hostinger limits and that no queue backlog accumulates.
 - [ ] Verify each scheduled command is safe to run repeatedly and uses without-overlapping locks as intended.
 - [ ] Test failed email, failed WhatsApp delivery, stuck payment, ambiguous refund, failed job, stale calendar, OpenWA disconnect, and overdue scheduler recovery.
-- [ ] Verify Laravel daily log rotation, PHP error-log destination, retention, and alerting without exposing secrets or unnecessary personal data.
+- [x] Verify Laravel daily logging is active by creating `storage/logs/laravel-2026-11-18.log` after setting the production `.env` values.
+- [ ] Verify old Laravel log pruning after 14 days, PHP error-log destination/retention, and alerting without exposing secrets or unnecessary personal data.
 - [ ] Confirm database and required storage backups run on a documented schedule.
 - [ ] Perform and record a restore to a separate target; confirm the recovery process and recovery time.
 - [ ] Document rollback steps, the known-good release, migration forward-fix strategy, and the responsible operator.
