@@ -55,6 +55,8 @@ CACHE_STORE=database
 QUEUE_CONNECTION=database
 
 LOG_CHANNEL=stack
+LOG_STACK=daily
+LOG_DAILY_DAYS=14
 LOG_LEVEL=info
 
 MAIL_MAILER=smtp
@@ -196,10 +198,33 @@ See [the WhatsApp integration runbook](../integrations/whatsapp.md) before confi
 
 ## Security and access-control baseline
 
+The production PHP settings were hardened on Hostinger on 2026-11-18 and read back successfully:
+
+| Directive | Production value |
+| --- | --- |
+| `expose_php` | `Off` |
+| `log_errors` | `On` |
+| `display_errors` | `Off` |
+| `session.use_strict_mode` | `On` |
+| `session.cookie_secure` | `On` |
+| `session.cookie_httponly` | `On` |
+| `session.cookie_samesite` | `Lax` |
+| `memory_limit` | `512M` |
+| `upload_max_filesize` | `32M` |
+| `post_max_size` | `40M` |
+| `max_execution_time` | `120` seconds |
+| `max_input_time` | `120` seconds |
+
+The application currently limits teacher profile image uploads to 5 MB, so the 32 MB PHP upload ceiling leaves headroom without retaining the previous multi-gigabyte request limits. The live production login response was checked after deployment: the Laravel session cookie has `Secure`, `HttpOnly`, and `SameSite=Lax`; the XSRF cookie has `Secure` and `SameSite=Lax` and is intentionally readable by frontend code.
+
+The root `.htaccess` denies dotfiles and private application paths before rewriting requests into `public/`, while preserving the root `.well-known/` ACME challenge path and the public `/storage/` asset path. Laravel's global security-header middleware adds HSTS only on secure requests and adds `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, and `X-Frame-Options` to application responses. Post-deployment HTTP probes confirmed that private application paths return 403/404, public pages and `/up` return 200, and the public storage symlink continues to serve teacher images. Dynamic HTML responses include HSTS on HTTPS and the baseline security headers; static CSS/JS and public-storage responses include the baseline static-asset headers.
+
+Production `.env` was updated on 2026-11-18 to `LOG_CHANNEL=stack`, `LOG_STACK=daily`, `LOG_DAILY_DAYS=14`, and `LOG_LEVEL=info`. A live application log event created `storage/logs/laravel-2026-11-18.log`, confirming the daily channel is active. Verify 14-day pruning separately. Never replace the production `.env` during auto-deployment; update only required values through the hosting file manager or a trusted shell.
+
 - Set `APP_ENV=production` and `APP_DEBUG=false`; never expose `.env`, application logs, database files, backups, or source-control metadata from the web root. For this Hostinger account, keep the document root at `public_html` and preserve the root `.htaccess` rules that route requests into Laravel's `public/` directory. Do not change the approved folder layout.
 - Keep `APP_KEY`, database credentials, Stripe secrets, SMTP credentials, Meta access token, Meta app secret, and webhook verification token in the Hostinger environment/secret store. Never put them in source, public assets, command arguments, screenshots, or logs. Rotate credentials if exposure is suspected.
 - Public account registration is disabled. Filament's `canAccessPanel` gate checks the explicit `is_staff` flag; authentication alone is not sufficient. Provision staff only through the controlled `php artisan staff:provision EMAIL --name="Name"` process from a trusted shell, with a unique password and MFA/passkey enrollment. No default staff credentials exist.
 - Public booking submission and checkout creation are throttled; availability, signed booking-management links, and provider webhook endpoints have explicit request limits. Stripe and WhatsApp webhooks bypass browser CSRF only at their respective endpoints and must validate provider signatures before trusting payloads. Do not remove signature verification to troubleshoot webhook delivery.
 - Laravel Blade output uses escaped interpolation for user-provided session goals and notes. Keep logs restricted and avoid logging message bodies, customer notes, contact details, access tokens, signatures, or raw provider payloads. Current webhook error logs record exception classes rather than raw request bodies.
 - Admin access and staff mutations are covered by feature tests; run `composer ci:check` after changes. Review new routes for authorization, validation, rate limiting, idempotency, and redacted failure reporting before merging.
-- Production security review still requires checking the actual Hostinger PHP/web-server settings, HTTPS/secure cookie behavior, file permissions, backup access, and secret configuration. Track evidence and unresolved risks in the [launch checklist](../operations/launch-checklist.md).
+- Production PHP settings, HTTPS, session-cookie flags, and live security headers have been verified. File ownership/permissions, backup schedule/retention/restore, PHP error-log destination, and CSP report-only validation remain open; track them in [issue #387](https://github.com/deputy-proxy/easyenglish-ro/issues/387) and the [launch checklist](../operations/launch-checklist.md).

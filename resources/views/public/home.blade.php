@@ -122,7 +122,7 @@
                 tabindex="0"
             >
                 @foreach (['one', 'two', 'three', 'four'] as $index => $step)
-                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] border {{ $index === 3 ? 'border-primary/25 bg-primary-soft/20' : 'border-line bg-white' }}" data-reveal-item>
+                    <article class="how-step-card flex h-full min-w-0 flex-col overflow-hidden rounded-[20px] bg-white" data-reveal-item>
                         <div class="aspect-[4/3] w-full shrink-0">
                             <img
                                 class="block size-full object-contain"

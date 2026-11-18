@@ -1,12 +1,254 @@
-# Easy English
+# EasyEnglish
 
-Easy English is an EdVenture product for adults who want to practise spoken English with an experienced teacher or conversation partner. The initial audience is working adults around A2–B2 who want practical speaking time, confidence, and focused practice.
+EasyEnglish is an EdVenture product for adults who want practical, focused English-speaking practice with a teacher. Learners book individual 15-minute sessions, meet their assigned teacher through WhatsApp, and use their account to manage sessions, purchases, and learning progress.
 
-The application foundation, booking/availability domain, staff administration, Romanian-only public landing page, Stripe Checkout, transactional email/WhatsApp outbox, signed customer booking management, cancellation/rescheduling/no-show workflows, refund reconciliation, and teacher-based availability/Google Calendar integration are implemented behind a rollout flag. The public booking calendar remains aggregated and does not expose teacher identities before confirmation. Live payments still require production Stripe configuration; live email requires SMTP/domain authentication; Meta template updates for teacher details, Google OAuth production setup, and end-to-end verification remain launch gates. The public site does not fake successful payment or unverified free-introduction bookings.
+The product is deliberately focused on conversation practice rather than a self-service course catalogue or a public teacher marketplace. The public website is Romanian-language; the sessions themselves are conducted in English.
 
-## Developer setup
+## Product
 
-Requirements: PHP 8.4+ with the extensions required by the locked Composer dependencies, Composer 2, Node.js 22/npm, and Git. Production uses MySQL/MariaDB; the default local setup uses SQLite and the log mailer, so no live SMTP, Stripe, or WhatsApp credentials are needed to develop or run CI.
+### Learner experience
+
+The public website explains the service, presents the teaching team and product information, and provides the booking and purchase entry points.
+
+A learner can:
+
+- Browse available 15-minute appointment slots in the Europe/Bucharest timezone.
+- Create an account or sign in before completing a booking.
+- Verify the required contact channels for the selected booking flow.
+- Book a free introductory session, subject to the one-free-session-per-person eligibility rule.
+- Purchase an administrator-configured prepaid session bundle through Stripe Checkout.
+- Apply eligible campaign vouchers to a bundle purchase.
+- Book sessions using available bundle credits.
+- Receive transactional email and WhatsApp notifications.
+- Manage eligible bookings through signed links, including cancellation and rescheduling.
+- Access the customer dashboard to review upcoming and past sessions, purchases and credits, account details, support information, and learning progress.
+- Join an arranged WhatsApp session using the call link made available for the confirmed booking.
+
+All appointments are 15 minutes. Availability is calculated from active teachers' schedules, calendar busy periods, exceptions, existing bookings, booking notice, and the inter-session buffer. The public calendar exposes aggregated availability and does not reveal teacher identities before confirmation. Teacher assignment is handled internally.
+
+The current product rules and active bundle prices are configuration/data driven. The Filament bundle catalog is the source of truth for active products and prices; historical purchase records retain their price and discount snapshots.
+
+### Learning progress
+
+After sessions, teachers can record structured feedback against five learning dimensions:
+
+- Vocabulary
+- Pronunciation
+- Fluency
+- Grammar
+- Confidence
+
+Progress reports provide a record of assessed development over time. The customer dashboard separates assessment history, published progress reports, learner profile information, and suggested next steps. Assessed levels and self-reported profile information have distinct provenance; a learner's self-reported level is not silently treated as a teacher assessment.
+
+Teachers use a dedicated workspace to see their assigned sessions, relevant learner context, feedback tasks, weekly workload, availability, and Google Calendar connection status. Teacher queries are scoped server-side to the authenticated teacher's own assignments. The teacher workspace does not expose customer contact details, payment data, private booking notes, or unrelated learner history.
+
+### Staff operations
+
+Authorized staff use the Filament administration panel at `/admin` to manage operational records, including:
+
+- Customers and staff/teacher accounts.
+- Teacher profiles, availability rules, and exceptions.
+- Bookings, booking history, and audit records.
+- Lesson bundle definitions, customer entitlements, and credit transactions.
+- Payments, refunds, and payment disputes.
+- Discount vouchers and redemptions.
+- Progress reports and session feedback.
+- Enquiries, FAQs, testimonials, and public-facing content.
+- Notification deliveries, WhatsApp contacts, and scheduled call events.
+
+Staff access is distinct from teacher access. A teacher account does not automatically grant Filament administration permissions.
+
+## Booking and commercial model
+
+The booking system is built around individual appointments and prepaid credit entitlements. A bundle purchase does not itself book all included sessions.
+
+Current domain rules include:
+
+- 15-minute sessions.
+- Europe/Bucharest as the scheduling timezone.
+- A minimum booking notice of 24 hours.
+- A 15-minute buffer between appointments.
+- A short application-level hold while a learner completes an individual appointment booking.
+- One free introductory session per person, with eligibility shared with the free session included in a bundle.
+- Bundle activation after confirmed payment and validity measured in calendar months according to the configured product policy.
+- Credit reservation, consumption, restoration, forfeiture, expiry, and refund adjustments recorded through an auditable credit ledger.
+- Cancellation and rescheduling outcomes determined by the policy accepted for the booking.
+
+The current bundle catalog, discounts, and voucher rules are managed in the application. Do not treat old example prices or historical marketing values as authoritative current prices.
+
+Stripe Checkout is used for paid purchases. A browser success redirect is not proof of payment: signed Stripe webhooks and server-side reconciliation establish payment state. Webhook processing and purchase activation are designed to be idempotent.
+
+## Application architecture
+
+EasyEnglish is a Laravel monolith for the public website, customer account area, teacher workspace, and staff administration. These application surfaces share the same domain models and database. External providers are integrated through dedicated adapters/services, while Laravel remains the system of record for customers, bookings, teacher assignment, entitlements, payments, and notification delivery.
+
+### Application layers
+
+| Layer | Implementation | Responsibility |
+| --- | --- | --- |
+| HTTP entry points | Laravel routes and controllers | Public pages, booking and purchase flows, customer dashboard, teacher workspace, webhooks, and signed booking management |
+| Customer and teacher UI | Blade and Livewire | Server-rendered pages, account workflows, interactive booking and dashboard experiences |
+| Staff UI | Filament 5 | Internal operational management and authorized staff actions |
+| Domain models | Eloquent | Customers, teachers, bookings, availability, bundles, credits, payments, progress, and notifications |
+| Domain services | `app/Services` | Booking rules, availability, payment processing, progress data, provider integrations, and notification orchestration |
+| Background work | Laravel jobs and database queue | Calendar synchronization, notification delivery, and scheduled call-event operations |
+| Scheduling | Laravel Scheduler | Expiring holds, payment/calendar reconciliation, notification and call-event dispatch, provider monitoring, and verification cleanup |
+
+### Main domain areas
+
+**Identity and access**
+
+Laravel authentication and Fortify provide account registration, login, password recovery, email verification, two-factor authentication, and account security. Passkeys are supported by the application. Role and ownership checks protect staff operations, teacher routes, customer records, and signed booking-management links.
+
+**Booking and availability**
+
+- `AvailabilityService` calculates bookable slots from teacher schedules, exceptions, Google Calendar busy intervals, existing bookings, notice requirements, and buffers.
+- `BookingService` coordinates slot holds, teacher assignment, booking creation, credit reservation, audit history, notifications, calendar synchronization, and scheduled call-event work.
+- `BundleEntitlementService` and the credit transaction ledger manage prepaid session balances and their lifecycle.
+- `CancellationPolicyService` centralizes cancellation and rescheduling rules.
+- A database-backed booking mutex and transactional state changes protect booking mutations against concurrent requests.
+
+Teacher availability is the union of eligible teachers' schedules, less busy periods and booking conflicts. The public response is aggregated; teacher assignment remains internal and is performed by the application.
+
+**Payments and commercial operations**
+
+- `StripeCheckoutService` creates checkout sessions using server-authoritative bundle and voucher pricing.
+- Stripe webhook processing verifies provider signatures, records provider events, and applies payment state transitions idempotently.
+- Reconciliation commands recover payment states that cannot be conclusively resolved from an individual webhook.
+- Refund, dispute, voucher, and purchase snapshot records preserve an auditable commercial history.
+
+**Notifications and contact verification**
+
+The notification outbox records intended deliveries and their outcomes separately from the underlying booking/payment state. Queued delivery supports retries and operational inspection.
+
+- Meta WhatsApp Cloud API is used for contact-verification messages/OTPs.
+- OpenWA is used for the configured transactional WhatsApp messaging integration.
+- Email is delivered through the configured mail provider.
+- Signed provider webhooks update delivery and contact-verification state.
+
+**Calendar integration**
+
+Each teacher can connect a Google Calendar account. OAuth credentials are stored securely, calendar synchronization derives busy intervals without exposing private event content to the public availability response, and booking changes are synchronized to the relevant teacher calendar. Reconciliation jobs handle missed or uncertain calendar updates.
+
+**Scheduled WhatsApp call events**
+
+The scheduled-call capability is isolated in a separate Node.js OpenWA service. Laravel calls its authenticated HTTPS API; it does not embed Chromium or WhatsApp Web automation in the PHP application. Laravel remains authoritative for booking and teacher assignment, while the separate service manages provider-side call-event creation, retrieval, and cancellation. This is distinct from WhatsApp messaging and from Meta's official Cloud API.
+
+OpenWA uses unofficial WhatsApp Web automation and carries provider/account operational risk. It is deployed separately from the Hostinger Laravel application, with its own persistent session storage, encryption, readiness checks, and monitoring.
+
+**Learning progress**
+
+Session feedback and progress reports are persisted separately from bookings and payment records. Progress chart data is prepared by application services and exposed to the learner through authorized dashboard views. Report publication and archival state control what is visible to the customer.
+
+### Persistence and key records
+
+The main Eloquent domain models include:
+
+- Identity and profiles: `User`, `StudentProfile`, `TeacherProfile`.
+- Scheduling: `Booking`, `AvailabilityRule`, `AvailabilityException`, `TeacherCalendar`, `TeacherCalendarBusyInterval`.
+- Bundles and credits: `BundleDefinition`, `BundleEntitlement`, `CreditTransaction`, `FreeSessionClaim`.
+- Payments: `Payment`, `StripeWebhookEvent`, `PaymentRefund`, `PaymentDispute`, `DiscountVoucher`, `DiscountVoucherRedemption`.
+- Learning: `SessionFeedback`, `ProgressReport`.
+- Communication: `NotificationDelivery`, `Message`, `WhatsAppContact`, `ContactVerificationChallenge`.
+- Operations and public content: `BookingAudit`, `BookingCallEvent`, `Enquiry`, `Faq`, `Testimonial`.
+
+Database migrations define and evolve the schema. Historical payment and bundle snapshots are retained so catalog changes do not rewrite past purchases.
+
+## External integrations
+
+| Integration | Purpose |
+| --- | --- |
+| Stripe | Bundle checkout, payment webhooks, refunds, disputes, and reconciliation |
+| Google Calendar | Teacher OAuth connection, busy-time synchronization, and booking event synchronization |
+| Meta WhatsApp Cloud API | Contact verification and OTP delivery |
+| OpenWA service | Transactional WhatsApp messaging and scheduled WhatsApp call events |
+| Email provider | Verification and transactional email |
+| Hostinger | Laravel application hosting, MySQL database, scheduled tasks, and queue execution |
+| Railway | Separate persistent OpenWA service runtime |
+
+Integration configuration, security boundaries, setup, recovery, and operational limitations are documented in the relevant runbooks under `docs/integrations/`.
+
+## Technology stack
+
+| Area | Technology |
+| --- | --- |
+| Runtime | PHP 8.4+ |
+| Backend | Laravel 13 |
+| Staff administration | Filament 5 |
+| UI | Blade, Livewire 4, Livewire Flux |
+| Styling | Tailwind CSS 4 |
+| Browser interactions | Alpine.js / Livewire and GSAP where needed |
+| Asset build | Vite 8, Node.js, npm |
+| Database | MySQL/MariaDB in production; SQLite for local setup and tests |
+| Payments | Stripe PHP SDK |
+| PDF/email | Laravel mail and configured provider integrations |
+
+The application is a server-rendered Laravel application. It does not use a separate React, Vue, or Inertia frontend.
+
+## Repository structure
+
+```
+app/
+├── Console/Commands/       # Reconciliation, dispatch, monitoring, and maintenance commands
+├── Enums/                  # Domain status and event types
+├── Filament/               # Staff administration resources and pages
+├── Http/
+│   ├── Controllers/        # Public, booking, webhook, and teacher endpoints
+│   └── Middleware/         # Teacher access, locale, and request protections
+├── Jobs/                   # Queued calendar, notification, and call-event work
+├── Mail/                   # Transactional and operational email
+├── Models/                 # Eloquent domain records
+├── Policies/               # Resource authorization
+├── Providers/              # Application, Fortify, and Filament providers
+└── Services/
+    ├── Booking/             # Availability, booking lifecycle, entitlements, policy
+    ├── Calendar/            # Google Calendar integration
+    ├── CallEvents/          # OpenWA scheduled-call provider
+    ├── Notifications/       # Email/WhatsApp outbox and provider adapters
+    ├── Payments/            # Stripe checkout, webhooks, refunds, disputes, vouchers
+    ├── Progress/            # Learner progress and chart data
+    └── Verification/        # Contact and free-session eligibility
+
+database/
+├── factories/
+├── migrations/
+└── seeders/
+
+resources/
+├── css/
+├── js/
+└── views/
+    ├── public/              # Public site, booking, customer dashboard
+    ├── teacher/             # Teacher workspace
+    ├── livewire/            # Interactive account components
+    └── emails/              # Transactional email templates
+
+routes/
+├── web.php
+├── settings.php
+└── console.php
+
+docs/
+├── architecture/
+├── integrations/
+├── legal/
+├── operations/
+└── product/
+```
+
+## Local development
+
+### Requirements
+
+- PHP 8.4+
+- Composer 2
+- Node.js 22 and npm
+- Git
+- SQLite for the default local database, or MySQL/MariaDB when matching production
+
+The default local environment uses SQLite and the log mailer. You do not need live Stripe, SMTP, Google, Meta, or OpenWA credentials to install the application and run the automated test suite.
+
+### Setup
 
 ```sh
 git clone https://github.com/deputy-proxy/easyenglish-ro.git
@@ -16,265 +258,72 @@ composer setup
 composer run dev
 ```
 
-`composer setup` installs locked dependencies, creates the local SQLite database file when needed, generates the application key, runs migrations, and builds frontend assets. Run `composer ci:check` to execute the configured PHP lint, static analysis, and tests. CI also runs the frontend build. See the [Hostinger deployment and runtime runbook](docs/deployment/hostinger.md) for production configuration, deployment, cron, queue, backup, and troubleshooting guidance. See [booking and availability domain documentation](docs/product/booking-and-availability.md) for teacher assignment, aggregation, timezone, slot-buffer, credit, and rollout semantics. See the [Google Calendar integration runbook](docs/integrations/google-calendar.md) for OAuth setup, synchronization policy, teacher onboarding, and calendar-event recovery. See [the public booking journey](docs/product/public-booking-journey.md) for the Romanian-only website, weekly availability UI, customer form, policy disclosures, and remaining integration launch gates. See [the contact page and enquiries workflow](docs/product/contact-and-enquiries.md) for public submissions, spam controls, and staff administration. See the [dashboard integration overview](docs/product/dashboard-integration.md) for the customer/teacher information architecture, shared data contracts, role boundaries, and release gates. See the [customer dashboard overview](docs/product/customer-dashboard-overview.md) for the five-area navigation, overview data sources, event provenance, and role boundaries. See the [learner profile specification](docs/product/learner-profile.md) for self-reported profile fields, assessed-level precedence, and editing/privacy boundaries. See [learner progress and assessments](docs/product/learner-progress-and-assessments.md) for assessment history, report publication/archive, score semantics, and recommendation provenance. See [the assessment dimensions and score rubric](docs/product/progress-assessments.md) for the five teacher-assessed dimensions, baseline semantics, and radar-chart behaviour. See [bundle pricing and discounts](docs/product/bundle-pricing-and-discounts.md) for catalog discount rules, authoritative price calculation, public display, and Stripe purchase snapshots. See [campaign discount vouchers](docs/product/discount-vouchers.md) for campaign code configuration, pricing overrides, and redemption lifecycle. See the [Stripe Checkout, webhook, reconciliation, and refund runbook](docs/integrations/stripe.md) before enabling live payments. See the [EasyEnglish email template design, inventory, and Artisan preview command](docs/email-templates.md) and the [transactional email and notification outbox runbook](docs/integrations/email.md) for SMTP setup, domain authentication, queue retries, and delivery recovery. See the [WhatsApp Business Platform runbook](docs/integrations/whatsapp.md) for Meta setup, templates, consent, opt-out, and webhook operations. See the [isolated OpenWA scheduled-call service](docs/integrations/openwa.md) for its private API, Railway runtime, pairing security, and final real-device acceptance gate. See the [email and phone verification flow](docs/integrations/verification.md) for challenge lifecycle, security controls, and production activation gates. See the [cancellation, rescheduling, and refund policy](docs/product/cancellations-refunds-rescheduling.md) for boundaries, refund calculation, recovery, and the mandatory legal-review gate. Privacy and retention drafts are in [the privacy notice](docs/legal/privacy-notice.md) and [retention policy](docs/legal/retention-policy.md); the accountant-reviewed transaction process is in [tax and invoicing](docs/operations/tax-and-invoicing.md). The [launch checklist](docs/operations/launch-checklist.md) tracks production gates, and the [staff runbook](docs/operations/staff-runbook.md) covers routine booking/payment operations. Customer account ownership and the legacy reconciliation procedure are documented in [customer identity and record ownership](docs/architecture/customer-identity-and-record-ownership.md) and the [customer record reconciliation runbook](docs/operations/customer-record-reconciliation.md).
+Configure any optional provider credentials in `.env` when developing the corresponding integration. Never commit production secrets.
 
-## Product goal
+### Validation
 
-Make it easy for an adult learner to create an account, book a free introductory session or buy a prepaid bundle, and track their English progress without navigating a complex course platform.
+Run the configured PHP checks and tests:
 
-### MVP customer journey
+```sh
+composer ci:check
+```
 
-1. Visit a Romanian landing page and understand the offer.
-2. Choose an available 15-minute session in the Europe/Bucharest timezone, either as a free introduction or using a prepaid bundle.
-3. Log in or create an account. New learners provide their name, email, phone/WhatsApp number, English level, session goal, and optional notes; returning learners retain their profile details.
-4. Verify email and WhatsApp, then complete the selected free-session booking or continue to Stripe Checkout for a prepaid bundle in RON. Prices include all applicable taxes.
-5. Receive email and WhatsApp confirmation, including instructions for the session.
-6. Use the account dashboard to manage the calendar, see remaining sessions, and review metric-based progress feedback.
-7. Join the teacher for a session through WhatsApp. The call itself is handled in the WhatsApp application; the WhatsApp Business Platform/API is for messaging, not for placing voice/video calls.
-8. The teacher reviews assigned bookings and records session feedback in the teacher workspace; authorized staff manage operational records in Filament.
+Build frontend assets:
 
-The database is authoritative for availability and booking state. A browser redirect to Stripe must never, by itself, be treated as proof of payment. Verified Stripe webhooks confirm payment and trigger the paid-booking workflow.
+```sh
+npm run build
+```
 
-## Confirmed MVP decisions
+Run JavaScript tests:
 
-| Area | Decision |
-| --- | --- |
-| Teacher model | Internal teacher accounts and fair assignment; no public teacher marketplace or customer teacher selection |
-| Availability | Union of active teachers' recurring schedules minus Busy Google Calendar events, date exceptions, and EasyEnglish bookings; legacy central schedule remains the disabled-feature fallback |
-| Minimum booking notice | At least 24 hours before the slot start; exactly 24 hours is bookable |
-| Session duration | 15 minutes only |
-| Buffer | 15 minutes between sessions |
-| Appointment-slot hold | 5-minute application-level hold for a pending slot reservation; separate from bundle validity |
-| Free introduction | One 15-minute free introductory session per person, with verified email and phone; the offer is shared with the bundle's included free session |
-| Bundle A | 5 total sessions (1 free + 4 paid): 156 RON, tax-inclusive |
-| Bundle B | 11 total sessions (1 free + 10 paid): 390 RON, tax-inclusive |
-| Bundle C | 21 total sessions (1 free + 20 paid): 780 RON, tax-inclusive |
-| Bundle validity | Three calendar months from successful payment, using Europe/Bucharest; appointment must start before expiry |
-| Tax display | Prices are in RON and include all applicable taxes |
-| Bundle appointment cancelled at least 24 hours before | Restore the session credit; no automatic refund |
-| Bundle appointment cancelled 12 to less than 24 hours before | One free reschedule; otherwise forfeit the credit |
-| Bundle appointment cancelled less than 12 hours before | Forfeit the credit; no free reschedule |
-| Teacher cancellation | Restore the credit and extend bundle validity to leave at least 14 days when necessary; cash refunds follow the separate reviewed refund policy |
-| Customer no-show | Forfeit the session credit; staff must record no-shows through an authorized, auditable action |
-| Required booking data | Name, email, phone/WhatsApp, English level, session goal; notes field also included |
-| Confirmation channels | Email and WhatsApp |
-| WhatsApp integration | Meta Cloud API adapter, consent/opt-out, approved-template delivery, and signed webhook handling implemented; production setup and approval remain launch gates |
-| Session channel | WhatsApp call, arranged through the WhatsApp app |
-| Website language | Romanian only |
-| Hosting | Hostinger shared hosting |
-| Payments | Stripe |
-| Email delivery | Existing SMTP account/provider; sender identity and DNS authentication to be configured |
-| Timezone | Europe/Bucharest as the scheduling timezone |
-| Admin access | Explicitly authorized staff accounts only; active teachers use a dedicated workspace scoped to their assigned sessions and own availability/calendar |
-| Public website | Custom product landing page, visually aligned with EdVenture |
+```sh
+npm test
+```
 
-Cancellation deadlines are measured from the scheduled session start time. The bundle cancellation policy must be shown before purchase/booking and the accepted policy version recorded. A booking cancellation does not automatically refund a prepaid bundle. Refund eligibility, including statutory consumer rights, must be handled under the published terms and applicable law. Refund and rescheduling actions must be auditable.
+Run Laravel tests directly:
 
-## Product principles and constraints
+```sh
+php artisan test
+```
 
-- **Low friction:** preserve the selected timeslot or bundle through login/registration and return the learner to the same action.
-- **Short, focused sessions:** all sessions last 15 minutes.
-- **Reliable booking:** prevent overlapping reservations, including the 15-minute buffer.
-- **Payment integrity:** verify webhook signatures, process events idempotently, and reconcile payment state on the server.
-- **Privacy:** collect only the learner information needed to arrange and deliver the session; protect it through authorization and a defined retention policy.
-- **Operational simplicity:** use Filament for internal management and a dedicated teacher workspace scoped to each teacher's assigned sessions, availability, and calendar connection.
-- **Bundle validity:** bundles activate on successful payment and remain valid for three calendar months in Europe/Bucharest. An appointment must start before expiry.
-- **Progressive scope:** validate the booking and delivery workflow before adding subscriptions, a marketplace, AI features, or custom video infrastructure.
+## Production architecture and operations
 
-## Proposed domain model
+The Laravel application is hosted on Hostinger with the existing application layout under the domain's `public_html` directory and Hostinger Git auto-deployment. Production persistence uses MySQL/MariaDB.
 
-Confirm names, relationships, and exact fields during implementation, but keep these concepts separate:
+The Laravel scheduler and database-backed queue are driven by Hostinger cron. Scheduled tasks include expiring booking holds, Stripe reconciliation, notification dispatch, call-event dispatch, OpenWA monitoring, teacher calendar synchronization, booking-calendar reconciliation, and verification cleanup. Queue jobs are processed by the configured cron-triggered worker; the deployment runbook documents the exact commands and operating constraints.
 
-- **Bundle definition:** the server-configured product and its price, number of paid sessions, and included free-session allowance.
-- **Bundle entitlement:** one customer's purchased bundle, payment state, activation/expiry, remaining credits, and audit history.
-- **Credit ledger:** auditable credit grants, reservations, consumption, restorations, forfeitures, expiry, and refund adjustments.
-- **Free-session eligibility:** verified contact details and the shared one-free-session-per-person allowance.
-- **Teacher:** an existing User with a teacher role/activation flag, a private calendar connection, and assigned bookings.
-- **Availability rule:** a teacher-scoped recurring weekly interval; `NULL` owner retains the legacy central schedule.
-- **Availability exception / blocked period:** one-off teacher-specific changes, time off, and manually blocked dates.
-- **Teacher calendar:** encrypted OAuth credentials, provider calendar reference, sync status, and last successful sync.
-- **Calendar busy interval:** normalized UTC boundaries and provider event ID only; private event content is not stored.
-- **Available slot:** a concrete bookable start/end time, duration, and capacity. Generate/display slots from the rules and exceptions; the persisted booking state remains authoritative.
-- **Booking:** selected 15-minute time, learner contact details, English level, session goal, optional notes, accepted policy version, status, assignment to one teacher, and Google Calendar event reference; link a paid booking to the bundle credit it reserves.
-- **Payment:** bundle purchase association, provider, Stripe Checkout Session/payment identifiers, amount/currency, tax-inclusive price, and payment status.
-- **Notification / delivery record:** records email and WhatsApp confirmation/reminder attempts and outcomes without making notification delivery the source of truth for a booking.
-- **Audit record:** important staff changes to bookings, refunds, rescheduling, and availability.
+The OpenWA service is deployed separately on Railway because it requires a persistent Node.js/Chromium process and durable session storage. The Laravel application communicates with it through an authenticated HTTPS service API.
 
-Do not build public multi-teacher discovery, ranking, or customer teacher selection. Avoid introducing a generic course/enrolment system unless implementation demonstrates a real need.
+Production setup, deployment, backups, cron, queue processing, provider credentials, and troubleshooting are documented in the [Hostinger deployment runbook](docs/deployment/hostinger.md).
 
-## Implementation plan
+## Product and operations documentation
 
-### Phase 0 — Product rules
+The README describes the product and the architecture present in the codebase. Detailed rules and operational procedures live in focused documents:
 
-The product model is agreed: one standalone free 15-minute introduction, plus prepaid bundles of 1 free + 4 paid sessions for 156 RON, 1 free + 10 paid sessions for 390 RON, or 1 free + 20 paid sessions for 780 RON. All sessions last 15 minutes and prices include taxes. Bundle validity is three calendar months from successful payment. Operational setup and legal/compliance verification remain launch prerequisites.
-
-**Exit criteria:** booking, payment, cancellation, rescheduling, and no-show rules are explicit enough to implement without relying on assumptions.
-
-### Phase 1 — Establish the application baseline
-
-- Review the current Laravel 13, Filament 5, Livewire, authentication, and CI setup before changing dependencies.
-- Keep the existing authentication and security features unless a concrete product need justifies changes.
-- Establish application conventions for domain services/actions, validation, policies, enums, and feature tests.
-- Keep the current Hostinger shared-hosting deployment approach. Existing apps have already exercised the PHP/Composer stack, framework deployment, frontend assets, API connectivity, and database support on Hostinger.
-- Use the Laravel scheduler via Hostinger cron and a database-backed queue processed by a cron-triggered worker using `queue:work --stop-when-empty`. Confirm actual cron cadence and execution limits when deploying this app.
-- Configure local/test environment variables for database, SMTP, Stripe, and WhatsApp messaging without requiring live credentials in CI.
-- Ensure CI covers formatting, static analysis, and automated tests.
-
-**Exit criteria:** repeatable local setup, documented Hostinger scheduler/queue strategy, and green CI baseline.
-
-### Phase 2 — Build the booking domain and admin workflow
-
-- Add migrations, models, relationships, factories, and status definitions for availability rules, exceptions, bookings, payments, notifications, and audit records as needed.
-- Implement recurring availability, manual overrides, blocked dates, and 15-minute inter-session buffers.
-- Model bundle definitions, paid entitlements, credit ledger entries, free-session eligibility, and validity/expiry separately from appointment records.
-- Enforce atomic credit reservation/restoration and prevent concurrent double-spending.
-- Add Filament views/actions for bundle balances, expiry, and audited credit adjustments.
-- Implement slot availability queries and server-side validation.
-- Implement booking creation with a database transaction and appropriate locking/constraints so concurrent requests cannot reserve overlapping time.
-- Make the distinction between bundle purchase and appointment booking explicit: buying a bundle does not automatically schedule every included session.
-- Implement a 5-minute application-level hold for an appointment slot while the booking flow is being completed. Do not conflate this slot hold with the bundle's three-calendar-month validity. If checkout is associated with a held appointment, reconcile payment and appointment state safely before releasing the slot.
-- Define explicit booking and payment state transitions. Keep pending, paid/confirmed, cancelled, expired, refunded, and failed states unambiguous.
-- Add Filament management for availability rules, exceptions/blocked periods, bookings, and payment visibility where operationally useful.
-- Apply authorization and validate every state-changing action server-side.
-
-**Exit criteria:** staff can manage availability and inspect bookings; automated tests prove overlapping reservations cannot be created and an expired slot hold cannot release a slot that has become confirmed.
-
-### Phase 3 — Build the public booking journey
-
-- Create a responsive Romanian-language landing page describing the offer, intended audience, session lengths, process, and calls to action.
-- Show the full week's available 15-minute slots in the Europe/Bucharest timezone, without requiring the visitor to select a day first.
-- Collect the agreed learner details with server-side validation and clear privacy/cancellation information.
-- For bundle purchases, create a pending purchase/checkout and activate credits only after verified Stripe payment. For free introductory bookings, do not create a zero-value checkout.
-- Keep the 5-minute application-level hold for individual appointment-slot reservations only, not bundle validity.
-- Offer the standalone free introductory session without checkout, plus the three tax-inclusive bundles: 156 RON for 1 free + 4 paid sessions; 390 RON for 1 free + 10 paid sessions; 780 RON for 1 free + 20 paid sessions.
-- Make error, expired-slot, and unavailable-slot states clear and recoverable.
-- Keep the public flow usable without learner registration.
-
-**Exit criteria:** a learner can book the standalone free introduction without payment, or purchase a bundle and then book eligible sessions without relying on client-side availability or credit balances.
-
-### Phase 4 — Integrate Stripe payments safely
-
-- Create Stripe Checkout Sessions on the server using the selected bundle's authoritative price and RON currency; free introductory bookings do not use Stripe checkout.
-- Store Stripe identifiers and correlate every payment with its booking.
-- Verify webhook signatures and handle relevant success, failure, expiry, refund, and reconciliation events.
-- Make webhook handling idempotent; repeated or out-of-order events must not create duplicate confirmations or invalid state transitions.
-- Confirm a booking only after the server receives and validates authoritative payment confirmation.
-- Keep bundle checkout/payment state separate from appointment-slot holds. Reconcile verified Stripe payment before activating bundle credits; release an expired slot hold only after checking the authoritative appointment state.
-- Handle abandoned checkout and pending-booking expiry, releasing availability safely.
-- Never trust the success URL, client-submitted amount, or browser state as payment proof.
-- Keep a clear audit trail for refunds and cancellation-related payment changes.
-
-**Exit criteria:** automated tests cover successful bundle payment, failed/expired checkout, duplicate webhook delivery, invalid signatures, entitlement activation races, refunds, and concurrent attempts to reserve overlapping time.
-
-### Phase 5 — Confirmation and session delivery
-
-- Send a booking confirmation after verified payment, including duration, date/time, timezone, and WhatsApp session instructions.
-- Configure the chosen SMTP sender and test delivery failures.
-- Set up the WhatsApp Business Platform/API collaboratively before production messaging is enabled. Document account prerequisites, credentials, templates, consent, delivery-status handling, and retries in a dedicated Markdown guide in the repository.
-- Treat WhatsApp calling as a human-operated session in the WhatsApp application; do not scope automated voice/video calling through the messaging API.
-- Give the teacher the learner's submitted level, goal, contact details, notes, and booking information in Filament.
-- Record notification outcomes and allow safe retries without duplicating bookings or payments.
-- Use the Laravel scheduler and cron-triggered database queue worker for reminders and retries, subject to tested Hostinger execution limits.
-
-**Exit criteria:** a paid booking produces clear email and WhatsApp confirmations and an actionable teacher workflow, with failures visible to staff.
-
-### Phase 6 — End-to-end quality and launch readiness
-
-- Test the free introductory journey and each bundle purchase through Stripe test payment, credit activation, appointment booking, and email/WhatsApp confirmation.
-- Test authorization, validation, privacy, booking concurrency, buffer rules, slot expiry, webhook idempotency, cancellation/refund handling, and notification retries.
-- Verify accessibility, responsive layouts, Romanian-language content, loading states, empty states, and error handling.
-- Add structured logging for payment/webhook failures without logging secrets or unnecessary personal data.
-- Document Hostinger deployment, required environment variables, cron/scheduler setup, Stripe webhook setup, SMTP, WhatsApp configuration, backups, and operational procedures in Markdown files in the repository.
-- Finalize the privacy notice, retention/deletion rules, and accountant-reviewed Romanian tax/invoicing workflow before launch.
-- Run the complete CI suite and resolve failures before release.
-
-**Exit criteria:** the end-to-end flow passes in a production-like environment and staff can operate the product without developer intervention for routine bookings.
-
-## Core booking and payment rules
-
-These rules should be treated as invariants and enforced on the server:
-
-1. Availability displayed in the browser is informational; availability must be checked again when a booking is created.
-2. An assigned teacher's calendar cannot contain overlapping confirmed/pending reservations, including the 15-minute buffer. Public availability is the union of active teachers with a fresh Google Calendar sync; stale/disconnected calendars fail closed.
-3. Sessions and deadlines use the Europe/Bucharest scheduling timezone, with timezone-aware timestamps stored consistently.
-4. A pending appointment-slot reservation has a 5-minute application-level hold. The hold is separate from bundle validity and must be released only after server-side checks establish that no confirmed appointment/payment state depends on it.
-5. The database records the current booking/payment state; Stripe is the payment provider's authority for payment events.
-6. A browser redirect is not proof of payment. A verified Stripe webhook (or a server-side reconciliation path) is required before marking a booking paid/confirmed.
-7. Webhook and scheduled-job processing must be idempotent and safe to retry.
-8. Amount, currency, booking reference, and Stripe identifiers must be validated server-side. Teacher assignment is server-side, revalidated at confirmation, and never exposed before confirmation. Prices are configured server-side and include applicable taxes.
-9. Notifications are downstream effects. A notification failure must not silently reverse a valid payment or create a duplicate booking.
-10. Only authorized staff can manage availability or alter booking/payment state manually, and administrative changes should be auditable.
-11. The cancellation policy shown before payment must be associated with the booking. Refunds and rescheduling actions must be authorized and auditable.
-12. Customer-facing times must be clear and consistent with the Europe/Bucharest scheduling timezone.
-
-## Explicitly out of scope for the first release
-
-Unless product validation changes the priorities, defer:
-
-- Subscriptions and recurring billing
-- A public marketplace or multi-teacher discovery/ranking experience
-- AI conversation partners, AI assessment, and automated progress scoring
-- Building custom video-call infrastructure
-- Native mobile applications
-- Complex course, cohort, or classroom management
-
-## Testing strategy
-
-- **Unit tests:** bundle pricing, credit ledger transitions, three-calendar-month validity, status transitions, hold/expiry rules, timezone handling, cancellation deadlines, and availability calculations.
-- **Feature tests:** public Romanian-language booking flow, validation, authorization, and Filament operations.
-- **Concurrency tests:** competing attempts to reserve overlapping times, including the 15-minute buffer.
-- **Payment tests:** bundle Stripe Checkout creation, webhook signature verification, idempotency, expiry, refunds, credit activation, and payment/entitlement reconciliation.
-- **Notification tests:** email/WhatsApp triggers, retry behaviour, scheduled reminders, and no duplicate customer confirmations.
-- **End-to-end tests:** book the standalone free introduction; purchase each bundle; verify payment and credits; book multiple 15-minute sessions; test expiry, cancellation/restoration, rescheduling, teacher cancellation, no-show, refunds, and notifications.
-- **Scheduler/queue tests:** verify scheduled tasks are safe to repeat, jobs can be processed by a cron-triggered worker, and failures are retried without duplicate side effects.
-
-External services should be mocked or placed in test mode in automated CI. Do not require live payment or messaging credentials to run the normal test suite.
-
-## GitHub development roadmap
-
-The implementation is tracked through the following issues. Each issue includes scope, decisions, a step-by-step implementation plan, acceptance criteria, dependencies, and Markdown documentation deliverables.
-
-1. [Phase 1 — Application baseline and Hostinger runtime workflow](https://github.com/deputy-proxy/easyenglish-ro/issues/3)
-2. [Phase 2 — Availability, booking domain, and Filament administration](https://github.com/deputy-proxy/easyenglish-ro/issues/4)
-3. [Phase 3 — Public landing page and booking journey](https://github.com/deputy-proxy/easyenglish-ro/issues/5)
-4. [Phase 4 — Stripe Checkout, webhooks, and safe booking expiry](https://github.com/deputy-proxy/easyenglish-ro/issues/6)
-5. [Phase 5 — Email confirmations and durable notification processing](https://github.com/deputy-proxy/easyenglish-ro/issues/7)
-6. [Phase 6 — WhatsApp Business messaging and session instructions](https://github.com/deputy-proxy/easyenglish-ro/issues/8)
-7. [Phase 7 — Cancellation, rescheduling, refunds, and audit](https://github.com/deputy-proxy/easyenglish-ro/issues/9)
-8. [Phase 8 — Privacy, legal disclosures, and Romanian invoicing workflow](https://github.com/deputy-proxy/easyenglish-ro/issues/10)
-9. [Phase 9 — End-to-end quality, deployment, and launch readiness](https://github.com/deputy-proxy/easyenglish-ro/issues/11)
-10. [Cross-cutting — Security, staff access, and operational hardening](https://github.com/deputy-proxy/easyenglish-ro/issues/12)
-
-Work in dependency order where practical: Phase 1 → Phase 2 → Phase 3 → Phase 4 → Phases 5–7 → Phases 8–9. Legal/privacy drafts and integration setup documentation can be prepared in parallel, but relevant compliance and account configuration are launch gates. WhatsApp live setup will be completed collaboratively and must remain disabled in production until tested.
-
-## Delivery order
-
-Implement in the sequence above, with one reviewable pull request per coherent phase where practical. Keep each phase green in CI before building on it. Do not start optional features until the core booking → payment → confirmation path works reliably.
-
-## Launch prerequisites
-
-These are configuration, compliance, or operational tasks rather than unresolved product decisions:
-
-1. **WhatsApp Business Platform/API:** configure the Meta business assets, number, credentials, approved templates where required, and consent/opt-out handling together before enabling production messaging.
-2. **SMTP:** configure the sender address and credentials, and verify SPF, DKIM, and DMARC for the sending domain.
-3. **Romanian tax and invoicing compliance:** have an accountant confirm the applicable obligations and configure an appropriate invoicing/record-keeping workflow. The advertised session prices include all applicable taxes; the business's actual tax treatment must still be confirmed.
-4. **Privacy:** prepare and publish an appropriate privacy notice, confirm legal bases and data-subject workflows, and implement retention/deletion rules. Proposed default: delete or anonymize session goals/notes 12 months after the session unless a documented reason requires otherwise; retain financial records for the legally required period.
-5. **Hostinger runtime limits:** verify cron frequency and execution limits on the target plan when deploying the app. The intended design is Laravel scheduler via cron and a database-backed queue processed by a cron-triggered `queue:work --stop-when-empty` command. Avoid requiring a permanently running worker.
-6. **Production setup:** configure HTTPS, production environment variables, Stripe webhooks, backups, and operational monitoring before launch.
-
-## External technical references
-
-- The 5-minute application-level appointment-slot hold is independent of Stripe Checkout and the bundle's three-calendar-month validity. If a future flow ties checkout directly to a held appointment, verify current Stripe expiry constraints and implement server-side reconciliation rather than assuming Checkout can expire after five minutes.
-
-## Product documentation
-
-- [Dashboard integration overview](docs/product/dashboard-integration.md)
+- [Booking and availability](docs/product/booking-and-availability.md)
+- [Public booking journey](docs/product/public-booking-journey.md)
+- [Customer dashboard architecture](docs/product/customer-dashboard-overview.md)
 - [Customer dashboard](docs/product/customer-dashboard.md)
-- [Customer dashboard overview](docs/product/customer-dashboard-overview.md)
-- [Customer sessions](docs/product/customer-sessions.md)
-- [Customer purchases and payments](docs/product/customer-purchases-and-payments.md)
+- [Teacher dashboard](docs/product/teacher-dashboard.md)
 - [Learner profile](docs/product/learner-profile.md)
 - [Learner progress and assessments](docs/product/learner-progress-and-assessments.md)
-- [Customer support and account access](docs/product/customer-support-and-account-access.md)
-- [Teacher dashboard](docs/product/teacher-dashboard.md)
-- [Booking and availability](docs/product/booking-and-availability.md)
+- [Progress assessment dimensions and rubric](docs/product/progress-assessments.md)
+- [Bundle pricing and discounts](docs/product/bundle-pricing-and-discounts.md)
+- [Discount vouchers](docs/product/discount-vouchers.md)
+- [Cancellations, refunds, and rescheduling](docs/product/cancellations-refunds-rescheduling.md)
+- [Google Calendar integration](docs/integrations/google-calendar.md)
+- [Stripe integration](docs/integrations/stripe.md)
+- [Email integration](docs/integrations/email.md)
+- [WhatsApp integration](docs/integrations/whatsapp.md)
+- [OpenWA service architecture](docs/integrations/openwa.md)
+- [Contact verification](docs/integrations/verification.md)
+- [Analytics](docs/integrations/analytics.md)
+- [Customer identity and record ownership](docs/architecture/customer-identity-and-record-ownership.md)
+- [Staff operations runbook](docs/operations/staff-runbook.md)
+- [Production launch checklist](docs/operations/launch-checklist.md)
+
+## Operational status
+
+The repository contains the application workflows and provider integrations described above, but code availability is not the same as production activation. Live payment, messaging, calendar, email, and scheduled-call behavior depends on provider configuration, account approvals, secrets, deployment health, and real-world acceptance testing.
+
+Use the production launch checklist and the integration runbooks to verify those dependencies. Do not infer that a provider is live merely because its adapter or webhook endpoint exists in the codebase.
