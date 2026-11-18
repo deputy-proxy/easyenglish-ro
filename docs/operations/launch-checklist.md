@@ -13,8 +13,9 @@ These are observations, not launch approvals:
 - PHP web runtime: 8.4.27. Required MySQL, mbstring, intl, zip, and other Laravel extensions are available/enabled.
 - SSL is active, HTTPS redirect is enabled, CDN is enabled, and Hostinger server cache is disabled.
 - Dedicated MySQL database: u583712040_easyenglish_ro, approximately 6 MB, created 2026-11-16. Hostinger reports no remote database-access rules.
-- Hostinger's Git repository list for easyenglish.ro is empty. The GitHub Actions deployment workflow is the intended automated route, but its current deployment script still expects an easyenglish-app directory and is incompatible with the observed live layout.
-- No EasyEnglish scheduler or queue cron jobs are configured. The account's existing EasyEnglish-looking jobs target the legacy scl.ro/ee application, not easyenglish.ro.
+- Hostinger auto-deployment has been re-enabled (operator-confirmed on 2026-11-18) and is the production deployment mechanism. The existing public_html-root layout remains unchanged; the repository's hostinger-deploy.sh script is not required or part of this path.
+- EasyEnglish scheduler and database queue cron jobs were created on Hostinger on 2026-11-18. Both run every minute from /home/u583712040/domains/easyenglish.ro/public_html using /usr/bin/php. Successful execution and application-level processing still need runtime verification.
+- The production database was confirmed fine by the operator; the initial database-inspection concern is no longer an outstanding blocker.
 - PHP settings currently include log_errors=Off and expose_php=On. PHP's native session cookie defaults are also insecure; verify Laravel's actual Set-Cookie headers separately because Laravel can override them.
 - Hostinger's file-list API confirms the deployed Laravel application tree and vendor dependencies exist. It does not expose live database rows or the migration table through the available read-only database operations.
 
@@ -32,18 +33,12 @@ These are observations, not launch approvals:
 
 ## 2. Production database and operational data
 
-- [ ] Inspect the live migrations table and confirm every migration present in the deployed release has been applied successfully. The current repository contains 39 migration files; file presence alone does not prove they ran.
-- [ ] Inspect the live bundle_definitions rows in the production database. Record active status, regular price, paid credits, included free credits, sort order, featured status, and discount configuration. Do not assume historical bundle names, quantities, or prices.
-- [ ] Confirm the standalone free introduction is separate from paid bundle credits. The current migration history changes the original included-free-credit model; production rows must be checked before relying on that history.
-- [ ] Verify production teacher accounts, active flags, teacher profiles, weekly availability rules, exceptions, and Google Calendar connection records.
-- [ ] Verify the production FAQ and testimonial records are the intended public content.
-- [ ] Verify there is no unintended test account or test data, including the example test user defined by the default seeder.
-- [ ] Verify the application connects to the intended EasyEnglish database and that all customer, payment, booking, and entitlement records belong to this application.
-- [ ] Confirm the database user is scoped to the EasyEnglish database and review whether the application's runtime credentials need fewer privileges than migration credentials.
-- [ ] Take a fresh database backup before any production migration or data correction.
-- [ ] Restore a backup to a separate target and verify tables, indexes, and representative records.
+**Operator confirmation (2026-11-18):** the production database is fine. Treat the database inspection concern from the initial audit as resolved; no additional production-row inspection is an outstanding launch blocker.
 
-**Database inspection limitation:** the connected Hostinger API exposes database metadata and a phpMyAdmin sign-on link, but no read-only SQL/query operation. The live rows and migration status therefore remain unverified until inspected through phpMyAdmin or a safe database export. Do not mark the database tasks complete based only on the 6 MB database listing.
+Continue to protect the database through routine operational controls:
+- [ ] Take a fresh database backup before any production migration or data correction.
+- [ ] Restore a backup to a separate target periodically and record the result.
+- [ ] Keep production database credentials scoped to the EasyEnglish database and out of source control, logs, tickets, and chat.
 
 ## 3. Booking rules and free introduction
 
@@ -140,18 +135,18 @@ These are observations, not launch approvals:
 - [ ] Verify writable storage/ and bootstrap/cache/ permissions and the public/storage symlink.
 - [ ] Verify /up, public assets, admin authorization, teacher authorization, password reset, two-factor/passkey behavior, CSRF, and rate limits.
 - [ ] Verify secrets are absent from Git, deployment archives, public responses, and logs.
-- [ ] Reconcile scripts/deploy/hostinger-deploy.sh and its tests with the live public_html-root layout before enabling the GitHub Actions deploy job. The current script expects APP_DIR=.../easyenglish-app and will not deploy safely to the observed layout.
-- [ ] Keep Hostinger built-in Git deployment disabled; no repository is currently configured there.
-- [ ] Verify the GitHub Actions production deployment variable and secrets are configured correctly, but do not enable automated deployment until the script/layout mismatch is fixed and tested.
-- [ ] Verify the deployed commit SHA matches the intended release commit. Hostinger's Git repository list is empty, so use a deployment marker or release record rather than assuming a Git checkout exists on the server.
+- [ ] Verify Hostinger auto-deployment is connected to the intended repository and production branch, with the target root set to the existing public_html application layout.
+- [ ] Verify auto-deployment preserves the server-owned .env, storage/, root .htaccess, public/storage link, Hostinger ACME files, and other runtime data.
+- [ ] Verify one successful auto-deployment and record its deployed commit/revision, timestamp, and smoke-test results. The hostinger-deploy.sh script is not required for this deployment path.
 
 ## 10. Scheduler, queues, logs, and backups
 
-- [ ] Add the EasyEnglish scheduler cron using the actual absolute paths and a CLI PHP binary verified as PHP 8.4.
-- [ ] Add the bounded database queue worker cron using the current deployment path and the supported Hostinger execution limits.
-- [ ] Verify scheduler cadence and queue-worker runtime limits on the actual hosting plan.
+- [x] Create the EasyEnglish scheduler cron on Hostinger: every minute, from /home/u583712040/domains/easyenglish.ro/public_html, using /usr/bin/php artisan schedule:run.
+- [x] Create the bounded database queue worker cron on Hostinger: every minute, using queue:work database --stop-when-empty --max-time=50 --max-jobs=100 --tries=3 --timeout=30.
+- [x] Confirm the configured database queue retry_after is 90 seconds, greater than the worker's 30-second timeout.
+- [ ] Verify both cron entries execute successfully and continue at the expected cadence; inspect Laravel logs, queue backlog, and failed jobs after runtime.
 - [ ] Verify the scheduled commands in routes/console.php: booking hold expiry, Stripe reconciliation, notification dispatch, call-event dispatch, OpenWA monitoring, teacher calendar sync, calendar-event reconciliation, and verification challenge pruning.
-- [ ] Verify queue retry settings and ensure the database queue retry_after exceeds the worker timeout.
+- [ ] Verify worker runtime remains within Hostinger limits and that no queue backlog accumulates.
 - [ ] Verify each scheduled command is safe to run repeatedly and uses without-overlapping locks as intended.
 - [ ] Test failed email, failed WhatsApp delivery, stuck payment, ambiguous refund, failed job, stale calendar, OpenWA disconnect, and overdue scheduler recovery.
 - [ ] Enable and verify Laravel/PHP error logging with retention and alerting that do not expose secrets or unnecessary personal data.
