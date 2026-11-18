@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# Redirect the www hostname to the canonical apex domain, preserving path and query string.
+RewriteCond %{HTTP_HOST} ^www\.easyenglish\.ro$ [NC]
+RewriteRule ^ https://easyenglish.ro%{REQUEST_URI} [R=301,L,NE]
+
 # Block temporary operational helper scripts; none are part of the public application.
 RewriteRule ^__ops_ - [F,L,NC]
 
